@@ -40,13 +40,46 @@ app.get("/test", (req, res) => {
   });
 });
 
-// Example: get users 
+// Senior Table
+app.get("/seniors", (req, res) => {
+  con.query("SELECT * FROM Senior", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
+
+// Emergency Event
+app.get("/emergency-events", (req, res) => {
+  con.query("SELECT * FROM Emergency_Event", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
+
+// Daily CheckIn
+app.get("/checkins", (req, res) => {
+  con.query("SELECT * FROM Daily_CheckIn", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
+
+// Reward Streak
+app.get("/rewards", (req, res) => {
+  con.query("SELECT * FROM Reward_Streak", (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.json(results);
+  });
+});
+
+
+// User Account
 app.get("/users", (req, res) => {
-  con.query("SELECT * FROM users", (err, results) => {
-    if (err) {
-      res.status(500).send(err);
-      return;
-    }
+  con.query("SELECT * FROM User_Account", (err, results) => {
+    if (err) return res.status(500).send(err);
     res.json(results);
   });
 });
