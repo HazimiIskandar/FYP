@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
 
 export default function LanguageScreen({ onSelectLanguage }) {
-  const languages = ['English', 'Chinese', 'Bahasa Melayu', 'Tamil'];
+  const languages = ['English', '中文', 'Bahasa Melayu', 'தமிழ்'];
 
   return (
     <SafeAreaView style={styles.container}>

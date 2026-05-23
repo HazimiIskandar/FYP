@@ -16,11 +16,11 @@ export default function EmergencyScreen({ onCancel, onCallHelp }) {
       <View style={styles.alertActionArea}>
         <TouchableOpacity style={styles.massiveRedButton} onPress={onCallHelp} activeOpacity={0.86}>
           <Ionicons name="call" size={30} color="#FFFFFF" />
-          <Text style={styles.massiveRedButtonText}>Yes, get help</Text>
+          <Text style={styles.massiveRedButtonText}>Yes</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.cancelOutlineButton} onPress={onCancel} activeOpacity={0.86}>
-          <Text style={styles.cancelOutlineText}>No, I am safe</Text>
+          <Text style={styles.cancelOutlineText}>No</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -54,11 +54,11 @@ const styles = StyleSheet.create({
   },
   massiveRedButtonText: { color: '#FFFFFF', fontSize: 26, fontWeight: '900' },
   cancelOutlineButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16A34A',
     minHeight: 70,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelOutlineText: { color: '#111827', fontSize: 22, fontWeight: '900' },
+  cancelOutlineText: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
 });
