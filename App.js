@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import * as Notifications from 'expo-notifications';
 
 // Import all your screens
 import LanguageScreen from './screens/LanguageScreen';
@@ -8,6 +9,11 @@ import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
 import CommunityScreen from './screens/CommunityScreen'; // Added this!
+import {
+  cancelMissedCheckInReminders,
+  scheduleMissedCheckInReminders,
+  setupCheckInNotifications,
+} from './services/checkInNotifications';
 
 export default function App() {
   // Master State
@@ -15,13 +21,37 @@ export default function App() {
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(4);
 
+  useEffect(() => {
+    setupCheckInNotifications();
+  }, []);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(() => {
+      setCurrentScreen('Home');
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    const seniorIsLoggedIn = currentScreen === 'Home' || currentScreen === 'Community' || currentScreen === 'Emergency';
+
+    if (seniorIsLoggedIn && !hasCheckedIn) {
+      scheduleMissedCheckInReminders('Mr. Tan');
+    } else {
+      cancelMissedCheckInReminders();
+    }
+  }, [currentScreen, hasCheckedIn]);
+
   // Helper function to handle check-in logic
   const handleCheckIn = () => {
     setHasCheckedIn(true);
+    cancelMissedCheckInReminders();
     // Future Note: This is where your teammate will trigger the MySQL update!
   };
 
   const handleSeniorLogout = () => {
+    cancelMissedCheckInReminders();
     setCurrentScreen('Login');
   };
 

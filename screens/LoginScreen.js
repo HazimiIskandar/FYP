@@ -6,7 +6,7 @@ import Header from '../components/Header';
 export default function LoginScreen({ onLogin, onCaregiverLogin }) {
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Halo" subtitle="Safe check-ins for seniors" />
+      <Header title="Haloapp" subtitle="Safe check-ins for seniors" />
       <View style={styles.centerContent}>
         <View style={styles.heroIcon}>
           <Ionicons name="shield-checkmark" size={58} color="#2563EB" />
