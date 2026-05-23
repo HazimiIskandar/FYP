@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
@@ -7,13 +7,44 @@ import CaregiverBottomNav from '../components/CaregiverBottomNav';
 export default function CaregiverRosterScreen({ onGoToHome, onLogout }) {
   const filters = ['All (40)', '🚨 Urgent (1)', '⚠️ Pending (5)', '❌ Missed (1)', '✅ Checked In (34)'];
   const [activeFilter, setActiveFilter] = useState(filters[0]);
+  const filterScrollRef = useRef(null);
+  const filterScrollX = useRef(0);
+  const filterDragStartX = useRef(0);
+  const filterDragResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) => (
+        Math.abs(gesture.dx) > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy)
+      ),
+      onPanResponderGrant: () => {
+        filterDragStartX.current = filterScrollX.current;
+      },
+      onPanResponderMove: (_, gesture) => {
+        filterScrollRef.current?.scrollTo({
+          x: Math.max(0, filterDragStartX.current - gesture.dx),
+          animated: false,
+        });
+      },
+      onShouldBlockNativeResponder: () => false,
+    })
+  ).current;
 
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Seniors Roster" subtitle="Sort by urgency and follow up quickly" />
 
       <View style={styles.filterArea}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+        <ScrollView
+          ref={filterScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator
+          scrollEventThrottle={16}
+          style={styles.filterScroller}
+          contentContainerStyle={styles.filterContent}
+          onScroll={(event) => {
+            filterScrollX.current = event.nativeEvent.contentOffset.x;
+          }}
+          {...filterDragResponder.panHandlers}
+        >
           {filters.map((filter, index) => (
             <TouchableOpacity
               key={filter}
@@ -77,6 +108,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
+  filterScroller: { cursor: 'grab' },
   filterContent: {
     paddingHorizontal: 20,
     paddingVertical: 12,

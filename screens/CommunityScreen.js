@@ -1,42 +1,148 @@
-import React from 'react';
-import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
+const scamQuestions = [
+  {
+    scenario: 'You get a WhatsApp from a +62 number saying your Shopee parcel is stuck. They ask you to tap a link and pay $1. What should you do?',
+    answers: ['Tap the link and pay', 'Ignore and check Shopee app directly', 'Forward it to family and friends'],
+    correctAnswer: 'Ignore and check Shopee app directly',
+  },
+  {
+    scenario: 'Someone calls and says they are from your bank. They ask for your OTP to stop a suspicious transaction. What should you do?',
+    answers: ['Give the OTP quickly', 'Hang up and call the bank hotline', 'Ask them to call back later'],
+    correctAnswer: 'Hang up and call the bank hotline',
+  },
+  {
+    scenario: 'A message says you won a supermarket voucher, but you must enter your Singpass details first. What should you do?',
+    answers: ['Enter Singpass to claim', 'Delete the message', 'Send your NRIC instead'],
+    correctAnswer: 'Delete the message',
+  },
+  {
+    scenario: 'A new online friend asks you to transfer money because their account is frozen. What should you do?',
+    answers: ['Transfer a small amount first', 'Say no and tell a trusted person', 'Share your bank account number'],
+    correctAnswer: 'Say no and tell a trusted person',
+  },
+];
+
 export default function CommunityScreen({ onHome, onLogout }) {
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const timeoutRef = useRef(null);
+  const currentQuestion = scamQuestions[currentQuestionIndex];
+  const quizComplete = currentQuestionIndex >= scamQuestions.length;
+
+  useEffect(() => () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+  }, []);
+
+  const handleAnswer = (answer) => {
+    if (selectedAnswer) {
+      return;
+    }
+
+    setSelectedAnswer(answer);
+
+    if (answer === currentQuestion.correctAnswer) {
+      setScore((currentScore) => currentScore + 1);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      setSelectedAnswer(null);
+      setCurrentQuestionIndex((index) => index + 1);
+    }, 900);
+  };
+
+  const restartQuiz = () => {
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setSelectedAnswer(null);
+  };
+
+  const getAnswerStyle = (answer) => {
+    if (!selectedAnswer) {
+      return null;
+    }
+
+    if (answer === currentQuestion.correctAnswer) {
+      return styles.answerCorrect;
+    }
+
+    if (answer === selectedAnswer) {
+      return styles.answerWrong;
+    }
+
+    return styles.answerDimmed;
+  };
+
+  const getAnswerTextStyle = (answer) => {
+    if (!selectedAnswer) {
+      return null;
+    }
+
+    if (answer === currentQuestion.correctAnswer || answer === selectedAnswer) {
+      return styles.answerTextSelected;
+    }
+
+    return null;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Community" subtitle="Activities and rewards near you" />
+      <Header title="Spot the Scam" subtitle="Daily quiz to stay safe from scams" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Live activity</Text>
-          <Text style={styles.sectionMeta}>Today</Text>
+        <View style={styles.scoreCard}>
+          <View style={styles.scoreIcon}>
+            <Ionicons name="shield-checkmark" size={30} color="#2563EB" />
+          </View>
+          <View style={styles.scoreCopy}>
+            <Text style={styles.scoreTitle}>Today's safety points</Text>
+            <Text style={styles.scoreText}>{score} / {scamQuestions.length} correct</Text>
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.activityCard} activeOpacity={0.9}>
-          <Image
-            source={{ uri: 'https://img.freepik.com/free-vector/old-people-playing-mahjong-illustration_23-2148733240.jpg' }}
-            style={styles.activityImage}
-            resizeMode="cover"
-          />
-          <View style={styles.cardInfo}>
-            <View style={styles.livePill}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>Live now</Text>
-            </View>
-            <Text style={styles.activityName}>Morning Mahjong</Text>
-            <View style={styles.detailRow}>
-              <Ionicons name="location" size={20} color="#2563EB" />
-              <Text style={styles.detailText}>Woodlands Community Club</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Ionicons name="time" size={20} color="#2563EB" />
-              <Text style={styles.detailText}>10:00 AM to 12:00 PM</Text>
-            </View>
+        {quizComplete ? (
+          <View style={styles.completeCard}>
+            <Ionicons name="trophy" size={72} color="#F59E0B" />
+            <Text style={styles.completeTitle}>Quiz complete</Text>
+            <Text style={styles.completeText}>
+              You scored {score} out of {scamQuestions.length}. Great job practising scam safety today.
+            </Text>
+            <TouchableOpacity style={styles.restartButton} onPress={restartQuiz} activeOpacity={0.86}>
+              <Text style={styles.restartButtonText}>Try again</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        ) : (
+          <>
+            <View style={styles.questionCard}>
+              <View style={styles.questionMetaRow}>
+                <Text style={styles.questionMeta}>Question {currentQuestionIndex + 1} of {scamQuestions.length}</Text>
+                <Text style={styles.dailyPill}>Daily Quiz</Text>
+              </View>
+              <Text style={styles.questionTitle}>What would you do?</Text>
+              <Text style={styles.scenarioText}>{currentQuestion.scenario}</Text>
+            </View>
+
+            <View style={styles.answerArea}>
+              {currentQuestion.answers.map((answer) => (
+                <TouchableOpacity
+                  key={answer}
+                  style={[styles.answerButton, getAnswerStyle(answer)]}
+                  onPress={() => handleAnswer(answer)}
+                  activeOpacity={0.86}
+                >
+                  <Text style={[styles.answerText, getAnswerTextStyle(answer)]}>{answer}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
 
         <TouchableOpacity style={styles.kopiButton} activeOpacity={0.86}>
           <Ionicons name="cafe" size={28} color="#FFFFFF" />
@@ -44,17 +150,6 @@ export default function CommunityScreen({ onHome, onLogout }) {
             <Text style={styles.kopiButtonText}>Redeem free kopi</Text>
             <Text style={styles.kopiButtonSubtext}>Available after 7 daily check-ins</Text>
           </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.chatCard} activeOpacity={0.86}>
-          <View style={styles.avatarCircle}>
-            <Ionicons name="chatbubbles" size={26} color="#2563EB" />
-          </View>
-          <View style={styles.chatTextContainer}>
-            <Text style={styles.chatTitle}>Talk to someone</Text>
-            <Text style={styles.chatSubtitle}>Fiqachu is online if you want a friendly chat.</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#6B7280" />
         </TouchableOpacity>
       </ScrollView>
 
@@ -66,40 +161,93 @@ export default function CommunityScreen({ onHome, onLogout }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   scrollContent: { padding: 20, paddingBottom: 28 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sectionTitle: { color: '#111827', fontSize: 24, fontWeight: '900' },
-  sectionMeta: { color: '#2563EB', fontSize: 16, fontWeight: '800' },
-  activityCard: {
+  scoreCard: {
     backgroundColor: '#FFFFFF',
-    width: '100%',
     borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    overflow: 'hidden',
-    marginBottom: 18,
+    marginBottom: 16,
   },
-  activityImage: { width: '100%', height: 190 },
-  cardInfo: { padding: 16 },
-  livePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#DCFCE7',
-    borderRadius: 20,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+  scoreIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  scoreCopy: { flex: 1 },
+  scoreTitle: { color: '#111827', fontSize: 20, fontWeight: '900' },
+  scoreText: { color: '#2563EB', fontSize: 16, fontWeight: '900', marginTop: 4 },
+  questionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  questionMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    marginBottom: 18,
+    gap: 10,
   },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#16A34A', marginRight: 7 },
-  liveText: { color: '#166534', fontSize: 14, fontWeight: '900' },
-  activityName: { fontSize: 24, color: '#111827', fontWeight: '900', marginBottom: 10 },
-  detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  detailText: { color: '#374151', fontSize: 17, marginLeft: 8, flex: 1 },
+  questionMeta: { color: '#6B7280', fontSize: 15, fontWeight: '900' },
+  dailyPill: {
+    color: '#166534',
+    backgroundColor: '#DCFCE7',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  questionTitle: { color: '#111827', fontSize: 28, fontWeight: '900', marginBottom: 12 },
+  scenarioText: { color: '#374151', fontSize: 21, lineHeight: 31, fontWeight: '700' },
+  answerArea: { marginBottom: 18 },
+  answerButton: {
+    backgroundColor: '#FFFFFF',
+    minHeight: 78,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#D8E7FF',
+    marginBottom: 12,
+  },
+  answerCorrect: { backgroundColor: '#16A34A', borderColor: '#16A34A' },
+  answerWrong: { backgroundColor: '#DC2626', borderColor: '#DC2626' },
+  answerDimmed: { opacity: 0.5 },
+  answerText: { color: '#111827', fontSize: 20, lineHeight: 27, fontWeight: '900', textAlign: 'center' },
+  answerTextSelected: { color: '#FFFFFF' },
+  completeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 18,
+  },
+  completeTitle: { color: '#111827', fontSize: 30, fontWeight: '900', marginTop: 12 },
+  completeText: { color: '#4B5563', fontSize: 19, lineHeight: 28, textAlign: 'center', marginTop: 10 },
+  restartButton: {
+    backgroundColor: '#2563EB',
+    minHeight: 60,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    marginTop: 22,
+  },
+  restartButtonText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' },
   kopiButton: {
     backgroundColor: '#2563EB',
     width: '100%',
@@ -108,31 +256,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     paddingHorizontal: 18,
-    marginBottom: 18,
   },
   kopiCopy: { flex: 1, marginLeft: 12 },
   kopiButtonText: { color: '#FFFFFF', fontSize: 21, fontWeight: '900' },
   kopiButtonSubtext: { color: '#DBEAFE', fontSize: 14, fontWeight: '700', marginTop: 3 },
-  chatCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    width: '100%',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    alignItems: 'center',
-  },
-  avatarCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#DBEAFE',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  chatTextContainer: { flex: 1 },
-  chatTitle: { fontSize: 20, fontWeight: '900', color: '#111827' },
-  chatSubtitle: { fontSize: 15, color: '#4B5563', lineHeight: 21, marginTop: 3 },
 });

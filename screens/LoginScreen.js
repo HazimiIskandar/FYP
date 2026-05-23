@@ -20,11 +20,6 @@ export default function LoginScreen({ onLogin, onCaregiverLogin }) {
           <Text style={styles.primaryButtonText}>Use Face ID</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={onLogin}>
-          <Ionicons name="finger-print" size={30} color="#14532D" />
-          <Text style={styles.secondaryButtonText}>Use Touch ID</Text>
-        </TouchableOpacity>
-
         <View style={styles.caregiverArea}>
           <Text style={styles.caregiverLabel}>Family member or next-of-kin?</Text>
           <TouchableOpacity style={styles.caregiverButton} onPress={onCaregiverLogin}>
@@ -62,18 +57,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   primaryButtonText: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' },
-  secondaryButton: {
-    minHeight: 76,
-    backgroundColor: '#DCFCE7',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    borderWidth: 2,
-    borderColor: '#86EFAC',
-  },
-  secondaryButtonText: { color: '#14532D', fontSize: 24, fontWeight: '900' },
   caregiverArea: { marginTop: 42, alignItems: 'center' },
   caregiverLabel: { color: '#6B7280', fontSize: 16, marginBottom: 12 },
   caregiverButton: {

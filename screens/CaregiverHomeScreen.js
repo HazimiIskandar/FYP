@@ -21,35 +21,37 @@ export default function CaregiverHomeScreen({ onGoToRoster, onLogout }) {
           </View>
         </View>
 
-        <View style={styles.infoCard}>
-          <View>
-            <Text style={styles.cardEyebrow}>Assigned senior</Text>
-            <Text style={styles.name}>Mr Tan, 79</Text>
-            <Text style={styles.meta}>Unit #04-12 | Son: Adrian Tan</Text>
+        <View style={styles.priorityCard}>
+          <View style={styles.priorityHeader}>
+            <Ionicons name="alert-circle" size={26} color="#DC2626" />
+            <Text style={styles.priorityTitle}>🚨 Immediate Action Required</Text>
           </View>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusBadgeText}>Monitor</Text>
+
+          <View style={styles.infoCard}>
+            <View>
+              <Text style={styles.cardEyebrow}>Priority senior</Text>
+              <Text style={styles.name}>Mr Tan, 79</Text>
+              <Text style={styles.meta}>Unit #04-12 | Son: Adrian Tan</Text>
+            </View>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>Monitor</Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.aiCard}>
-          <Ionicons name="sparkles" size={24} color="#0369A1" />
-          <Text style={styles.aiText}>AI insight: Mr Tan's check-in time shifted 45 minutes later this week.</Text>
-        </View>
-
-        <View style={styles.ticketActive}>
-          <View style={styles.ticketHeader}>
-            <Ionicons name="warning" size={24} color="#DC2626" />
-            <Text style={styles.ticketTitle}>Missed check-in</Text>
+          <View style={styles.ticketActive}>
+            <View style={styles.ticketHeader}>
+              <Ionicons name="warning" size={24} color="#DC2626" />
+              <Text style={styles.ticketTitle}>Missed check-in</Text>
+            </View>
+            <Text style={styles.ticketMeta}>Ticket ID: INC0016767</Text>
+            <Text style={styles.ticketMeta}>Last update: 10 minutes ago</Text>
           </View>
-          <Text style={styles.ticketMeta}>Ticket ID: INC0016767</Text>
-          <Text style={styles.ticketMeta}>Last update: 10 minutes ago</Text>
-        </View>
 
-        <TouchableOpacity style={styles.callButton} activeOpacity={0.86}>
-          <Ionicons name="call" size={24} color="#FFFFFF" />
-          <Text style={styles.callButtonText}>Call emergency contact</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.callButton} activeOpacity={0.86}>
+            <Ionicons name="call" size={24} color="#FFFFFF" />
+            <Text style={styles.callButtonText}>Call emergency contact</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <CaregiverBottomNav activeTab="Home" onHome={() => {}} onSeniors={onGoToRoster} onLogout={onLogout} />
@@ -71,10 +73,29 @@ const styles = StyleSheet.create({
   },
   summaryNumber: { color: '#111827', fontSize: 30, fontWeight: '900' },
   summaryLabel: { color: '#6B7280', fontSize: 14, fontWeight: '800', marginTop: 2 },
-  infoCard: {
+  priorityCard: {
     backgroundColor: '#FFFFFF',
-    padding: 18,
     borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 3,
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  priorityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  priorityTitle: { color: '#B91C1C', fontSize: 21, fontWeight: '900', flex: 1 },
+  infoCard: {
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 14,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -87,22 +108,13 @@ const styles = StyleSheet.create({
   meta: { color: '#4B5563', fontSize: 15, marginTop: 4 },
   statusBadge: { backgroundColor: '#FEF3C7', borderRadius: 16, paddingVertical: 7, paddingHorizontal: 10 },
   statusBadgeText: { color: '#92400E', fontSize: 13, fontWeight: '900' },
-  aiCard: {
-    backgroundColor: '#E0F2FE',
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 14,
-    flexDirection: 'row',
-    gap: 10,
-  },
-  aiText: { color: '#075985', fontSize: 16, lineHeight: 23, fontWeight: '700', flex: 1 },
   ticketActive: {
-    backgroundColor: '#FFFFFF',
-    padding: 18,
-    borderRadius: 18,
+    backgroundColor: '#FEF2F2',
+    padding: 16,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: '#FCA5A5',
-    marginBottom: 18,
+    marginBottom: 14,
   },
   ticketHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   ticketTitle: { color: '#B91C1C', fontSize: 21, fontWeight: '900' },

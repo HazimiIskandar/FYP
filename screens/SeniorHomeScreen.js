@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Animated, Modal } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
@@ -95,12 +95,7 @@ export default function SeniorHomeScreen({ hasCheckedIn, onCheckIn, onSOS, onCom
 
       <SeniorBottomNav activeTab="Home" onHome={() => {}} onCommunity={onCommunity} onLogout={onLogout} />
 
-      <Modal
-        transparent
-        visible={languageModalVisible}
-        animationType="fade"
-        onRequestClose={() => setLanguageModalVisible(false)}
-      >
+      {languageModalVisible ? (
         <TouchableOpacity
           style={styles.modalBackdrop}
           activeOpacity={1}
@@ -120,7 +115,7 @@ export default function SeniorHomeScreen({ hasCheckedIn, onCheckIn, onSOS, onCom
             ))}
           </View>
         </TouchableOpacity>
-      </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -201,7 +196,12 @@ const styles = StyleSheet.create({
   },
   sosText: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
   modalBackdrop: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
     backgroundColor: 'rgba(17, 24, 39, 0.52)',
     alignItems: 'center',
     justifyContent: 'center',
