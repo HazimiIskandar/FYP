@@ -11,9 +11,13 @@ app.use(express.json());
 // Routes
 const checkinRoutes = require("./routes/checkInRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
+const rewardRoutes = require("./routes/rewardRoutes");
+const seniorRoutes = require("./routes/seniorRoutes");
 
 app.use("/checkin", checkinRoutes);
 app.use("/emergency", emergencyRoutes);
+app.use("/rewards", rewardRoutes);
+app.use("/seniors", seniorRoutes);
 
 // MySQL Connection (filess.io)
 const con = mysql.createConnection({
