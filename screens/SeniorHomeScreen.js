@@ -1,13 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
 export default function SeniorHomeScreen({ hasCheckedIn, onCheckIn, onSOS, onCommunity, onLogout, currentStreak }) {
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const displayStreak = hasCheckedIn ? currentStreak + 1 : currentStreak;
+  const languages = ['English', '中文', 'Malay', 'தமிழ்'];
 
   useEffect(() => {
     if (!hasCheckedIn) {
@@ -26,7 +28,19 @@ export default function SeniorHomeScreen({ hasCheckedIn, onCheckIn, onSOS, onCom
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Good morning" subtitle="Tap once to let your caregiver know you are okay" />
+      <Header
+        title="Good morning"
+        subtitle="Tap once to let your caregiver know you are okay"
+        rightContent={(
+          <TouchableOpacity
+            style={styles.languageButton}
+            onPress={() => setLanguageModalVisible(true)}
+            activeOpacity={0.86}
+          >
+            <Text style={styles.languageButtonText}>Language</Text>
+          </TouchableOpacity>
+        )}
+      />
 
       <View style={styles.content}>
         <View style={styles.statusCard}>
@@ -80,56 +94,86 @@ export default function SeniorHomeScreen({ hasCheckedIn, onCheckIn, onSOS, onCom
       </View>
 
       <SeniorBottomNav activeTab="Home" onHome={() => {}} onCommunity={onCommunity} onLogout={onLogout} />
+
+      {languageModalVisible ? (
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setLanguageModalVisible(false)}
+        >
+          <View style={styles.languageModal}>
+            <Text style={styles.modalTitle}>Language</Text>
+            {languages.map((language) => (
+              <TouchableOpacity
+                key={language}
+                style={styles.modalLanguageOption}
+                onPress={() => setLanguageModalVisible(false)}
+                activeOpacity={0.86}
+              >
+                <Text style={styles.modalLanguageText}>{language}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      ) : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  content: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 18 },
+  languageButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  languageButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
+  content: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 12 },
   statusCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   statusIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   statusCopy: { flex: 1 },
-  statusTitle: { color: '#111827', fontSize: 20, fontWeight: '900' },
-  statusSubtitle: { color: '#4B5563', fontSize: 15, lineHeight: 21, marginTop: 4 },
+  statusTitle: { color: '#111827', fontSize: 18, fontWeight: '900' },
+  statusSubtitle: { color: '#4B5563', fontSize: 14, lineHeight: 19, marginTop: 2 },
   stampCard: {
     width: '100%',
     backgroundColor: '#EFF6FF',
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: 12,
   },
-  stampItem: { alignItems: 'center', width: 44 },
-  stampCircle: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  stampItem: { alignItems: 'center', width: 42 },
+  stampCircle: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   stampFilled: { backgroundColor: '#16A34A' },
   stampEmpty: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#BFDBFE' },
   stampNumber: { color: '#6B7280', fontSize: 13, fontWeight: '800' },
-  stampLabel: { color: '#4B5563', fontSize: 10, fontWeight: '700', marginTop: 5 },
-  mainActionArea: { flex: 1, justifyContent: 'center' },
+  stampLabel: { color: '#4B5563', fontSize: 9, fontWeight: '700', marginTop: 4 },
+  mainActionArea: { flex: 1, justifyContent: 'center', paddingVertical: 8 },
   giantCircle: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+    width: 294,
+    height: 294,
+    borderRadius: 147,
     backgroundColor: '#22C55E',
     justifyContent: 'center',
     alignItems: 'center',
@@ -152,4 +196,34 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sosText: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
+    backgroundColor: 'rgba(17, 24, 39, 0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  languageModal: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 20,
+  },
+  modalTitle: { color: '#111827', fontSize: 26, fontWeight: '900', marginBottom: 16, textAlign: 'center' },
+  modalLanguageOption: {
+    minHeight: 58,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#D8E7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    backgroundColor: '#F8FAFC',
+  },
+  modalLanguageText: { color: '#111827', fontSize: 21, fontWeight: '800' },
 });

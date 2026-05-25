@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function SeniorBottomNav({ onHome, onCommunity, onLogout, activeTab }) {
@@ -12,12 +12,7 @@ export default function SeniorBottomNav({ onHome, onCommunity, onLogout, activeT
 
   return (
     <>
-      <Modal
-        transparent
-        visible={showLogoutModal}
-        animationType="fade"
-        onRequestClose={() => setShowLogoutModal(false)}
-      >
+      {showLogoutModal ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalIcon}>
@@ -35,7 +30,7 @@ export default function SeniorBottomNav({ onHome, onCommunity, onLogout, activeT
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      ) : null}
 
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={onHome}>
@@ -58,7 +53,12 @@ export default function SeniorBottomNav({ onHome, onCommunity, onLogout, activeT
 }
 const styles = StyleSheet.create({
   modalOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
     backgroundColor: 'rgba(17, 24, 39, 0.55)',
     justifyContent: 'center',
     paddingHorizontal: 24,

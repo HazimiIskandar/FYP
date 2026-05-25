@@ -1,13 +1,62 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
 
 export default function CaregiverRosterScreen({ onGoToHome, onLogout }) {
+  const filters = ['All (40)', '🚨 Urgent (1)', '⚠️ Pending (5)', '❌ Missed (1)', '✅ Checked In (34)'];
+  const [activeFilter, setActiveFilter] = useState(filters[0]);
+  const filterScrollRef = useRef(null);
+  const filterScrollX = useRef(0);
+  const filterDragStartX = useRef(0);
+  const filterDragResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) => (
+        Math.abs(gesture.dx) > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy)
+      ),
+      onPanResponderGrant: () => {
+        filterDragStartX.current = filterScrollX.current;
+      },
+      onPanResponderMove: (_, gesture) => {
+        filterScrollRef.current?.scrollTo({
+          x: Math.max(0, filterDragStartX.current - gesture.dx),
+          animated: false,
+        });
+      },
+      onShouldBlockNativeResponder: () => false,
+    })
+  ).current;
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Seniors Roster" subtitle="Sort by urgency and follow up quickly" />
+
+      <View style={styles.filterArea}>
+        <ScrollView
+          ref={filterScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator
+          scrollEventThrottle={16}
+          style={styles.filterScroller}
+          contentContainerStyle={styles.filterContent}
+          onScroll={(event) => {
+            filterScrollX.current = event.nativeEvent.contentOffset.x;
+          }}
+          {...filterDragResponder.panHandlers}
+        >
+          {filters.map((filter, index) => (
+            <TouchableOpacity
+              key={filter}
+              style={[styles.filterPill, activeFilter === filter ? styles.filterPillActive : null]}
+              onPress={() => setActiveFilter(filter)}
+              activeOpacity={0.86}
+            >
+              <Text style={[styles.filterText, activeFilter === filter ? styles.filterTextActive : null]}>{filter}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.urgentCard}>
@@ -16,7 +65,8 @@ export default function CaregiverRosterScreen({ onGoToHome, onLogout }) {
           </View>
           <View style={styles.urgentCopy}>
             <Text style={styles.urgentTitle}>Fall detected</Text>
-            <Text style={styles.urgentSub}>Mr Tan | 02:45 PM</Text>
+            <Text style={styles.urgentSub}>Mr Tan | Unit #04-12</Text>
+            <Text style={styles.urgentTime}>23 May 2026 | 02:45 PM</Text>
           </View>
           <TouchableOpacity style={styles.ack} activeOpacity={0.86}>
             <Text style={styles.ackText}>Acknowledge</Text>
@@ -53,6 +103,31 @@ export default function CaregiverRosterScreen({ onGoToHome, onLogout }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
+  filterArea: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  filterScroller: { cursor: 'grab' },
+  filterContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  filterPill: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  filterPillActive: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  filterText: { color: '#374151', fontSize: 15, fontWeight: '900' },
+  filterTextActive: { color: '#FFFFFF' },
   scrollContent: { padding: 20, paddingBottom: 28 },
   urgentCard: {
     backgroundColor: '#DC2626',
@@ -74,6 +149,7 @@ const styles = StyleSheet.create({
   urgentCopy: { flex: 1 },
   urgentTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
   urgentSub: { color: '#FEE2E2', fontSize: 15, fontWeight: '700', marginTop: 3 },
+  urgentTime: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', marginTop: 5 },
   ack: { backgroundColor: '#FFFFFF', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 18 },
   ackText: { color: '#991B1B', fontSize: 13, fontWeight: '900' },
   rosterCard: {

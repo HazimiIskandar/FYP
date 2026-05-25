@@ -2,12 +2,12 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
 
 export default function LanguageScreen({ onSelectLanguage }) {
-  const languages = ['English', 'Chinese', 'Bahasa Melayu', 'Tamil'];
+  const languages = ['English', '中文', 'Bahasa Melayu', 'தமிழ்'];
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.centerContent}>
-        <Text style={styles.appName}>Halo</Text>
+        <Text style={styles.appName}>Haloapp</Text>
         <Text style={styles.title}>Choose your language</Text>
         <Text style={styles.subtitle}>You can change this later in settings.</Text>
 
