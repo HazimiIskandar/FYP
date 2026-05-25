@@ -8,7 +8,7 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
-  const displayStreak = hasCheckedIn ? currentStreak + 1 : currentStreak;
+  const displayStreak = Math.max(0, currentStreak ?? 0);
   const languages = ['English', '中文', 'Malay', 'தமிழ்'];
   const seniorName = senior?.name || senior?.full_name || `${senior?.first_name || 'Mr'} ${senior?.last_name || 'Tan'}`;
 

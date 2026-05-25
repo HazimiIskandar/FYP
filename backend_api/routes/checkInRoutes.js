@@ -14,6 +14,14 @@ router.post("/", (req, res) => {
         return res.status(400).json({ error: "senior_id is required" });
     }
 
+    const findTodayCheckIn = `
+        SELECT checkin_id
+        FROM Daily_CheckIn
+        WHERE senior_id = ?
+          AND DATE(checkin_timestamp) = CURDATE()
+        LIMIT 1
+    `;
+
     const getReward = `
         SELECT reward_id, current_streak, total_points 
         FROM Reward_Streak 
@@ -33,43 +41,50 @@ router.post("/", (req, res) => {
         });
     };
 
-    db.query(getReward, [senior_id], (err2, rows) => {
-        if (err2) return res.status(500).json(err2);
-
-        if (rows.length === 0 || rows[0].reward_id == null) {
-
-            const insertReward = `
-                INSERT INTO Reward_Streak 
-                (senior_id, current_streak, total_points) 
-                VALUES (?, 1, 10)
-            `;
-
-            db.query(insertReward, [senior_id], (err3, result3) => {
-                if (err3) return res.status(500).json(err3);
-
-                saveCheckIn(result3.insertId);
-            });
-
-            return;
+    db.query(findTodayCheckIn, [senior_id], (err1, existingRows) => {
+        if (err1) return res.status(500).json(err1);
+        if (existingRows.length > 0) {
+            return res.json({ message: "Already checked in today" });
         }
 
-        let streak = rows[0].current_streak || 0;
-        let points = rows[0].total_points || 0;
-        let rewardId = rows[0].reward_id;
+        db.query(getReward, [senior_id], (err2, rows) => {
+            if (err2) return res.status(500).json(err2);
 
-        let newStreak = streak + 1;
-        let newPoints = points + 10;
+            if (rows.length === 0 || rows[0].reward_id == null) {
 
-        const updateReward = `
-            UPDATE Reward_Streak
-            SET current_streak = ?, total_points = ?
-            WHERE senior_id = ?
-        `;
+                const insertReward = `
+                    INSERT INTO Reward_Streak 
+                    (senior_id, current_streak, total_points) 
+                    VALUES (?, 1, 10)
+                `;
 
-        db.query(updateReward, [newStreak, newPoints, senior_id], (err3) => {
-            if (err3) return res.status(500).json(err3);
+                db.query(insertReward, [senior_id], (err3, result3) => {
+                    if (err3) return res.status(500).json(err3);
 
-            saveCheckIn(rewardId);
+                    saveCheckIn(result3.insertId);
+                });
+
+                return;
+            }
+
+            let streak = rows[0].current_streak || 0;
+            let points = rows[0].total_points || 0;
+            let rewardId = rows[0].reward_id;
+
+            let newStreak = streak + 1;
+            let newPoints = points + 10;
+
+            const updateReward = `
+                UPDATE Reward_Streak
+                SET current_streak = ?, total_points = ?
+                WHERE senior_id = ?
+            `;
+
+            db.query(updateReward, [newStreak, newPoints, senior_id], (err3) => {
+                if (err3) return res.status(500).json(err3);
+
+                saveCheckIn(rewardId);
+            });
         });
     });
 });
