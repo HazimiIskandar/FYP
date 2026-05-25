@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as Notifications from 'expo-notifications';
-import { Platform, StyleSheet, View, Text } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 // Import all your screens
 import LanguageScreen from './screens/LanguageScreen';
@@ -22,19 +22,13 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
 
-  // API Base URL
   const API_BASE = 'https://fyp-senior-connect.onrender.com';
 
-  // Database States
   const [seniors, setSeniors] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
   const [emergencyEvents, setEmergencyEvents] = useState([]);
   const [rewardStreaks, setRewardStreaks] = useState([]);
 
-  // Loading State
-  const [loading, setLoading] = useState(true);
-
-  // Helpers
   const getRawText = (value) => (value ?? '').toString();
 
   const getStreakValue = (item) =>
@@ -90,7 +84,6 @@ export default function App() {
 
   const summary = {
     total: seniors.length,
-
     urgent: seniors.filter((item) =>
       /(urgent|critical|fall|missed)/i.test(
         getRawText(
@@ -101,7 +94,6 @@ export default function App() {
         )
       )
     ).length,
-
     checkedIn: checkIns.filter((item) =>
       /(checked|ok|safe|completed)/i.test(
         getRawText(
@@ -149,40 +141,28 @@ export default function App() {
   // Fetch API Data
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const load = async (path) => {
+      const load = async (path) => {
+        try {
           const response = await fetch(`${API_BASE}/${path}`);
+          return response.ok ? await response.json() : [];
+        } catch (error) {
+          console.log(`Failed to fetch ${path}:`, error);
+          return [];
+        }
+      };
 
-          if (!response.ok) {
-            console.log(`Failed route: ${path}`);
-            return [];
-          }
-
-          return await response.json();
-        };
-
-        const [
-          seniorsData,
-          checkInsData,
-          emergencyData,
-          rewardsData,
-        ] = await Promise.all([
+      const [seniorsData, checkInsData, emergencyData, rewardsData] =
+        await Promise.all([
           load('seniors'),
           load('checkins'),
           load('emergency-events'),
           load('rewards'),
         ]);
 
-        setSeniors(Array.isArray(seniorsData) ? seniorsData : []);
-        setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
-        setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
-        setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
-
-      } catch (error) {
-        console.log('API connection error:', error);
-      } finally {
-        setLoading(false);
-      }
+      setSeniors(Array.isArray(seniorsData) ? seniorsData : []);
+      setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
+      setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
+      setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
     };
 
     fetchData();
@@ -194,30 +174,13 @@ export default function App() {
     cancelMissedCheckInReminders();
   };
 
-  // Logout
   const handleSeniorLogout = () => {
     cancelMissedCheckInReminders();
     setCurrentScreen('Login');
   };
 
-  // Loading Screen
-  if (loading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <Text>Loading data...</Text>
-      </View>
-    );
-  }
-
-  // Navigation
+  // Screen routing
   const renderScreen = () => {
-
     if (currentScreen === 'Language') {
       return (
         <LanguageScreen
@@ -296,7 +259,7 @@ export default function App() {
   return <PhonePreview>{renderScreen()}</PhonePreview>;
 }
 
-// Phone wrapper for web
+// Phone UI wrapper (web preview)
 function PhonePreview({ children }) {
   if (Platform.OS !== 'web') return children;
 
@@ -304,9 +267,7 @@ function PhonePreview({ children }) {
     <View style={styles.previewBackground}>
       <View style={styles.phoneShell}>
         <View style={styles.speaker} />
-        <View style={styles.phoneScreen}>
-          {children}
-        </View>
+        <View style={styles.phoneScreen}>{children}</View>
       </View>
     </View>
   );
@@ -322,7 +283,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
-
   phoneShell: {
     width: 390,
     height: 844,
@@ -333,7 +293,6 @@ const styles = StyleSheet.create({
     paddingTop: 28,
     paddingBottom: 12,
   },
-
   speaker: {
     position: 'absolute',
     top: 12,
@@ -343,7 +302,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#374151',
   },
-
   phoneScreen: {
     flex: 1,
     backgroundColor: '#F8FAFC',
