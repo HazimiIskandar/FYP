@@ -31,8 +31,8 @@ export default function App() {
 
   const currentSenior = seniors?.[0] || null;
 
-  // ✅ FIXED: only use real DB field
-  const seniorName = currentSenior?.full_name || '';
+  // FIX: MySQL field is full_name
+  const seniorName = currentSenior?.full_name || 'Mr Tan';
 
   const getStreakValue = (item) =>
     item?.current_streak ?? item?.streak ?? item?.days ?? 0;
@@ -55,16 +55,16 @@ export default function App() {
       try {
         const [seniorsRes, checkInsRes, emergencyRes, rewardsRes] =
           await Promise.all([
-            fetch(`${API_BASE}/seniors`).catch(() => null),
-            fetch(`${API_BASE}/checkins`).catch(() => null),
-            fetch(`${API_BASE}/emergency-events`).catch(() => null),
-            fetch(`${API_BASE}/rewards`).catch(() => null),
+            fetch(`${API_BASE}/seniors`),
+            fetch(`${API_BASE}/checkins`),
+            fetch(`${API_BASE}/emergency-events`),
+            fetch(`${API_BASE}/rewards`),
           ]);
 
-        const seniorsData = seniorsRes ? await seniorsRes.json() : [];
-        const checkInsData = checkInsRes ? await checkInsRes.json() : [];
-        const emergencyData = emergencyRes ? await emergencyRes.json() : [];
-        const rewardsData = rewardsRes ? await rewardsRes.json() : [];
+        const seniorsData = await seniorsRes.json();
+        const checkInsData = await checkInsRes.json();
+        const emergencyData = await emergencyRes.json();
+        const rewardsData = await rewardsRes.json();
 
         setSeniors(Array.isArray(seniorsData) ? seniorsData : []);
         setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
@@ -84,11 +84,18 @@ export default function App() {
   // -------------------------
   const handleCheckIn = async () => {
     try {
+      if (!currentSenior?.senior_id) {
+        console.log("No senior_id found");
+        return;
+      }
+
       await fetch(`${API_BASE}/checkin`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
-          senior_id: currentSenior?.senior_id
+          senior_id: currentSenior.senior_id
         })
       });
 
@@ -153,7 +160,13 @@ export default function App() {
     if (currentScreen === 'CaregiverHome') {
       return (
         <CaregiverHomeScreen
-          summary={{ total: seniors.length }}
+          summary={{
+            total: seniors.length,
+            checkedIn: checkIns.filter(c =>
+              (c?.checkin_status || "").toLowerCase().includes("completed")
+            ).length,
+            urgent: 0
+          }}
           prioritySenior={currentSenior}
           activeTicket={emergencyEvents?.[0]}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
@@ -179,7 +192,7 @@ export default function App() {
 }
 
 // -------------------------
-// UI wrapper (web preview)
+// UI wrapper
 // -------------------------
 function PhonePreview({ children }) {
   if (Platform.OS !== 'web') return children;
