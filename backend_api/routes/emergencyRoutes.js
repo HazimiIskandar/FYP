@@ -19,7 +19,48 @@ router.post("/trigger", (req, res) => {
 });
 
 
-// GET EMERGENCY HISTORY 
+// GET EMERGENCY HISTORY const express = require("express");
+const router = express.Router();
+const db = require("../config/db");
+
+// IMPORT EMERGENCY SERVICE
+const {
+    createEmergencyEvent
+} = require("../services/emergencyService");
+
+
+// ================= TRIGGER EMERGENCY =================
+router.post("/trigger", (req, res) => {
+
+    const { senior_id } = req.body;
+
+    // USE REUSABLE FUNCTION
+    createEmergencyEvent(
+        senior_id,
+        "SOS Button Pressed"
+    );
+
+    res.send("Emergency triggered");
+});
+
+
+// ================= GET EMERGENCY HISTORY =================
+router.get("/:senior_id", (req, res) => {
+
+    const sql = `
+        SELECT * FROM Emergency_Event
+        WHERE senior_id = ?
+        ORDER BY created_at DESC
+    `;
+
+    db.query(sql, [req.params.senior_id], (err, result) => {
+        if (err) return res.send(err);
+
+        res.json(result);
+    });
+});
+
+module.exports = router;
 router.get("/:senior_id", (req, res) => {
 
     const sql = `

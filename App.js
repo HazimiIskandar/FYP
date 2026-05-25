@@ -189,10 +189,25 @@ export default function App() {
   }, []);
 
   // Check-in logic
-  const handleCheckIn = () => {
+const handleCheckIn = async () => {
+  try {
+    await fetch(`${API_BASE}/checkin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        senior_id: currentSenior?.id
+      })
+    });
+
     setHasCheckedIn(true);
     cancelMissedCheckInReminders();
-  };
+
+  } catch (error) {
+    console.log("Check-in failed:", error);
+  }
+};
 
   // Logout
   const handleSeniorLogout = () => {
