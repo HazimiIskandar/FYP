@@ -2,77 +2,45 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 
-// TRIGGER EMERGENCY 
-router.post("/trigger", (req, res) => {
-    const { senior_id } = req.body;
-
-    const sql = `
-        INSERT INTO Emergency_Event (senior_id, event_type, event_status, escalation_level)
-        VALUES (?, 'SOS', 'Open', 'Level 1')
-    `;
-
-    db.query(sql, [senior_id], (err, result) => {
-        if (err) return res.send(err);
-
-        res.send("Emergency triggered");
-    });
-});
-
-
-// GET EMERGENCY HISTORY const express = require("express");
-const router = express.Router();
-const db = require("../config/db");
-
-// IMPORT EMERGENCY SERVICE
-const {
-    createEmergencyEvent
-} = require("../services/emergencyService");
-
-
 // ================= TRIGGER EMERGENCY =================
 router.post("/trigger", (req, res) => {
+  const { senior_id } = req.body;
 
-    const { senior_id } = req.body;
+  const sql = `
+    INSERT INTO Emergency_Event (senior_id, event_type, event_status, escalation_level)
+    VALUES (?, 'SOS', 'Open', 'Level 1')
+  `;
 
-    // USE REUSABLE FUNCTION
-    createEmergencyEvent(
-        senior_id,
-        "SOS Button Pressed"
-    );
+  db.query(sql, [senior_id], (err, result) => {
+    if (err) {
+      console.error("Trigger emergency error:", err);
+      return res.status(500).json(err);
+    }
 
-    res.send("Emergency triggered");
+    res.json({
+      message: "Emergency triggered",
+      event_id: result.insertId,
+    });
+  });
 });
-
 
 // ================= GET EMERGENCY HISTORY =================
 router.get("/:senior_id", (req, res) => {
+  const sql = `
+    SELECT * 
+    FROM Emergency_Event
+    WHERE senior_id = ?
+    ORDER BY created_at DESC
+  `;
 
-    const sql = `
-        SELECT * FROM Emergency_Event
-        WHERE senior_id = ?
-        ORDER BY created_at DESC
-    `;
+  db.query(sql, [req.params.senior_id], (err, result) => {
+    if (err) {
+      console.error("Fetch emergency error:", err);
+      return res.status(500).json(err);
+    }
 
-    db.query(sql, [req.params.senior_id], (err, result) => {
-        if (err) return res.send(err);
-
-        res.json(result);
-    });
-});
-
-module.exports = router;
-router.get("/:senior_id", (req, res) => {
-
-    const sql = `
-        SELECT * FROM Emergency_Event
-        WHERE senior_id = ?
-        ORDER BY created_at DESC
-    `;
-
-    db.query(sql, [req.params.senior_id], (err, result) => {
-        if (err) return res.send(err);
-        res.json(result);
-    });
+    res.json(result);
+  });
 });
 
 module.exports = router;
