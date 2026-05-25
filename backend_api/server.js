@@ -12,13 +12,13 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 const checkinRoutes = require("./routes/checkInRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
-const seniorRoutes = require("./routes/seniorRoutes");
 const rewardRoutes = require("./routes/rewardRoutes");
+const seniorRoutes = require("./routes/seniorRoutes");
 
 app.use("/checkin", checkinRoutes);
 app.use("/emergency", emergencyRoutes);
-app.use("/seniors", seniorRoutes);
 app.use("/rewards", rewardRoutes);
+app.use("/seniors", seniorRoutes);
 
 // MySQL Connection is handled in config/db.js
 
