@@ -49,7 +49,7 @@ router.post("/", (req, res) => {
         let points = rows[0].total_points || 0;
         let rewardId = rows[0].reward_id;
 
-        let newStreak = streak + 1;
+        let newStreak = 5;
         let newPoints = points + 10;
 
         const updateReward = `
