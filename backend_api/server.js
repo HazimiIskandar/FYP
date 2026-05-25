@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// routes
+// Routes
 const checkinRoutes = require("./routes/checkinRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 
@@ -30,7 +30,7 @@ con.connect((err) => {
     console.error("Database connection failed:", err);
     return;
   }
-  console.log("✅ Connected to MySQL database!");
+  console.log("Connected to MySQL database!");
 });
 
 // Test route
@@ -103,5 +103,5 @@ setInterval(() => {
 // Start server
 const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
