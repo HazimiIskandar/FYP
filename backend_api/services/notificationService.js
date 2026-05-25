@@ -1,6 +1,6 @@
 const db = require("../config/db");
 
-// ================= CREATE NOTIFICATION =================
+// CREATE NOTIFICATION
 const createNotification = (
     recipient_type,
     recipient_name,
