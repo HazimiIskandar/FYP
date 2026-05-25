@@ -9,7 +9,7 @@ import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
-import CommunityScreen from './screens/CommunityScreen'; // Added this!
+import CommunityScreen from './screens/CommunityScreen';
 
 import {
   cancelMissedCheckInReminders,
@@ -22,24 +22,31 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
 
-  // From SQL
+  // From SQL (backend)
   const [seniorData, setSeniorData] = useState([]);
   const [currentStreak, setCurrentStreak] = useState(0);
 
+  // Setup notifications once
   useEffect(() => {
     setupCheckInNotifications();
   }, []);
 
+  // Handle notification tap
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(() => {
-      setCurrentScreen('Home');
-    });
+    const subscription =
+      Notifications.addNotificationResponseReceivedListener(() => {
+        setCurrentScreen('Home');
+      });
 
     return () => subscription.remove();
   }, []);
 
+  // Reminder logic
   useEffect(() => {
-    const seniorIsLoggedIn = currentScreen === 'Home' || currentScreen === 'Community' || currentScreen === 'Emergency';
+    const seniorIsLoggedIn =
+      currentScreen === 'Home' ||
+      currentScreen === 'Community' ||
+      currentScreen === 'Emergency';
 
     if (seniorIsLoggedIn && !hasCheckedIn) {
       scheduleMissedCheckInReminders('Mr. Tan');
@@ -48,11 +55,28 @@ export default function App() {
     }
   }, [currentScreen, hasCheckedIn]);
 
-  // Helper function to handle check-in logic
+  // Connect to Backend API
+  useEffect(() => {
+    fetch('https://fyp-senior-connect.onrender.com/seniors')
+      .then(res => res.json())
+      .then(data => {
+        setSeniorData(data);
+
+        // If your DB has streak column
+        if (data.length > 0) {
+          setCurrentStreak(data[0].current_streak || 0);
+        }
+      })
+      .catch(err => {
+        console.log('API error:', err);
+      });
+  }, []);
+
+  // Check-in logic
   const handleCheckIn = () => {
     setHasCheckedIn(true);
     cancelMissedCheckInReminders();
-    // Future Note: This is where your teammate will trigger the MySQL update!
+
   };
 
   const handleSeniorLogout = () => {
@@ -60,9 +84,14 @@ export default function App() {
     setCurrentScreen('Login');
   };
 
+  // Screen routing
   const renderScreen = () => {
     if (currentScreen === 'Language') {
-      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('Login')} />;
+      return (
+        <LanguageScreen
+          onSelectLanguage={() => setCurrentScreen('Login')}
+        />
+      );
     }
 
     if (currentScreen === 'Login') {
@@ -87,7 +116,6 @@ export default function App() {
       );
     }
 
-    // NEW: Logic for the Community Hub
     if (currentScreen === 'Community') {
       return (
         <CommunityScreen
@@ -101,7 +129,7 @@ export default function App() {
       return (
         <EmergencyScreen
           onCancel={() => setCurrentScreen('Home')}
-          onCallHelp={() => { /* Logic for ServiceNow ticket */ }}
+          onCallHelp={() => {}}
         />
       );
     }
@@ -130,10 +158,9 @@ export default function App() {
   return <PhonePreview>{renderScreen()}</PhonePreview>;
 }
 
+// Phone UI wrapper (web preview)
 function PhonePreview({ children }) {
-  if (Platform.OS !== 'web') {
-    return children;
-  }
+  if (Platform.OS !== 'web') return children;
 
   return (
     <View style={styles.previewBackground}>
@@ -145,6 +172,7 @@ function PhonePreview({ children }) {
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
   previewBackground: {
     flex: 1,
@@ -163,10 +191,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 28,
     paddingBottom: 12,
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 24 },
-    shadowOpacity: 0.28,
-    shadowRadius: 40,
   },
   speaker: {
     position: 'absolute',
