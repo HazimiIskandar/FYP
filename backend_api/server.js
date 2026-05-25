@@ -14,11 +14,13 @@ const checkinRoutes = require("./routes/checkInRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 const rewardRoutes = require("./routes/rewardRoutes");
 const seniorRoutes = require("./routes/seniorRoutes");
+const nokRoutes = require("./routes/nokRoutes");
 
 app.use("/checkin", checkinRoutes);
 app.use("/emergency", emergencyRoutes);
 app.use("/rewards", rewardRoutes);
 app.use("/seniors", seniorRoutes);
+app.use("/nok", nokRoutes);
 
 // MySQL Connection is handled in config/db.js
 
