@@ -2,14 +2,13 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 
-// Check-In
+// CHECK-IN
 router.post("/", (req, res) => {
     if (!req.body || typeof req.body !== 'object') {
         return res.status(400).json({ error: "Invalid request body" });
     }
 
     const { senior_id } = req.body;
-
     if (!senior_id) {
         return res.status(400).json({ error: "senior_id is required" });
     }
@@ -29,23 +28,19 @@ router.post("/", (req, res) => {
         db.query(insertCheckInReward, [senior_id, rewardId], (err3) => {
             if (err3) return res.status(500).json(err3);
 
-            res.json({ 
-                message: "Check-in successful",
-                streak: 5   // 👈 force demo value returned to frontend
-            });
+            res.json({ message: "Check-in successful" });
         });
     };
 
     db.query(getReward, [senior_id], (err2, rows) => {
         if (err2) return res.status(500).json(err2);
 
-        // No Reward Record Found - Create New
         if (rows.length === 0 || rows[0].reward_id == null) {
 
             const insertReward = `
                 INSERT INTO Reward_Streak 
                 (senior_id, current_streak, total_points)
-                VALUES (?, 5, 10)
+                VALUES (?, 1, 10)
             `;
 
             db.query(insertReward, [senior_id], (err3, result3) => {
@@ -57,13 +52,11 @@ router.post("/", (req, res) => {
             return;
         }
 
-        // Existing Reward Record Found - Update Streak & Points
         let streak = rows[0].current_streak || 0;
         let points = rows[0].total_points || 0;
         let rewardId = rows[0].reward_id;
 
-        // For Demo Purposes
-        let newStreak = Math.max(streak + 1, 5);
+        let newStreak = streak + 1;
         let newPoints = points + 10;
 
         const updateReward = `
@@ -81,7 +74,7 @@ router.post("/", (req, res) => {
 });
 
 
-// Get Check-In History
+// GET CHECK-IN HISTORY
 router.get("/:senior_id", (req, res) => {
 
     const sql = `
