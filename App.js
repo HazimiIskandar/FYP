@@ -40,6 +40,21 @@ export default function App() {
   const currentStreak =
     getStreakValue(rewardStreaks?.[0]) || getStreakValue(currentSenior);
 
+  const todayString = new Date().toDateString();
+  const checkedInCount = Array.from(
+    new Set(
+      checkIns
+        .filter((c) =>
+          (c?.checkin_status || '').toLowerCase().includes('completed')
+        )
+        .filter((c) =>
+          !c?.checkin_timestamp ||
+          new Date(c.checkin_timestamp).toDateString() === todayString
+        )
+        .map((c) => c.senior_id)
+    )
+  ).length;
+
   // -------------------------
   // Notifications setup
   // -------------------------
@@ -162,9 +177,7 @@ export default function App() {
         <CaregiverHomeScreen
           summary={{
             total: seniors.length,
-            checkedIn: checkIns.filter(c =>
-              (c?.checkin_status || "").toLowerCase().includes("completed")
-            ).length,
+            checkedIn: checkedInCount,
             urgent: 0
           }}
           prioritySenior={currentSenior}
