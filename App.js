@@ -10,6 +10,7 @@ import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
 import CommunityScreen from './screens/CommunityScreen'; // Added this!
+
 import {
   cancelMissedCheckInReminders,
   scheduleMissedCheckInReminders,
@@ -20,7 +21,10 @@ export default function App() {
   // Master State
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
-  const [currentStreak, setCurrentStreak] = useState(4);
+
+  // From SQL
+  const [seniorData, setSeniorData] = useState([]);
+  const [currentStreak, setCurrentStreak] = useState(0);
 
   useEffect(() => {
     setupCheckInNotifications();
