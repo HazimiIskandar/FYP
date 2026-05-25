@@ -16,6 +16,10 @@ const rewardRoutes = require("./routes/rewardRoutes");
 const seniorRoutes = require("./routes/seniorRoutes");
 const escalationRoutes = require("./routes/escalationRoutes");
 const nokRoutes = require("./routes/nokRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const medicalConditionRoutes = require("./routes/medicalConditionRoutes");
+const staffRoutes = require("./routes/staffRoutes");
+const userAccountRoutes = require("./routes/userAccountRoutes");
 
 app.use("/checkin", checkinRoutes);
 app.use("/emergency", emergencyRoutes);
@@ -23,6 +27,10 @@ app.use("/rewards", rewardRoutes);
 app.use("/seniors", seniorRoutes);
 app.use("/escalation", escalationRoutes);
 app.use("/nok", nokRoutes);
+app.use("/notifications", notificationRoutes);
+app.use("/medical", medicalConditionRoutes);
+app.use("/staff", staffRoutes);
+app.use("/users", userAccountRoutes);
 
 // MySQL Connection is handled in config/db.js
 
