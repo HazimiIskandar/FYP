@@ -4,7 +4,14 @@ const db = require("../config/db");
 
 // ================= TRIGGER EMERGENCY =================
 router.post("/trigger", (req, res) => {
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
   const { senior_id } = req.body;
+  if (!senior_id) {
+    return res.status(400).json({ error: "senior_id is required" });
+  }
 
   const sql = `
     INSERT INTO Emergency_Event (senior_id, event_type, event_status, escalation_level)

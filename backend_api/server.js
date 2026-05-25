@@ -1,37 +1,26 @@
 const express = require("express");
-const mysql = require("mysql");
 const cors = require("cors");
+const db = require("./config/db");
 
 const { monitorCheckIns } = require("./routes/escalationRoutes");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 const checkinRoutes = require("./routes/checkInRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
+const seniorRoutes = require("./routes/seniorRoutes");
+const rewardRoutes = require("./routes/rewardRoutes");
 
 app.use("/checkin", checkinRoutes);
 app.use("/emergency", emergencyRoutes);
+app.use("/seniors", seniorRoutes);
+app.use("/rewards", rewardRoutes);
 
-// MySQL Connection (filess.io)
-const con = mysql.createConnection({
-  host: "cplofo.h.filess.io",
-  user: "senior_connect_curiousago",
-  password: "fe9c8311734fbb029d7fec8b715366ee54ec0751",
-  database: "senior_connect_curiousago",
-  port: 61032,
-});
-
-// Connect DB
-con.connect((err) => {
-  if (err) {
-    console.error("Database connection failed:", err);
-    return;
-  }
-  console.log("Connected to MySQL database!");
-});
+// MySQL Connection is handled in config/db.js
 
 // Test route
 app.get("/", (req, res) => {
@@ -40,7 +29,7 @@ app.get("/", (req, res) => {
 
 // Example API route (test query)
 app.get("/test", (req, res) => {
-  con.query("SELECT 1 + 1 AS result", (err, results) => {
+  db.query("SELECT 1 + 1 AS result", (err, results) => {
     if (err) {
       res.status(500).send(err);
       return;
@@ -49,18 +38,9 @@ app.get("/test", (req, res) => {
   });
 });
 
-// Senior Table
-app.get("/seniors", (req, res) => {
-  con.query("SELECT * FROM Senior", (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results);
-  });
-});
-
-
 // Emergency Event
 app.get("/emergency-events", (req, res) => {
-  con.query("SELECT * FROM Emergency_Event", (err, results) => {
+  db.query("SELECT * FROM Emergency_Event", (err, results) => {
     if (err) return res.status(500).send(err);
     res.json(results);
   });
@@ -69,16 +49,7 @@ app.get("/emergency-events", (req, res) => {
 
 // Daily CheckIn
 app.get("/checkins", (req, res) => {
-  con.query("SELECT * FROM Daily_CheckIn", (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results);
-  });
-});
-
-
-// Reward Streak
-app.get("/rewards", (req, res) => {
-  con.query("SELECT * FROM Reward_Streak", (err, results) => {
+  db.query("SELECT * FROM Daily_CheckIn", (err, results) => {
     if (err) return res.status(500).send(err);
     res.json(results);
   });
@@ -87,7 +58,7 @@ app.get("/rewards", (req, res) => {
 
 // User Account
 app.get("/users", (req, res) => {
-  con.query("SELECT * FROM User_Account", (err, results) => {
+  db.query("SELECT * FROM User_Account", (err, results) => {
     if (err) return res.status(500).send(err);
     res.json(results);
   });
