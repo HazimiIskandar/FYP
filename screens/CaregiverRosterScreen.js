@@ -58,6 +58,13 @@ export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogo
   ];
 
   const [activeFilter, setActiveFilter] = useState(filters[0]);
+  const activeFilterKey = activeFilter.replace(/[^A-Za-z ]/g, '').trim().split(' ')[0] || 'All';
+  const visibleRoster =
+    activeFilterKey === 'All'
+      ? rosterItems
+      : rosterItems.filter((item) => item.statusTag === activeFilterKey);
+
+  const topUrgent = rosterItems.find((item) => item.statusTag === 'Urgent') || rosterItems[0] || null;
   const filterScrollRef = useRef(null);
   const filterScrollX = useRef(0);
   const filterDragStartX = useRef(0);
@@ -110,41 +117,45 @@ export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogo
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.urgentCard}>
-          <View style={styles.urgentIcon}>
-            <Ionicons name="alert" size={30} color="#FFFFFF" />
+        {topUrgent ? (
+          <View style={styles.urgentCard}>
+            <View style={styles.urgentIcon}>
+              <Ionicons name="alert" size={30} color="#FFFFFF" />
+            </View>
+            <View style={styles.urgentCopy}>
+              <Text style={styles.urgentTitle}>{topUrgent.statusTag === 'Urgent' ? 'Fall detected' : topUrgent.statusTag}</Text>
+              <Text style={styles.urgentSub}>{`${topUrgent.name} | ${topUrgent.subtitle.split('|')[1]?.trim() || ''}`}</Text>
+              <Text style={styles.urgentTime}>{topUrgent.updatedAt || 'Recent alert'}</Text>
+            </View>
+            <TouchableOpacity style={styles.ack} activeOpacity={0.86}>
+              <Text style={styles.ackText}>Acknowledge</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.urgentCopy}>
-            <Text style={styles.urgentTitle}>Fall detected</Text>
-            <Text style={styles.urgentSub}>Mr Tan | Unit #04-12</Text>
-            <Text style={styles.urgentTime}>23 May 2026 | 02:45 PM</Text>
-          </View>
-          <TouchableOpacity style={styles.ack} activeOpacity={0.86}>
-            <Text style={styles.ackText}>Acknowledge</Text>
-          </TouchableOpacity>
-        </View>
+        ) : null}
 
-        <TouchableOpacity style={styles.rosterCard} onPress={onGoToHome} activeOpacity={0.86}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>T</Text>
+        {visibleRoster.length > 0 ? (
+          visibleRoster.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.rosterCard} onPress={onGoToHome} activeOpacity={0.86}>
+              <View style={[styles.avatar, item.colorScheme === 'safe' ? styles.safeAvatar : null]}>
+                <Text style={[styles.avatarText, item.colorScheme === 'safe' ? styles.safeAvatarText : null]}>{item.avatarLetter}</Text>
+              </View>
+              <View style={styles.rosterCopy}>
+                <Text style={styles.rosterText}>{item.name}</Text>
+                <Text style={styles.rosterSub}>{item.subtitle}</Text>
+              </View>
+              <Ionicons
+                name={item.statusTag === 'Checked In' ? 'checkmark-circle' : 'warning-outline'}
+                size={26}
+                color={item.statusTag === 'Checked In' ? '#16A34A' : '#DC2626'}
+              />
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No seniors found</Text>
+            <Text style={styles.emptyText}>Please sync your roster or check your database connection.</Text>
           </View>
-          <View style={styles.rosterCopy}>
-            <Text style={styles.rosterText}>Mr Tan</Text>
-            <Text style={styles.rosterSub}>Missed check-in | Unit #04-12</Text>
-          </View>
-          <Ionicons name="warning-outline" size={26} color="#DC2626" />
-        </TouchableOpacity>
-
-        <View style={styles.rosterCard}>
-          <View style={[styles.avatar, styles.safeAvatar]}>
-            <Text style={[styles.avatarText, styles.safeAvatarText]}>L</Text>
-          </View>
-          <View style={styles.rosterCopy}>
-            <Text style={styles.rosterText}>Mdm Lim</Text>
-            <Text style={styles.rosterSub}>Checked in today | Unit #08-03</Text>
-          </View>
-          <Ionicons name="checkmark-circle" size={26} color="#16A34A" />
-        </View>
+        )}
       </ScrollView>
 
       <CaregiverBottomNav activeTab="Seniors" onHome={onGoToHome} onSeniors={() => {}} onLogout={onLogout} />
