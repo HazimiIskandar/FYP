@@ -9,12 +9,15 @@ router.post("/", (req, res) => {
     }
 
     const { senior_id } = req.body;
+
     if (!senior_id) {
         return res.status(400).json({ error: "senior_id is required" });
     }
 
     const getReward = `
-        SELECT reward_id, current_streak, total_points FROM Reward_Streak WHERE senior_id = ?
+        SELECT reward_id, current_streak, total_points 
+        FROM Reward_Streak 
+        WHERE senior_id = ?
     `;
 
     const saveCheckIn = (rewardId) => {
@@ -22,8 +25,10 @@ router.post("/", (req, res) => {
             INSERT INTO Daily_CheckIn (senior_id, checkin_status, reward_id)
             VALUES (?, 'Completed', ?)
         `;
+
         db.query(insertCheckInReward, [senior_id, rewardId], (err3) => {
             if (err3) return res.status(500).json(err3);
+
             res.json({ message: "Check-in successful" });
         });
     };
@@ -32,16 +37,19 @@ router.post("/", (req, res) => {
         if (err2) return res.status(500).json(err2);
 
         if (rows.length === 0 || rows[0].reward_id == null) {
+
             const insertReward = `
                 INSERT INTO Reward_Streak 
-                (senior_id, current_streak, total_points)
+                (senior_id, current_streak, total_points) 
                 VALUES (?, 1, 10)
             `;
 
             db.query(insertReward, [senior_id], (err3, result3) => {
                 if (err3) return res.status(500).json(err3);
+
                 saveCheckIn(result3.insertId);
             });
+
             return;
         }
 
@@ -60,6 +68,7 @@ router.post("/", (req, res) => {
 
         db.query(updateReward, [newStreak, newPoints, senior_id], (err3) => {
             if (err3) return res.status(500).json(err3);
+
             saveCheckIn(rewardId);
         });
     });
@@ -70,7 +79,8 @@ router.post("/", (req, res) => {
 router.get("/:senior_id", (req, res) => {
 
     const sql = `
-        SELECT * FROM Daily_CheckIn
+        SELECT * 
+        FROM Daily_CheckIn 
         WHERE senior_id = ?
         ORDER BY checkin_timestamp DESC
     `;
