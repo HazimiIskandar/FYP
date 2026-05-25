@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as Notifications from 'expo-notifications';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, Text } from 'react-native';
 
 // Import all your screens
 import LanguageScreen from './screens/LanguageScreen';
@@ -22,15 +22,30 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
 
+  // API Base URL
   const API_BASE = 'https://fyp-senior-connect.onrender.com';
+
+  // Database States
   const [seniors, setSeniors] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
   const [emergencyEvents, setEmergencyEvents] = useState([]);
   const [rewardStreaks, setRewardStreaks] = useState([]);
 
+  // Loading State
+  const [loading, setLoading] = useState(true);
+
+  // Helpers
   const getRawText = (value) => (value ?? '').toString();
-  const getStreakValue = (item) => item?.current_streak ?? item?.streak ?? item?.reward_streak ?? item?.days ?? 0;
+
+  const getStreakValue = (item) =>
+    item?.current_streak ??
+    item?.streak ??
+    item?.reward_streak ??
+    item?.days ??
+    0;
+
   const currentSenior = seniors[0] || null;
+
   const seniorName =
     currentSenior?.name ||
     currentSenior?.full_name ||
@@ -38,32 +53,76 @@ export default function App() {
     'Mr Tan';
 
   const normalizeStatus = (item) => {
-    const raw = getRawText(item?.status || item?.checkin_status || item?.health_status || item?.event_status || item?.event_type).toLowerCase();
-    if (/urgent|critical|fall|emergency|alert|missed/.test(raw)) return 'Urgent';
-    if (/missed|overdue/.test(raw)) return 'Missed';
-    if (/pending|waiting|follow/.test(raw)) return 'Pending';
-    if (/checked|ok|safe|completed/.test(raw)) return 'Checked In';
+    const raw = getRawText(
+      item?.status ||
+      item?.checkin_status ||
+      item?.health_status ||
+      item?.event_status ||
+      item?.event_type
+    ).toLowerCase();
+
+    if (/urgent|critical|fall|emergency|alert|missed/.test(raw))
+      return 'Urgent';
+
+    if (/missed|overdue/.test(raw))
+      return 'Missed';
+
+    if (/pending|waiting|follow/.test(raw))
+      return 'Pending';
+
+    if (/checked|ok|safe|completed/.test(raw))
+      return 'Checked In';
+
     return 'Pending';
   };
 
   const prioritySenior =
-    seniors.find((item) => /(urgent|critical|fall|missed)/i.test(getRawText(item?.status || item?.checkin_status || item?.health_status || item?.event_type))) ||
-    currentSenior;
+    seniors.find((item) =>
+      /(urgent|critical|fall|missed)/i.test(
+        getRawText(
+          item?.status ||
+          item?.checkin_status ||
+          item?.health_status ||
+          item?.event_type
+        )
+      )
+    ) || currentSenior;
 
   const summary = {
     total: seniors.length,
-    urgent: seniors.filter((item) => /(urgent|critical|fall|missed)/i.test(getRawText(item?.status || item?.checkin_status || item?.health_status || item?.event_type))).length,
-    checkedIn: checkIns.filter((item) => /(checked|ok|safe|completed)/i.test(getRawText(item?.status || item?.checkin_status || item?.result))).length,
+
+    urgent: seniors.filter((item) =>
+      /(urgent|critical|fall|missed)/i.test(
+        getRawText(
+          item?.status ||
+          item?.checkin_status ||
+          item?.health_status ||
+          item?.event_type
+        )
+      )
+    ).length,
+
+    checkedIn: checkIns.filter((item) =>
+      /(checked|ok|safe|completed)/i.test(
+        getRawText(
+          item?.status ||
+          item?.checkin_status ||
+          item?.result
+        )
+      )
+    ).length,
   };
 
-  const currentStreak = getStreakValue(rewardStreaks[0]) || getStreakValue(currentSenior);
+  const currentStreak =
+    getStreakValue(rewardStreaks[0]) ||
+    getStreakValue(currentSenior);
 
-  // Setup notifications once
+  // Setup notifications
   useEffect(() => {
     setupCheckInNotifications();
   }, []);
 
-  // Handle notification tap
+  // Notification tap
   useEffect(() => {
     const subscription =
       Notifications.addNotificationResponseReceivedListener(() => {
@@ -87,30 +146,43 @@ export default function App() {
     }
   }, [currentScreen, hasCheckedIn, seniorName]);
 
-  // Connect to Backend API
+  // Fetch API Data
   useEffect(() => {
     const fetchData = async () => {
-      const load = async (path) => {
-        try {
+      try {
+        const load = async (path) => {
           const response = await fetch(`${API_BASE}/${path}`);
-          return response.ok ? await response.json() : [];
-        } catch (error) {
-          console.log(`Failed to fetch ${path}:`, error);
-          return [];
-        }
-      };
 
-      const [seniorsData, checkInsData, emergencyData, rewardsData] = await Promise.all([
-        load('seniors'),
-        load('checkins'),
-        load('emergency-events'),
-        load('rewards'),
-      ]);
+          if (!response.ok) {
+            console.log(`Failed route: ${path}`);
+            return [];
+          }
 
-      setSeniors(Array.isArray(seniorsData) ? seniorsData : []);
-      setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
-      setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
-      setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
+          return await response.json();
+        };
+
+        const [
+          seniorsData,
+          checkInsData,
+          emergencyData,
+          rewardsData,
+        ] = await Promise.all([
+          load('seniors'),
+          load('checkins'),
+          load('emergency-events'),
+          load('rewards'),
+        ]);
+
+        setSeniors(Array.isArray(seniorsData) ? seniorsData : []);
+        setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
+        setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
+        setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
+
+      } catch (error) {
+        console.log('API connection error:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();
@@ -120,16 +192,32 @@ export default function App() {
   const handleCheckIn = () => {
     setHasCheckedIn(true);
     cancelMissedCheckInReminders();
-
   };
 
+  // Logout
   const handleSeniorLogout = () => {
     cancelMissedCheckInReminders();
     setCurrentScreen('Login');
   };
 
-  // Screen routing
+  // Loading Screen
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <Text>Loading data...</Text>
+      </View>
+    );
+  }
+
+  // Navigation
   const renderScreen = () => {
+
     if (currentScreen === 'Language') {
       return (
         <LanguageScreen
@@ -208,7 +296,7 @@ export default function App() {
   return <PhonePreview>{renderScreen()}</PhonePreview>;
 }
 
-// Phone UI wrapper (web preview)
+// Phone wrapper for web
 function PhonePreview({ children }) {
   if (Platform.OS !== 'web') return children;
 
@@ -216,7 +304,9 @@ function PhonePreview({ children }) {
     <View style={styles.previewBackground}>
       <View style={styles.phoneShell}>
         <View style={styles.speaker} />
-        <View style={styles.phoneScreen}>{children}</View>
+        <View style={styles.phoneScreen}>
+          {children}
+        </View>
       </View>
     </View>
   );
@@ -232,6 +322,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
+
   phoneShell: {
     width: 390,
     height: 844,
@@ -242,6 +333,7 @@ const styles = StyleSheet.create({
     paddingTop: 28,
     paddingBottom: 12,
   },
+
   speaker: {
     position: 'absolute',
     top: 12,
@@ -251,6 +343,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#374151',
   },
+
   phoneScreen: {
     flex: 1,
     backgroundColor: '#F8FAFC',
