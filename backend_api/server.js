@@ -2,9 +2,18 @@ const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
 
+const { monitorCheckIns } = require("./routes/escalationRoutes");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// routes
+const checkinRoutes = require("./routes/checkinRoutes");
+const emergencyRoutes = require("./routes/emergencyRoutes");
+
+app.use("/checkin", checkinRoutes);
+app.use("/emergency", emergencyRoutes);
 
 // MySQL Connection (filess.io)
 const con = mysql.createConnection({
@@ -83,6 +92,13 @@ app.get("/users", (req, res) => {
     res.json(results);
   });
 });
+
+// Escalation Timer
+// runs every 10 minutes (real system)
+setInterval(() => {
+    console.log("Checking missed check-ins...");
+    monitorCheckIns();
+}, 600000);
 
 // Start server
 const PORT = 3000;

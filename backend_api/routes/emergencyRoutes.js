@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 
-// ================= TRIGGER EMERGENCY =================
+// TRIGGER EMERGENCY 
 router.post("/trigger", (req, res) => {
     const { senior_id } = req.body;
 
@@ -19,7 +19,7 @@ router.post("/trigger", (req, res) => {
 });
 
 
-// ================= GET EMERGENCY HISTORY =================
+// GET EMERGENCY HISTORY 
 router.get("/:senior_id", (req, res) => {
 
     const sql = `
