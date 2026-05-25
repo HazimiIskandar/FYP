@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-const checkinRoutes = require("./routes/checkinRoutes");
+const checkinRoutes = require("./routes/checkInRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 
 app.use("/checkin", checkinRoutes);
