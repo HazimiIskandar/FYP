@@ -29,7 +29,27 @@ export default function App() {
   const [emergencyEvents, setEmergencyEvents] = useState([]);
   const [rewardStreaks, setRewardStreaks] = useState([]);
 
-  const currentSenior = seniors?.[0] || null;
+  const DEMO_SENIORS = [
+    {
+      senior_id: 1,
+      full_name: 'Mr Tan',
+      unit_number: '04-12',
+      age: 74,
+      phone_number: '9123 4567',
+      emergency_contact: 'Adrian Tan',
+    },
+    {
+      senior_id: 2,
+      full_name: 'Ms Lim',
+      unit_number: '05-03',
+      age: 71,
+      phone_number: '9888 1122',
+      emergency_contact: 'Grace Lim',
+    },
+  ];
+
+  const currentSenior =
+    seniors.find((s) => parseInt(s?.senior_id, 10) === 1) || seniors?.[0] || DEMO_SENIORS[0];
 
   // FIX: MySQL field is full_name
   const seniorName = currentSenior?.full_name || 'Mr Tan';
@@ -66,28 +86,34 @@ export default function App() {
   // Fetch backend data
   // -------------------------
   useEffect(() => {
+    const fetchJson = async (url) => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+      }
+      return response.json();
+    };
+
     const fetchData = async () => {
       try {
-        const [seniorsRes, checkInsRes, emergencyRes, rewardsRes] =
+        const [seniorsData, checkInsData, emergencyData, rewardsData] =
           await Promise.all([
-            fetch(`${API_BASE}/seniors`),
-            fetch(`${API_BASE}/checkins`),
-            fetch(`${API_BASE}/emergency-events`),
-            fetch(`${API_BASE}/rewards`),
+            fetchJson(`${API_BASE}/seniors`),
+            fetchJson(`${API_BASE}/checkins`),
+            fetchJson(`${API_BASE}/emergency-events`),
+            fetchJson(`${API_BASE}/rewards`),
           ]);
-
-        const seniorsData = await seniorsRes.json();
-        const checkInsData = await checkInsRes.json();
-        const emergencyData = await emergencyRes.json();
-        const rewardsData = await rewardsRes.json();
 
         setSeniors(Array.isArray(seniorsData) ? seniorsData : []);
         setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
         setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
         setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
-
       } catch (err) {
         console.log("API fetch error:", err);
+        setSeniors(DEMO_SENIORS);
+        setCheckIns([]);
+        setEmergencyEvents([]);
+        setRewardStreaks([]);
       }
     };
 
