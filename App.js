@@ -22,9 +22,41 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
 
-  // From SQL (backend)
-  const [seniorData, setSeniorData] = useState([]);
-  const [currentStreak, setCurrentStreak] = useState(0);
+  const API_BASE = 'https://fyp-senior-connect.onrender.com';
+  const [seniors, setSeniors] = useState([]);
+  const [checkIns, setCheckIns] = useState([]);
+  const [emergencyEvents, setEmergencyEvents] = useState([]);
+  const [rewardStreaks, setRewardStreaks] = useState([]);
+
+  const getRawText = (value) => (value ?? '').toString();
+  const getStreakValue = (item) => item?.current_streak ?? item?.streak ?? item?.reward_streak ?? item?.days ?? 0;
+  const currentSenior = seniors[0] || null;
+  const seniorName =
+    currentSenior?.name ||
+    currentSenior?.full_name ||
+    `${currentSenior?.first_name || 'Mr'} ${currentSenior?.last_name || 'Tan'}` ||
+    'Mr Tan';
+
+  const normalizeStatus = (item) => {
+    const raw = getRawText(item?.status || item?.checkin_status || item?.health_status || item?.event_status || item?.event_type).toLowerCase();
+    if (/urgent|critical|fall|emergency|alert|missed/.test(raw)) return 'Urgent';
+    if (/missed|overdue/.test(raw)) return 'Missed';
+    if (/pending|waiting|follow/.test(raw)) return 'Pending';
+    if (/checked|ok|safe|completed/.test(raw)) return 'Checked In';
+    return 'Pending';
+  };
+
+  const prioritySenior =
+    seniors.find((item) => /(urgent|critical|fall|missed)/i.test(getRawText(item?.status || item?.checkin_status || item?.health_status || item?.event_type))) ||
+    currentSenior;
+
+  const summary = {
+    total: seniors.length,
+    urgent: seniors.filter((item) => /(urgent|critical|fall|missed)/i.test(getRawText(item?.status || item?.checkin_status || item?.health_status || item?.event_type))).length,
+    checkedIn: checkIns.filter((item) => /(checked|ok|safe|completed)/i.test(getRawText(item?.status || item?.checkin_status || item?.result))).length,
+  };
+
+  const currentStreak = getStreakValue(rewardStreaks[0]) || getStreakValue(currentSenior);
 
   // Setup notifications once
   useEffect(() => {
@@ -49,27 +81,39 @@ export default function App() {
       currentScreen === 'Emergency';
 
     if (seniorIsLoggedIn && !hasCheckedIn) {
-      scheduleMissedCheckInReminders('Mr. Tan');
+      scheduleMissedCheckInReminders(seniorName);
     } else {
       cancelMissedCheckInReminders();
     }
-  }, [currentScreen, hasCheckedIn]);
+  }, [currentScreen, hasCheckedIn, seniorName]);
 
   // Connect to Backend API
   useEffect(() => {
-    fetch('https://fyp-senior-connect.onrender.com/seniors')
-      .then(res => res.json())
-      .then(data => {
-        setSeniorData(data);
-
-        // If your DB has streak column
-        if (data.length > 0) {
-          setCurrentStreak(data[0].current_streak || 0);
+    const fetchData = async () => {
+      const load = async (path) => {
+        try {
+          const response = await fetch(`${API_BASE}/${path}`);
+          return response.ok ? await response.json() : [];
+        } catch (error) {
+          console.log(`Failed to fetch ${path}:`, error);
+          return [];
         }
-      })
-      .catch(err => {
-        console.log('API error:', err);
-      });
+      };
+
+      const [seniorsData, checkInsData, emergencyData, rewardsData] = await Promise.all([
+        load('seniors'),
+        load('checkins'),
+        load('emergency-events'),
+        load('rewards'),
+      ]);
+
+      setSeniors(Array.isArray(seniorsData) ? seniorsData : []);
+      setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
+      setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
+      setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
+    };
+
+    fetchData();
   }, []);
 
   // Check-in logic
@@ -106,6 +150,7 @@ export default function App() {
     if (currentScreen === 'Home') {
       return (
         <SeniorHomeScreen
+          senior={currentSenior}
           hasCheckedIn={hasCheckedIn}
           currentStreak={currentStreak}
           onCheckIn={handleCheckIn}
@@ -137,6 +182,10 @@ export default function App() {
     if (currentScreen === 'CaregiverHome') {
       return (
         <CaregiverHomeScreen
+          summary={summary}
+          prioritySenior={prioritySenior}
+          activeTicket={emergencyEvents[0]}
+          onCallEmergencyContact={() => {}}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
           onLogout={() => setCurrentScreen('Login')}
         />
@@ -146,6 +195,7 @@ export default function App() {
     if (currentScreen === 'CaregiverRoster') {
       return (
         <CaregiverRosterScreen
+          seniors={seniors}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onLogout={() => setCurrentScreen('Login')}
         />

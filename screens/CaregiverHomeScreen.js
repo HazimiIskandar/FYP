@@ -4,7 +4,39 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
 
-export default function CaregiverHomeScreen({ onGoToRoster, onLogout }) {
+export default function CaregiverHomeScreen({
+  summary = { total: 0, urgent: 0, checkedIn: 0 },
+  prioritySenior = {},
+  activeTicket = {},
+  onCallEmergencyContact = () => {},
+  onGoToRoster,
+  onLogout,
+}) {
+  const getDisplayName = (senior) =>
+    senior?.name || senior?.full_name || `${senior?.first_name || 'Mr'} ${senior?.last_name || 'Tan'}`;
+
+  const getUnitLabel = (senior) =>
+    senior?.unit_number || senior?.unit_no || senior?.unit || senior?.unitLabel || '#04-12';
+
+  const getContactName = (senior) =>
+    senior?.emergency_contact || senior?.next_of_kin || senior?.next_of_kin_name || 'Adrian Tan';
+
+  const getStatusBadge = (senior) => {
+    const raw = `${senior?.status || senior?.checkin_status || senior?.health_status || ''}`.toLowerCase();
+    if (/urgent|critical|fall|missed/.test(raw)) return 'Monitor';
+    if (/checked|safe|ok/.test(raw)) return 'Stable';
+    return 'Monitor';
+  };
+
+  const seniorName = getDisplayName(prioritySenior) || 'Mr Tan';
+  const seniorAge = prioritySenior?.age || prioritySenior?.age_range || '';
+  const seniorUnit = getUnitLabel(prioritySenior);
+  const contactName = getContactName(prioritySenior);
+  const statusBadgeText = getStatusBadge(prioritySenior);
+  const ticketTitle = activeTicket?.title || activeTicket?.event_name || 'Missed check-in';
+  const ticketId = activeTicket?.id || activeTicket?.ticket_id || activeTicket?.event_id || 'INC0016767';
+  const ticketUpdate = activeTicket?.last_update || activeTicket?.updated_at || activeTicket?.time || '10 minutes ago';
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Caregiver Portal" subtitle="Priority alerts and senior wellbeing" />
@@ -12,11 +44,11 @@ export default function CaregiverHomeScreen({ onGoToRoster, onLogout }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.summaryRow}>
           <View style={styles.summaryTile}>
-            <Text style={styles.summaryNumber}>1</Text>
+            <Text style={styles.summaryNumber}>{summary.urgent}</Text>
             <Text style={styles.summaryLabel}>Urgent</Text>
           </View>
           <View style={styles.summaryTile}>
-            <Text style={styles.summaryNumber}>4/5</Text>
+            <Text style={styles.summaryNumber}>{summary.checkedIn}/{summary.total}</Text>
             <Text style={styles.summaryLabel}>Checked in</Text>
           </View>
         </View>
@@ -30,24 +62,24 @@ export default function CaregiverHomeScreen({ onGoToRoster, onLogout }) {
           <View style={styles.infoCard}>
             <View>
               <Text style={styles.cardEyebrow}>Priority senior</Text>
-              <Text style={styles.name}>Mr Tan, 79</Text>
-              <Text style={styles.meta}>Unit #04-12 | Son: Adrian Tan</Text>
+              <Text style={styles.name}>{`${seniorName}${seniorAge ? `, ${seniorAge}` : ''}`}</Text>
+              <Text style={styles.meta}>{`Unit ${seniorUnit} | ${contactName}`}</Text>
             </View>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Monitor</Text>
+              <Text style={styles.statusBadgeText}>{statusBadgeText}</Text>
             </View>
           </View>
 
           <View style={styles.ticketActive}>
             <View style={styles.ticketHeader}>
               <Ionicons name="warning" size={24} color="#DC2626" />
-              <Text style={styles.ticketTitle}>Missed check-in</Text>
+              <Text style={styles.ticketTitle}>{ticketTitle}</Text>
             </View>
-            <Text style={styles.ticketMeta}>Ticket ID: INC0016767</Text>
-            <Text style={styles.ticketMeta}>Last update: 10 minutes ago</Text>
+            <Text style={styles.ticketMeta}>Ticket ID: {ticketId}</Text>
+            <Text style={styles.ticketMeta}>Last update: {ticketUpdate}</Text>
           </View>
 
-          <TouchableOpacity style={styles.callButton} activeOpacity={0.86}>
+          <TouchableOpacity style={styles.callButton} onPress={onCallEmergencyContact} activeOpacity={0.86}>
             <Ionicons name="call" size={24} color="#FFFFFF" />
             <Text style={styles.callButtonText}>Call emergency contact</Text>
           </TouchableOpacity>

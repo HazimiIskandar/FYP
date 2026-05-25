@@ -4,8 +4,59 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
 
-export default function CaregiverRosterScreen({ onGoToHome, onLogout }) {
-  const filters = ['All (40)', '🚨 Urgent (1)', '⚠️ Pending (5)', '❌ Missed (1)', '✅ Checked In (34)'];
+export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogout }) {
+  const getRawText = (value) => (value ?? '').toString();
+  const getStatusTag = (senior) => {
+    const raw = getRawText(senior?.status || senior?.checkin_status || senior?.health_status || '')
+      .toLowerCase();
+    if (/urgent|critical|fall|emergency|alert/.test(raw)) return 'Urgent';
+    if (/missed|overdue/.test(raw)) return 'Missed';
+    if (/pending|waiting|follow/.test(raw)) return 'Pending';
+    if (/checked|ok|safe|completed/.test(raw)) return 'Checked In';
+    return 'Pending';
+  };
+
+  const getRosterLabel = (senior) => {
+    const status = getStatusTag(senior);
+    const unit = senior?.unit_number || senior?.unit_no || senior?.unit || '#04-12';
+    if (status === 'Urgent') return `Fall detected | ${unit}`;
+    if (status === 'Missed') return `Missed check-in | ${unit}`;
+    if (status === 'Checked In') return `Checked in today | ${unit}`;
+    return `Pending follow up | ${unit}`;
+  };
+
+  const getName = (senior) =>
+    senior?.name || senior?.full_name || `${senior?.first_name || 'Mr'} ${senior?.last_name || 'Tan'}`;
+
+  const rosterItems = seniors.map((senior, index) => ({
+    id: senior?.id || senior?.SeniorID || index,
+    name: getName(senior),
+    statusTag: getStatusTag(senior),
+    subtitle: getRosterLabel(senior),
+    avatarLetter: getName(senior).charAt(0),
+    colorScheme: getStatusTag(senior) === 'Checked In' ? 'safe' : 'alert',
+  }));
+
+  const counts = rosterItems.reduce(
+    (acc, item) => {
+      acc.All += 1;
+      if (item.statusTag === 'Urgent') acc.Urgent += 1;
+      if (item.statusTag === 'Pending') acc.Pending += 1;
+      if (item.statusTag === 'Missed') acc.Missed += 1;
+      if (item.statusTag === 'Checked In') acc.Checked += 1;
+      return acc;
+    },
+    { All: 0, Urgent: 0, Pending: 0, Missed: 0, Checked: 0 }
+  );
+
+  const filters = [
+    `All (${counts.All})`,
+    `🚨 Urgent (${counts.Urgent})`,
+    `⚠️ Pending (${counts.Pending})`,
+    `❌ Missed (${counts.Missed})`,
+    `✅ Checked In (${counts.Checked})`,
+  ];
+
   const [activeFilter, setActiveFilter] = useState(filters[0]);
   const filterScrollRef = useRef(null);
   const filterScrollX = useRef(0);
