@@ -4,12 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
-export default function SeniorHomeScreen({ hasCheckedIn, onCheckIn, onSOS, onCommunity, onLogout, currentStreak }) {
+export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn, onSOS, onCommunity, onLogout, currentStreak }) {
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const displayStreak = hasCheckedIn ? currentStreak + 1 : currentStreak;
   const languages = ['English', '中文', 'Malay', 'தமிழ்'];
+  const seniorName = senior?.name || senior?.full_name || `${senior?.first_name || 'Mr'} ${senior?.last_name || 'Tan'}`;
 
   useEffect(() => {
     if (!hasCheckedIn) {
@@ -29,7 +30,7 @@ export default function SeniorHomeScreen({ hasCheckedIn, onCheckIn, onSOS, onCom
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title="Good morning"
+        title={`Good morning${seniorName ? `, ${seniorName}` : ''}`}
         subtitle="Tap once to let your caregiver know you are okay"
         rightContent={(
           <TouchableOpacity
