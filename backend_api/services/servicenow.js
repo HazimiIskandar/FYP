@@ -24,10 +24,10 @@ const createIncident = async (
 
     // CHANGE THESE LATER
     const SERVICENOW_URL =
-        "https://YOUR-INSTANCE.service-now.com/api/now/table/incident";
+        "https://dev316146.service-now.com/login.do?user_name=admin&sys_action=sysverb_login&user_password=R9zu%2B*3kXIPa";
 
     const USERNAME = "admin";
-    const PASSWORD = "yourpassword";
+    const PASSWORD = "";
 
     try {
 
@@ -41,8 +41,8 @@ const createIncident = async (
             },
             {
                 auth: {
-                    username: USERNAME,
-                    password: PASSWORD
+                    username: "admin",
+                    password: ""
                 },
                 headers: {
                     "Content-Type": "application/json",
