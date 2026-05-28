@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "axios": "^1.16.1",
     "cors": "^2.8.6",
     "expo": "~54.0.33",
     "expo-notifications": "~0.32.17",
