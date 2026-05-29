@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
 
-export default function SeniorDetailsScreen({ senior, onGoBack, onGoToHome, onLogout }) {
+export default function SeniorDetailsScreen({ senior, medicalConditions = [], onGoBack, onGoToHome, onLogout }) {
   const name = senior?.full_name || 'Unknown Senior';
   const initial = name.charAt(0).toUpperCase();
 
@@ -28,6 +28,28 @@ export default function SeniorDetailsScreen({ senior, onGoBack, onGoToHome, onLo
     );
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not recorded';
+
+    const date = new Date(dateString);
+    // Check if the date is valid before parsing
+    if (isNaN(date.getTime())) return dateString;
+
+    const day = date.getDate();
+    // 'short' gives you 'Jan', 'Feb', 'Mar', etc.
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+
+    return `${day}-${month}-${year}`;
+  };
+
+  // prefer explicit prop, fall back to `senior.medicalConditions` set by App
+  const conditions =
+    (Array.isArray(medicalConditions) && medicalConditions.length > 0)
+      ? medicalConditions
+      : Array.isArray(senior?.medicalConditions)
+        ? senior.medicalConditions
+        : [];
   return (
     <SafeAreaView style={styles.container}>
 
@@ -43,8 +65,6 @@ export default function SeniorDetailsScreen({ senior, onGoBack, onGoToHome, onLo
 
           <View style={styles.profileInfo}>
             <Text style={styles.name}>{name}</Text>
-            <Text style={styles.sub}>Age: {senior?.age || 'N/A'}</Text>
-            <Text style={styles.sub}>Unit: {senior?.unit_number || 'Not assigned'}</Text>
           </View>
 
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
@@ -57,6 +77,13 @@ export default function SeniorDetailsScreen({ senior, onGoBack, onGoToHome, onLo
         {/* PERSONAL DETAILS CARD */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Personal Details</Text>
+
+          <View style={styles.row}>
+            <Ionicons name="calendar-outline" size={18} color="#6B7280" />
+            <Text style={styles.rowText}>
+              Date-of-Birth: {formatDate(senior?.dob)}
+            </Text>
+          </View>
 
           <View style={styles.row}>
             <Ionicons name="person-outline" size={18} color="#6B7280" />
@@ -94,30 +121,60 @@ export default function SeniorDetailsScreen({ senior, onGoBack, onGoToHome, onLo
           </View>
         </View>
 
-        {/* MEDICAL CARD */}
+        {/* MEDICAL CONDITIONS */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Medical Info</Text>
+          <Text style={styles.cardTitle}>Medical Conditions</Text>
 
-          <View style={styles.row}>
-            <Ionicons name="fitness" size={18} color="#6B7280" />
-            <Text style={styles.rowText}>
-              Condition: {senior?.condition || 'Not recorded'}
-            </Text>
-          </View>
+          {conditions.length > 0 ? (
+            conditions.map((condition, index) => (
+              <View key={condition.condition_id || index} style={styles.conditionBlock}>
 
-          <View style={styles.row}>
-            <Ionicons name="warning-outline" size={18} color="#6B7280" />
-            <Text style={styles.rowText}>
-              Allergies: {senior?.allergies || 'None'}
-            </Text>
-          </View>
+                <View style={styles.row}>
+                  <Ionicons name="fitness-outline" size={18} color="#6B7280" />
+                  <Text style={styles.rowText}>
+                    Condition: {condition.condition_name || 'Not recorded'}
+                  </Text>
+                </View>
 
-          <View style={styles.row}>
-            <Ionicons name="water-outline" size={18} color="#6B7280" />
-            <Text style={styles.rowText}>
-              Blood Type: {senior?.bloodType || 'Unknown'}
-            </Text>
-          </View>
+                <View style={styles.row}>
+                  <Ionicons name="warning-outline" size={18} color="#6B7280" />
+                  <Text style={styles.rowText}>
+                    Severity: {condition.severity_level || 'Not recorded'}
+                  </Text>
+                </View>
+
+                <View style={styles.row}>
+                  <Ionicons name="medical-outline" size={18} color="#6B7280" />
+                  <Text style={styles.rowText}>
+                    Medication Required: {condition.medication_required || 'Not recorded'}
+                  </Text>
+                </View>
+
+                <View style={styles.row}>
+                  <Ionicons name="calendar-outline" size={18} color="#6B7280" />
+                  <Text style={styles.rowText}>
+                    Diagnosed:{" "}
+                    {condition.diagnosed_date
+                      ? new Date(condition.diagnosed_date).toDateString()
+                      : 'Not recorded'}
+                  </Text>
+                </View>
+
+                {/* divider only between items */}
+                {index !== conditions.length - 1 && (
+                  <View style={styles.conditionDivider} />
+                )}
+
+              </View>
+            ))
+          ) : (
+            <View style={styles.row}>
+              <Ionicons name="alert-circle-outline" size={18} color="#6B7280" />
+              <Text style={styles.rowText}>
+                No medical conditions recorded
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* EMERGENCY CONTACT */}
@@ -288,4 +345,39 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
   },
+
+  conditionItem: {
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+
+  conditionName: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 2,
+  },
+
+  conditionMeta: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
+  emptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontStyle: 'italic',
+  },
+  conditionDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 10,
+  },
+  conditionBlock: {
+  marginBottom: 6,
+},
 });

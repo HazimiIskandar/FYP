@@ -41,6 +41,32 @@ export default function App() {
 
   const seniorName = getSeniorDisplayName(currentSenior);
 
+  const handleSelectSenior = async (senior) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/seniors/${senior.senior_id}/medical-conditions`
+      );
+
+      const conditions = await res.json();
+
+      setSelectedSenior({
+        ...senior,
+        medicalConditions: Array.isArray(conditions) ? conditions : []
+      });
+
+      setCurrentScreen('SeniorDetails');
+    } catch (err) {
+      console.log('Failed to fetch medical conditions:', err);
+
+      setSelectedSenior({
+        ...senior,
+        medicalConditions: []
+      });
+
+      setCurrentScreen('SeniorDetails');
+    }
+  };
+
   const getStreakValue = (item) =>
     item?.current_streak ?? item?.streak ?? item?.days ?? 0;
 
@@ -207,11 +233,7 @@ export default function App() {
           seniors={seniors}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onLogout={() => setCurrentScreen('Login')}
-
-          onSelectSenior={(senior) => {
-            setSelectedSenior(senior);
-            setCurrentScreen('SeniorDetails');
-          }}
+            onSelectSenior={handleSelectSenior}
         />
       );
     }
@@ -219,7 +241,7 @@ export default function App() {
     if (currentScreen === 'SeniorDetails') {
       return (
         <SeniorDetailsScreen
-          senior={selectedSenior}
+          senior={selectedSenior ?? currentSenior}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoBack={() => setCurrentScreen('CaregiverRoster')}
           onLogout={() => setCurrentScreen('Login')}
