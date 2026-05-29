@@ -14,7 +14,9 @@ app.use(express.urlencoded({ extended: true }));
 const checkinRoutes = require("./routes/checkInRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 const rewardRoutes = require("./routes/rewardRoutes");
+*/
 const seniorRoutes = require("./routes/seniorRoutes");
+/*
 const escalationRoutes = require("./routes/escalationRoutes");
 const nokRoutes = require("./routes/nokRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
@@ -26,7 +28,9 @@ const userAccountRoutes = require("./routes/userAccountRoutes");
 app.use("/checkin", checkinRoutes);
 app.use("/emergency", emergencyRoutes);
 app.use("/rewards", rewardRoutes);
+*/
 app.use("/seniors", seniorRoutes);
+/*
 app.use("/escalation", escalationRoutes);
 app.use("/nok", nokRoutes);
 app.use("/notifications", notificationRoutes);
