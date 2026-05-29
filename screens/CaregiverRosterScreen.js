@@ -117,7 +117,7 @@ export default function CaregiverRosterScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Seniors Roster" subtitle="Sort by urgency and follow up quickly" />
+      <Header title="Seniors List" subtitle="Sort by urgency and follow up quickly" />
 
       {/* FILTERS */}
       <View style={styles.filterArea}>
