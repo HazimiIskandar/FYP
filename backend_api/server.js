@@ -10,7 +10,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-/*
 const checkinRoutes = require("./routes/checkInRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 const rewardRoutes = require("./routes/rewardRoutes");
@@ -22,7 +21,6 @@ const medicalConditionRoutes = require("./routes/medicalConditionRoutes");
 const staffRoutes = require("./routes/staffRoutes");
 const userAccountRoutes = require("./routes/userAccountRoutes");
 
-
 app.use("/checkin", checkinRoutes);
 app.use("/emergency", emergencyRoutes);
 app.use("/rewards", rewardRoutes);
@@ -33,7 +31,7 @@ app.use("/notifications", notificationRoutes);
 app.use("/medical", medicalConditionRoutes);
 app.use("/staff", staffRoutes);
 app.use("/users", userAccountRoutes);
-*/
+
 // MySQL Connection is handled in config/db.js
 
 // Test route

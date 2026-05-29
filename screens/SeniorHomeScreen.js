@@ -10,7 +10,18 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const displayStreak = Math.max(0, currentStreak ?? 0);
   const languages = ['English', '中文', 'Malay', 'தமிழ்'];
-  const seniorName = senior?.name || senior?.full_name || `${senior?.first_name || 'Mr'} ${senior?.last_name || 'Tan'}`;
+
+  const getSeniorDisplayName = (senior) => {
+    if (!senior) return 'Unknown Senior';
+    if (senior.full_name) return senior.full_name;
+    if (senior.name) return senior.name;
+    const firstName = senior.first_name || senior.firstName || '';
+    const lastName = senior.last_name || senior.lastName || '';
+    const combined = `${firstName} ${lastName}`.trim();
+    return combined || 'Unknown Senior';
+  };
+
+  const seniorName = getSeniorDisplayName(senior);
 
   useEffect(() => {
     if (!hasCheckedIn) {

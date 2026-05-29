@@ -25,8 +25,9 @@ export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogo
     return `Pending follow up | ${unit}`;
   };
 
-  const getName = (senior) =>
-    senior?.name || senior?.full_name || `${senior?.first_name || 'Mr'} ${senior?.last_name || 'Tan'}`;
+  const getSeniorDisplayName = (senior) => {
+    return senior?.full_name ?? 'Unknown Senior';
+  };
 
   const rosterItems = seniors.map((senior, index) => ({
     id: senior?.id || senior?.SeniorID || index,

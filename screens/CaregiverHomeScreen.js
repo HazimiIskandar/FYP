@@ -12,8 +12,15 @@ export default function CaregiverHomeScreen({
   onGoToRoster,
   onLogout,
 }) {
-  const getDisplayName = (senior) =>
-    senior?.name || senior?.full_name || `${senior?.first_name || 'Mr'} ${senior?.last_name || 'Tan'}`;
+  const getDisplayName = (senior) => {
+    if (!senior) return 'Unknown Senior';
+    if (senior.full_name) return senior.full_name;
+    if (senior.name) return senior.name;
+    const firstName = senior.first_name || senior.firstName || '';
+    const lastName = senior.last_name || senior.lastName || '';
+    const combined = `${firstName} ${lastName}`.trim();
+    return combined || 'Unknown Senior';
+  };
 
   const getUnitLabel = (senior) =>
     senior?.unit_number || senior?.unit_no || senior?.unit || senior?.unitLabel || '#04-12';
@@ -28,7 +35,7 @@ export default function CaregiverHomeScreen({
     return 'Monitor';
   };
 
-  const seniorName = getDisplayName(prioritySenior) || 'Mr Tan';
+  const seniorName = getDisplayName(prioritySenior);
   const seniorAge = prioritySenior?.age || prioritySenior?.age_range || '';
   const seniorUnit = getUnitLabel(prioritySenior);
   const contactName = getContactName(prioritySenior);
