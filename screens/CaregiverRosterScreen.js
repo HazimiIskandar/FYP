@@ -1,14 +1,22 @@
-import React, { useRef, useState } from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
 
-export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogout }) {
+export default function CaregiverRosterScreen({
+  seniors = [],
+  onGoToHome,
+  onLogout,
+  onSelectSenior
+}) {
   const getRawText = (value) => (value ?? '').toString();
+
   const getStatusTag = (senior) => {
-    const raw = getRawText(senior?.status || senior?.checkin_status || senior?.health_status || '')
-      .toLowerCase();
+    const raw = getRawText(
+      senior?.status || senior?.checkin_status || senior?.health_status || ''
+    ).toLowerCase();
+
     if (/urgent|critical|fall|emergency|alert/.test(raw)) return 'Urgent';
     if (/missed|overdue/.test(raw)) return 'Missed';
     if (/pending|waiting|follow/.test(raw)) return 'Pending';
@@ -19,24 +27,29 @@ export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogo
   const getRosterLabel = (senior) => {
     const status = getStatusTag(senior);
     const unit = senior?.unit_number || senior?.unit_no || senior?.unit || '#04-12';
+
     if (status === 'Urgent') return `Fall detected | ${unit}`;
     if (status === 'Missed') return `Missed check-in | ${unit}`;
     if (status === 'Checked In') return `Checked in today | ${unit}`;
     return `Pending follow up | ${unit}`;
   };
 
-  const getSeniorDisplayName = (senior) => {
-    return senior?.full_name ?? 'Unknown Senior';
-  };
+  const getSeniorDisplayName = (senior) =>
+    senior?.full_name ?? 'Unknown Senior';
 
-  const rosterItems = seniors.map((senior, index) => ({
-    id: senior?.id || senior?.SeniorID || index,
-    name: getName(senior),
-    statusTag: getStatusTag(senior),
-    subtitle: getRosterLabel(senior),
-    avatarLetter: getName(senior).charAt(0),
-    colorScheme: getStatusTag(senior) === 'Checked In' ? 'safe' : 'alert',
-  }));
+  const rosterItems = seniors.map((senior, index) => {
+    const name = getSeniorDisplayName(senior);
+
+    return {
+      id: senior?.senior_id || senior?.id || index,
+      raw: senior, // 👈 IMPORTANT: keep full object
+      name,
+      statusTag: getStatusTag(senior),
+      subtitle: getRosterLabel(senior),
+      avatarLetter: name.charAt(0),
+      colorScheme: getStatusTag(senior) === 'Checked In' ? 'safe' : 'alert',
+    };
+  });
 
   const counts = rosterItems.reduce(
     (acc, item) => {
@@ -59,30 +72,40 @@ export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogo
   ];
 
   const [activeFilter, setActiveFilter] = useState(filters[0]);
-  const activeFilterKey = activeFilter.replace(/[^A-Za-z ]/g, '').trim().split(' ')[0] || 'All';
+
+  const activeFilterKey =
+    activeFilter.replace(/[^A-Za-z ]/g, '').trim().split(' ')[0] || 'All';
+
   const visibleRoster =
     activeFilterKey === 'All'
       ? rosterItems
       : rosterItems.filter((item) => item.statusTag === activeFilterKey);
 
-  const topUrgent = rosterItems.find((item) => item.statusTag === 'Urgent') || rosterItems[0] || null;
+  const topUrgent =
+    rosterItems.find((item) => item.statusTag === 'Urgent') ||
+    rosterItems[0] ||
+    null;
+
   const filterScrollRef = useRef(null);
   const filterScrollX = useRef(0);
   const filterDragStartX = useRef(0);
+
   const filterDragResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => (
-        Math.abs(gesture.dx) > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy)
-      ),
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dx) > 4 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+
       onPanResponderGrant: () => {
         filterDragStartX.current = filterScrollX.current;
       },
+
       onPanResponderMove: (_, gesture) => {
         filterScrollRef.current?.scrollTo({
           x: Math.max(0, filterDragStartX.current - gesture.dx),
           animated: false,
         });
       },
+
       onShouldBlockNativeResponder: () => false,
     })
   ).current;
@@ -91,6 +114,7 @@ export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogo
     <SafeAreaView style={styles.container}>
       <Header title="Seniors Roster" subtitle="Sort by urgency and follow up quickly" />
 
+      {/* FILTERS */}
       <View style={styles.filterArea}>
         <ScrollView
           ref={filterScrollRef}
@@ -104,19 +128,30 @@ export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogo
           }}
           {...filterDragResponder.panHandlers}
         >
-          {filters.map((filter, index) => (
+          {filters.map((filter) => (
             <TouchableOpacity
               key={filter}
-              style={[styles.filterPill, activeFilter === filter ? styles.filterPillActive : null]}
+              style={[
+                styles.filterPill,
+                activeFilter === filter && styles.filterPillActive,
+              ]}
               onPress={() => setActiveFilter(filter)}
               activeOpacity={0.86}
             >
-              <Text style={[styles.filterText, activeFilter === filter ? styles.filterTextActive : null]}>{filter}</Text>
+              <Text
+                style={[
+                  styles.filterText,
+                  activeFilter === filter && styles.filterTextActive,
+                ]}
+              >
+                {filter}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
+      {/* LIST */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {topUrgent ? (
           <View style={styles.urgentCard}>
@@ -124,42 +159,80 @@ export default function CaregiverRosterScreen({ seniors = [], onGoToHome, onLogo
               <Ionicons name="alert" size={30} color="#FFFFFF" />
             </View>
             <View style={styles.urgentCopy}>
-              <Text style={styles.urgentTitle}>{topUrgent.statusTag === 'Urgent' ? 'Fall detected' : topUrgent.statusTag}</Text>
-              <Text style={styles.urgentSub}>{`${topUrgent.name} | ${topUrgent.subtitle.split('|')[1]?.trim() || ''}`}</Text>
-              <Text style={styles.urgentTime}>{topUrgent.updatedAt || 'Recent alert'}</Text>
+              <Text style={styles.urgentTitle}>
+                {topUrgent.statusTag === 'Urgent' ? 'Fall detected' : topUrgent.statusTag}
+              </Text>
+              <Text style={styles.urgentSub}>
+                {`${topUrgent.name} | ${
+                  topUrgent.subtitle.split('|')[1]?.trim() || ''
+                }`}
+              </Text>
             </View>
-            <TouchableOpacity style={styles.ack} activeOpacity={0.86}>
-              <Text style={styles.ackText}>Acknowledge</Text>
-            </TouchableOpacity>
           </View>
         ) : null}
 
         {visibleRoster.length > 0 ? (
           visibleRoster.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.rosterCard} onPress={onGoToHome} activeOpacity={0.86}>
-              <View style={[styles.avatar, item.colorScheme === 'safe' ? styles.safeAvatar : null]}>
-                <Text style={[styles.avatarText, item.colorScheme === 'safe' ? styles.safeAvatarText : null]}>{item.avatarLetter}</Text>
+            <TouchableOpacity
+              key={item.id}
+              style={styles.rosterCard}
+              activeOpacity={0.86}
+              onPress={() => {
+                if (onSelectSenior) {
+                  onSelectSenior(item.raw); // 👈 ALWAYS real DB object
+                }
+              }}
+            >
+              <View
+                style={[
+                  styles.avatar,
+                  item.colorScheme === 'safe' && styles.safeAvatar,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.avatarText,
+                    item.colorScheme === 'safe' && styles.safeAvatarText,
+                  ]}
+                >
+                  {item.avatarLetter}
+                </Text>
               </View>
+
               <View style={styles.rosterCopy}>
                 <Text style={styles.rosterText}>{item.name}</Text>
                 <Text style={styles.rosterSub}>{item.subtitle}</Text>
               </View>
+
               <Ionicons
-                name={item.statusTag === 'Checked In' ? 'checkmark-circle' : 'warning-outline'}
+                name={
+                  item.statusTag === 'Checked In'
+                    ? 'checkmark-circle'
+                    : 'warning-outline'
+                }
                 size={26}
-                color={item.statusTag === 'Checked In' ? '#16A34A' : '#DC2626'}
+                color={
+                  item.statusTag === 'Checked In' ? '#16A34A' : '#DC2626'
+                }
               />
             </TouchableOpacity>
           ))
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No seniors found</Text>
-            <Text style={styles.emptyText}>Please sync your roster or check your database connection.</Text>
+            <Text style={styles.emptyText}>
+              Please sync your roster or check your database connection.
+            </Text>
           </View>
         )}
       </ScrollView>
 
-      <CaregiverBottomNav activeTab="Seniors" onHome={onGoToHome} onSeniors={() => {}} onLogout={onLogout} />
+      <CaregiverBottomNav
+        activeTab="Seniors"
+        onHome={onGoToHome}
+        onSeniors={() => {}}
+        onLogout={onLogout}
+      />
     </SafeAreaView>
   );
 }
@@ -211,10 +284,7 @@ const styles = StyleSheet.create({
   },
   urgentCopy: { flex: 1 },
   urgentTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
-  urgentSub: { color: '#FEE2E2', fontSize: 15, fontWeight: '700', marginTop: 3 },
-  urgentTime: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', marginTop: 5 },
-  ack: { backgroundColor: '#FFFFFF', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 18 },
-  ackText: { color: '#991B1B', fontSize: 13, fontWeight: '900' },
+  urgentSub: { color: '#FEE2E2', fontSize: 15, fontWeight: '700' },
   rosterCard: {
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
@@ -234,10 +304,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  avatarText: { color: '#B91C1C', fontSize: 20, fontWeight: '900' },
+  avatarText: {
+    color: '#B91C1C',
+    fontSize: 20,
+    fontWeight: '900',
+  },
   safeAvatar: { backgroundColor: '#DCFCE7' },
   safeAvatarText: { color: '#166534' },
   rosterCopy: { flex: 1 },
   rosterText: { color: '#111827', fontSize: 21, fontWeight: '900' },
   rosterSub: { color: '#6B7280', fontSize: 14, marginTop: 4 },
+  emptyState: {
+    marginTop: 28,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  emptyText: {
+    color: '#6B7280',
+    fontSize: 14,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
 });

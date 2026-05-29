@@ -9,6 +9,7 @@ import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
+import SeniorDetailsScreen from './screens/SeniorDetailsScreen';
 import CommunityScreen from './screens/CommunityScreen';
 
 import {
@@ -21,6 +22,8 @@ export default function App() {
 
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
+
+  const [selectedSenior, setSelectedSenior] = useState(null);
 
   const API_BASE = 'https://fyp-senior-connect.onrender.com';
 
@@ -204,6 +207,25 @@ export default function App() {
           seniors={seniors}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onLogout={() => setCurrentScreen('Login')}
+
+          onSelectSenior={(senior) => {
+            setSelectedSenior(senior);
+            setCurrentScreen('SeniorDetails');
+          }}
+        />
+      );
+    }
+
+    if (currentScreen === 'SeniorDetails') {
+      return (
+        <SeniorDetailsScreen
+          senior={selectedSenior}
+          onGoToHome={() => setCurrentScreen('CaregiverHome')}
+          onGoBack={() => setCurrentScreen('CaregiverRoster')}
+          onLogout={() => setCurrentScreen('Login')}
+          navigation={{
+            goBack: () => setCurrentScreen('CaregiverRoster')
+          }}
         />
       );
     }

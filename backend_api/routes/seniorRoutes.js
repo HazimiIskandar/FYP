@@ -27,6 +27,31 @@ router.get("/:senior_id/details", (req, res) => {
   });
 });
 
+router.get("/:senior_id/medical-conditions", (req, res) => {
+
+  const sql = `
+    SELECT
+      mc.condition_id,
+      mc.condition_name,
+      mc.severity_level,
+      mc.medication_required,
+      mc.notes,
+      smc.diagnosed_date
+    FROM Senior_Medical_Condition smc
+    JOIN Medical_Condition mc
+      ON smc.condition_id = mc.condition_id
+    WHERE smc.senior_id = ?
+  `;
+
+  db.query(sql, [req.params.senior_id], (err, results) => {
+    if (err) {
+      return res.status(500).json(err);
+    }
+
+    res.json(results);
+  });
+});
+
 router.get("/:senior_id", (req, res) => {
   db.query(
     "SELECT * FROM Senior WHERE senior_id = ?",
