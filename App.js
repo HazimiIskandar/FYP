@@ -5,6 +5,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 // Screens
 import LanguageScreen from './screens/LanguageScreen';
 import LoginScreen from './screens/LoginScreen';
+import BiometricFaceScreen from './screens/BiometricFaceScreen';
 import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
@@ -261,10 +262,18 @@ export default function App() {
     if (currentScreen === 'Login') {
       return (
         <LoginScreen
-          onLogin={() => setCurrentScreen('Home')}
+          onLogin={() => setCurrentScreen('Biometric')}
           onCaregiverLogin={() => setCurrentScreen('CaregiverHome')}
         />
       );
+    }
+
+    if (currentScreen === 'Biometric') {
+      return (
+        <BiometricFaceScreen
+          onAuthenticated={() => setCurrentScreen('Home')}
+        />
+     );
     }
 
     if (currentScreen === 'Home') {
