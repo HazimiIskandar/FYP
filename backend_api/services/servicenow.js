@@ -1,49 +1,33 @@
 const axios = require("axios");
 
+// CONFIG
+const INSTANCE_URL = "https://dev316146.service-now.com";
 
-// WORKFLOW
-const triggerServiceNowWorkflow = (
-    senior_id,
-    event_type
-) => {
+const USERNAME = process.env.SN_USERNAME;
+const PASSWORD = process.env.SN_PASSWORD;
 
-    console.log(`
-        ServiceNow Workflow Triggered
-        Senior ID: ${senior_id}
-        Event: ${event_type}
-    `);
-
+const auth = {
+    username: USERNAME,
+    password: PASSWORD
 };
 
-
-// REAL INCIDENT API 
-const createIncident = async (
-    short_description,
-    description
-) => {
-
-    // CHANGE THESE LATER
-    const SERVICENOW_URL =
-        "https://YOUR-INSTANCE.service-now.com/api/now/table/incident";
-
-    const USERNAME = "admin";
-    const PASSWORD = "yourpassword";
-
+// CREATE CHECK-IN RECORD
+async function createCheckInResponse(
+    seniorId,
+    eventType,
+    isOkay
+) {
     try {
 
         const response = await axios.post(
-            SERVICENOW_URL,
+            `${INSTANCE_URL}/api/now/table/u_checkin_response`,
             {
-                short_description,
-                description,
-                urgency: "1",
-                impact: "1"
+                u_senior_id: seniorId,
+                u_event_type: eventType,
+                u_im_okay: isOkay
             },
             {
-                auth: {
-                    username: USERNAME,
-                    password: PASSWORD
-                },
+                auth,
                 headers: {
                     "Content-Type": "application/json",
                     "Accept": "application/json"
@@ -51,22 +35,40 @@ const createIncident = async (
             }
         );
 
-        console.log("ServiceNow Incident Created");
+        console.log("Record Created");
+        console.log(response.data.result);
 
-        return response.data;
+        return response.data.result;
 
-    } catch (err) {
-
-        console.log(
-            "ServiceNow Error:",
-            err.response?.data || err.message
+    } catch (error) {
+        console.error(
+            error.response?.data || error.message
         );
     }
-};
+}
 
+// TRIGGER CHECK-IN
+async function triggerCheckIn(
+    seniorId,
+    eventType,
+    isOkay
+) {
 
-// EXPORT BOTH
+    return await createCheckInResponse(
+        seniorId,
+        eventType,
+        isOkay
+    );
+}
+
+// Example
+triggerCheckIn(
+    "S001",
+    "Daily Check-In",
+    false
+);
+
 module.exports = {
-    triggerServiceNowWorkflow,
-    createIncident
+    triggerCheckIn,
+    createCheckInResponse
 };
