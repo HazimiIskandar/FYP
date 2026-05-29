@@ -5,88 +5,96 @@ const db = require("./config/db");
 const { monitorCheckIns } = require("./routes/escalationRoutes");
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-const checkinRoutes = require("./routes/checkInRoutes");
-const emergencyRoutes = require("./routes/emergencyRoutes");
-const rewardRoutes = require("./routes/rewardRoutes");
-const seniorRoutes = require("./routes/seniorRoutes");
-const escalationRoutes = require("./routes/escalationRoutes");
-const nokRoutes = require("./routes/nokRoutes");
-const notificationRoutes = require("./routes/notificationRoutes");
-const medicalConditionRoutes = require("./routes/medicalConditionRoutes");
-const staffRoutes = require("./routes/staffRoutes");
-const userAccountRoutes = require("./routes/userAccountRoutes");
-const sensorRoutes = require("./routes/sensorRoutes");
+// =========================
+// ROUTES (MODULAR)
+// =========================
+app.use("/checkin", require("./routes/checkInRoutes"));
+app.use("/emergency", require("./routes/emergencyRoutes"));
+app.use("/rewards", require("./routes/rewardRoutes"));
+app.use("/seniors", require("./routes/seniorRoutes"));
+app.use("/escalation", require("./routes/escalationRoutes"));
+app.use("/nok", require("./routes/nokRoutes"));
+app.use("/notifications", require("./routes/notificationRoutes"));
+app.use("/medical", require("./routes/medicalConditionRoutes"));
+app.use("/staff", require("./routes/staffRoutes"));
+app.use("/users", require("./routes/userAccountRoutes"));
+app.use("/sensors", require("./routes/sensorRoutes"));
 
-app.use("/checkin", checkinRoutes);
-app.use("/emergency", emergencyRoutes);
-app.use("/rewards", rewardRoutes);
-app.use("/seniors", seniorRoutes);
-app.use("/escalation", escalationRoutes);
-app.use("/nok", nokRoutes);
-app.use("/notifications", notificationRoutes);
-app.use("/medical", medicalConditionRoutes);
-app.use("/staff", staffRoutes);
-app.use("/users", userAccountRoutes);
-app.use("/sensors", sensorRoutes);
-
-// MySQL Connection is handled in config/db.js
-
-// Test route
+// =========================
+// HEALTH CHECK
+// =========================
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
-// Example API route (test query)
+// =========================
+// TEST ROUTE
+// =========================
 app.get("/test", (req, res) => {
   db.query("SELECT 1 + 1 AS result", (err, results) => {
-    if (err) {
-      res.status(500).send(err);
-      return;
-    }
+    if (err) return res.status(500).json(err);
     res.json(results);
   });
 });
 
-// Emergency Event
+// =========================
+// EMERGENCY EVENTS
+// =========================
 app.get("/emergency-events", (req, res) => {
-  db.query("SELECT * FROM Emergency_Event", (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results);
-  });
+  db.query(
+    "SELECT * FROM Emergency_Event ORDER BY created_at DESC",
+    (err, results) => {
+      if (err) return res.status(500).json(err);
+      res.json(results);
+    }
+  );
 });
 
-
-// Daily CheckIn
+// =========================
+// DAILY CHECK-INS
+// =========================
 app.get("/checkins", (req, res) => {
-  db.query("SELECT * FROM Daily_CheckIn", (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results);
-  });
+  db.query(
+    "SELECT * FROM Daily_CheckIn ORDER BY checkin_timestamp DESC",
+    (err, results) => {
+      if (err) return res.status(500).json(err);
+      res.json(results);
+    }
+  );
 });
 
-
-// User Account
+// =========================
+// USER ACCOUNTS
+// =========================
 app.get("/users", (req, res) => {
-  db.query("SELECT * FROM User_Account", (err, results) => {
-    if (err) return res.status(500).send(err);
-    res.json(results);
-  });
+  db.query(
+    "SELECT * FROM User_Account",
+    (err, results) => {
+      if (err) return res.status(500).json(err);
+      res.json(results);
+    }
+  );
 });
 
-// Escalation Timer
-// runs every 10 minutes (real system)
+// =========================
+// ESCALATION MONITOR
+// =========================
+// runs every 10 minutes
 setInterval(() => {
-    console.log("Checking missed check-ins...");
-    monitorCheckIns();
+  console.log("[ESCALATION] Checking missed check-ins...");
+  monitorCheckIns();
 }, 600000);
 
-// Start server
+// =========================
+// START SERVER
+// =========================
 const PORT = process.env.PORT || 10000;
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

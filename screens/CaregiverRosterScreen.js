@@ -33,8 +33,14 @@ export default function CaregiverRosterScreen({
   return `Pending follow up`;
   };
 
-  const getSeniorDisplayName = (senior) =>
-    senior?.full_name ?? 'Unknown Senior';
+  const getSeniorDisplayName = (senior) => {
+    return (
+      senior?.User_Account?.full_name ||
+      senior?.user?.full_name ||
+      senior?.full_name ||
+      'Unknown Senior'
+    );
+  };
 
   const rosterItems = seniors.map((senior, index) => {
     const name = getSeniorDisplayName(senior);
@@ -45,7 +51,7 @@ export default function CaregiverRosterScreen({
       name,
       statusTag: getStatusTag(senior),
       subtitle: getRosterLabel(senior),
-      avatarLetter: name.charAt(0),
+      avatarLetter: name?.charAt(0)?.toUpperCase() || '?',
       colorScheme: getStatusTag(senior) === 'Checked In' ? 'safe' : 'alert',
     };
   });

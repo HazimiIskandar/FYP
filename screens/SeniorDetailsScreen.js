@@ -5,7 +5,13 @@ import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
 
 export default function SeniorDetailsScreen({ senior, medicalConditions = [], onGoBack, onGoToHome, onLogout }) {
-  const name = senior?.full_name || 'Unknown Senior';
+  console.log('=== SENIOR DETAILS SCREEN MOUNTED ===');
+  console.log('Senior prop received:', JSON.stringify(senior, null, 2));
+  console.log('Medical conditions prop:', medicalConditions);
+  
+  const name =
+    senior?.full_name ||
+    'Unknown Senior';
   const initial = name.charAt(0).toUpperCase();
 
   const status = (senior?.status || 'Pending').toLowerCase();
@@ -44,6 +50,9 @@ export default function SeniorDetailsScreen({ senior, medicalConditions = [], on
       : Array.isArray(senior?.medicalConditions)
         ? senior.medicalConditions
         : [];
+
+  // Get NOK contacts from senior object set by App
+  const nokContacts = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
   return (
     <SafeAreaView style={styles.container}>
 
@@ -172,19 +181,56 @@ export default function SeniorDetailsScreen({ senior, medicalConditions = [], on
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Emergency Contact</Text>
 
-          <View style={styles.row}>
-            <Ionicons name="person-outline" size={18} color="#6B7280" />
-            <Text style={styles.rowText}>
-              {senior?.emergencyContact?.name || 'Not available'}
-            </Text>
-          </View>
+          {nokContacts.length > 0 ? (
+            nokContacts.map((nok, index) => (
+              <View key={nok.nok_id || index} style={styles.nokBlock}>
 
-          <View style={styles.row}>
-            <Ionicons name="call-outline" size={18} color="#6B7280" />
-            <Text style={styles.rowText}>
-              {senior?.emergencyContact?.phone || 'Not available'}
-            </Text>
-          </View>
+                <View style={styles.row}>
+                  <Ionicons name="person-outline" size={18} color="#6B7280" />
+                  <Text style={styles.rowText}>
+                    {nok.full_name || 'Not available'} ({nok.relationship_to_senior || 'N/A'})
+                  </Text>
+                </View>
+
+                <View style={styles.row}>
+                  <Ionicons name="call-outline" size={18} color="#6B7280" />
+                  <Text style={styles.rowText}>
+                    {nok.phone_number || 'Not available'}
+                  </Text>
+                </View>
+
+                {nok.email && (
+                  <View style={styles.row}>
+                    <Ionicons name="mail-outline" size={18} color="#6B7280" />
+                    <Text style={styles.rowText}>
+                      {nok.email}
+                    </Text>
+                  </View>
+                )}
+
+                {nok.address && (
+                  <View style={styles.row}>
+                    <Ionicons name="home-outline" size={18} color="#6B7280" />
+                    <Text style={styles.rowText}>
+                      {nok.address}
+                    </Text>
+                  </View>
+                )}
+
+                {index !== nokContacts.length - 1 && (
+                  <View style={styles.conditionDivider} />
+                )}
+
+              </View>
+            ))
+          ) : (
+            <View style={styles.row}>
+              <Ionicons name="alert-circle-outline" size={18} color="#6B7280" />
+              <Text style={styles.rowText}>
+                No emergency contact recorded
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* ACTION BUTTONS */}
@@ -369,6 +415,9 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   conditionBlock: {
-  marginBottom: 6,
-},
+    marginBottom: 6,
+  },
+  nokBlock: {
+    marginBottom: 6,
+  },
 });

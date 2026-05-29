@@ -14,7 +14,6 @@ import CommunityScreen from './screens/CommunityScreen';
 
 import {
   cancelMissedCheckInReminders,
-  scheduleMissedCheckInReminders,
   setupCheckInNotifications,
 } from './services/checkInNotifications';
 
@@ -22,51 +21,127 @@ export default function App() {
 
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
-
   const [selectedSenior, setSelectedSenior] = useState(null);
 
   const API_BASE = 'https://fyp-senior-connect.onrender.com';
 
   const [seniors, setSeniors] = useState([]);
+  const [users, setUsers] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
   const [emergencyEvents, setEmergencyEvents] = useState([]);
   const [rewardStreaks, setRewardStreaks] = useState([]);
 
+  // -------------------------
+  // DB NORMALIZER (IMPORTANT FIX)
+  // -------------------------
+  const mergeSeniorWithUser = (senior, userMap = null) => {
+    const user = userMap
+      ? userMap.get(senior.user_id)
+      : users.find((u) => u.user_id === senior.user_id);
+
+    return {
+      ...senior,
+      ...(user || {}),
+    };
+  };
+
+  const normalizeSenior = (s, userMap = null) => {
+    const combined = mergeSeniorWithUser(s, userMap);
+
+    return {
+      ...combined,
+
+      full_name:
+        combined?.full_name ||
+        combined?.User_Account?.full_name ||
+        combined?.user?.full_name ||
+        'Unknown Senior',
+
+      dob:
+        combined?.dob ||
+        combined?.User_Account?.dob ||
+        null,
+
+      gender:
+        combined?.gender ||
+        combined?.User_Account?.gender ||
+        null,
+
+      address:
+        combined?.address ||
+        combined?.User_Account?.address ||
+        null,
+
+      postal_code:
+        combined?.postal_code ||
+        combined?.User_Account?.postal_code ||
+        null,
+
+      unit_number:
+        combined?.unit_number ||
+        combined?.User_Account?.unit_number ||
+        null,
+    };
+  };
+
   const currentSenior =
-    seniors.find((s) => parseInt(s?.senior_id, 10) === 1) || seniors?.[0] || null;
+  seniors.find((s) => parseInt(s?.senior_id, 10) === 1) ||
+  seniors?.[0] ||
+  null;
 
   const getSeniorDisplayName = (senior) => {
-    return senior?.full_name ?? 'Unknown Senior';
+    return (
+      senior?.full_name ||
+      senior?.User_Account?.full_name ||
+      senior?.user?.full_name ||
+      'Unknown Senior'
+    );
   };
 
   const seniorName = getSeniorDisplayName(currentSenior);
 
+  // -------------------------
+  // SELECT SENIOR (UPDATED)
+  // -------------------------
   const handleSelectSenior = async (senior) => {
+    console.log('=== SELECTING SENIOR ===');
+
     try {
-      const res = await fetch(
-        `${API_BASE}/seniors/${senior.senior_id}/medical-conditions`
-      );
+      const [conditionsRes, nokRes] = await Promise.all([
+        fetch(`${API_BASE}/seniors/${senior.senior_id}/medical-conditions`),
+        fetch(`${API_BASE}/seniors/${senior.senior_id}/nok`)
+      ]);
 
-      const conditions = await res.json();
+      const conditionsData = await conditionsRes.json();
+      const conditions = Array.isArray(conditionsData) ? conditionsData : [];
+      const nokData = await nokRes.json();
+      const nokList = Array.isArray(nokData) ? nokData : [];
 
-      setSelectedSenior({
-        ...senior,
-        medicalConditions: Array.isArray(conditions) ? conditions : []
-      });
+      const enhancedSenior = {
+        ...normalizeSenior(senior),
+        medicalConditions: Array.isArray(conditions) ? conditions : [],
+        nokContacts: Array.isArray(nokList) ? nokList : []
+      };
 
+      setSelectedSenior(enhancedSenior);
       setCurrentScreen('SeniorDetails');
+
     } catch (err) {
-      console.log('Failed to fetch medical conditions:', err);
+      console.log('Failed to fetch senior details:', err);
 
       setSelectedSenior({
-        ...senior,
-        medicalConditions: []
+        ...normalizeSenior(senior),
+        medicalConditions: [],
+        nokContacts: []
       });
 
       setCurrentScreen('SeniorDetails');
     }
   };
 
+  // -------------------------
+  // STREAK + CHECKIN LOGIC
+  // -------------------------
   const getStreakValue = (item) =>
     item?.current_streak ?? item?.streak ?? item?.days ?? 0;
 
@@ -74,6 +149,7 @@ export default function App() {
     getStreakValue(rewardStreaks?.[0]) || getStreakValue(currentSenior);
 
   const todayString = new Date().toDateString();
+
   const checkedInCount = Array.from(
     new Set(
       checkIns
@@ -89,41 +165,58 @@ export default function App() {
   ).length;
 
   // -------------------------
-  // Notifications setup
+  // NOTIFICATIONS
   // -------------------------
   useEffect(() => {
     setupCheckInNotifications();
   }, []);
 
   // -------------------------
-  // Fetch backend data
+  // FETCH DATA (FIXED NORMALIZATION)
   // -------------------------
   useEffect(() => {
     const fetchJson = async (url) => {
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+        throw new Error(`Request failed: ${response.status}`);
       }
       return response.json();
     };
 
     const fetchData = async () => {
       try {
-        const [seniorsData, checkInsData, emergencyData, rewardsData] =
+        const [seniorsData, usersData, checkInsData, emergencyData, rewardsData] =
           await Promise.all([
             fetchJson(`${API_BASE}/seniors`),
+            fetchJson(`${API_BASE}/users`),
             fetchJson(`${API_BASE}/checkins`),
             fetchJson(`${API_BASE}/emergency-events`),
             fetchJson(`${API_BASE}/rewards`),
           ]);
 
-        setSeniors(Array.isArray(seniorsData) ? seniorsData : []);
+        console.log('=== FETCHED SENIORS DATA ===');
+        console.log('=== FETCHED USERS DATA ===');
+
+        const userMap = new Map(
+          (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
+        );
+
+        setUsers(Array.isArray(usersData) ? usersData : []);
+        setSeniors(
+          Array.isArray(seniorsData)
+            ? seniorsData.map((senior) => normalizeSenior(senior, userMap))
+            : []
+        );
+
         setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
         setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
         setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
+
       } catch (err) {
         console.log("API fetch error:", err);
+
         setSeniors([]);
+        setUsers([]);
         setCheckIns([]);
         setEmergencyEvents([]);
         setRewardStreaks([]);
@@ -134,20 +227,15 @@ export default function App() {
   }, []);
 
   // -------------------------
-  // Check-in function
+  // CHECK-IN
   // -------------------------
   const handleCheckIn = async () => {
     try {
-      if (!currentSenior?.senior_id) {
-        console.log("No senior_id found");
-        return;
-      }
+      if (!currentSenior?.senior_id) return;
 
       await fetch(`${API_BASE}/checkin`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           senior_id: currentSenior.senior_id
         })
@@ -162,14 +250,12 @@ export default function App() {
   };
 
   // -------------------------
-  // Screen routing
+  // SCREEN ROUTING
   // -------------------------
   const renderScreen = () => {
 
     if (currentScreen === 'Language') {
-      return (
-        <LanguageScreen onSelectLanguage={() => setCurrentScreen('Login')} />
-      );
+      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('Login')} />;
     }
 
     if (currentScreen === 'Login') {
@@ -196,21 +282,6 @@ export default function App() {
       );
     }
 
-    if (currentScreen === 'Community') {
-      return (
-        <CommunityScreen onHome={() => setCurrentScreen('Home')} />
-      );
-    }
-
-    if (currentScreen === 'Emergency') {
-      return (
-        <EmergencyScreen
-          onCancel={() => setCurrentScreen('Home')}
-          onCallHelp={() => {}}
-        />
-      );
-    }
-
     if (currentScreen === 'CaregiverHome') {
       return (
         <CaregiverHomeScreen
@@ -233,7 +304,7 @@ export default function App() {
           seniors={seniors}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onLogout={() => setCurrentScreen('Login')}
-            onSelectSenior={handleSelectSenior}
+          onSelectSenior={handleSelectSenior}
         />
       );
     }
@@ -241,13 +312,11 @@ export default function App() {
     if (currentScreen === 'SeniorDetails') {
       return (
         <SeniorDetailsScreen
-          senior={selectedSenior ?? currentSenior}
+          senior={selectedSenior}
+          medicalConditions={selectedSenior?.medicalConditions ?? []}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoBack={() => setCurrentScreen('CaregiverRoster')}
           onLogout={() => setCurrentScreen('Login')}
-          navigation={{
-            goBack: () => setCurrentScreen('CaregiverRoster')
-          }}
         />
       );
     }
@@ -258,8 +327,6 @@ export default function App() {
   return <PhonePreview>{renderScreen()}</PhonePreview>;
 }
 
-// -------------------------
-// UI wrapper
 // -------------------------
 function PhonePreview({ children }) {
   if (Platform.OS !== 'web') return children;
@@ -274,8 +341,6 @@ function PhonePreview({ children }) {
   );
 }
 
-// -------------------------
-// Styles
 // -------------------------
 const styles = StyleSheet.create({
   previewBackground: {

@@ -2,22 +2,56 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 
+/**
+ * GET ALL SENIORS (roster)
+ */
 router.get("/", (req, res) => {
-  db.query("SELECT * FROM Senior", (err, results) => {
+  const sql = `
+    SELECT 
+      s.senior_id,
+      s.user_id,
+      s.age,
+      s.has_nok,
+      s.created_at,
+      u.full_name,
+      u.phone_number,
+      u.email,
+      u.dob,
+      u.gender,
+      u.address,
+      u.postal_code,
+      u.unit_number
+    FROM Senior s
+    LEFT JOIN User_Account u ON s.user_id = u.user_id
+  `;
+
+  db.query(sql, (err, results) => {
     if (err) return res.status(500).json(err);
     res.json(results);
   });
 });
 
-router.get("/:senior_id/details", (req, res) => {
+/**
+ * GET SINGLE SENIOR (basic profile)
+ */
+router.get("/:senior_id", (req, res) => {
   const sql = `
     SELECT 
-      s.*,
-      r.current_streak,
-      r.total_points
+      s.senior_id,
+      s.user_id,
+      s.age,
+      s.has_nok,
+      s.created_at,
+      u.full_name,
+      u.phone_number,
+      u.email,
+      u.dob,
+      u.gender,
+      u.address,
+      u.postal_code,
+      u.unit_number
     FROM Senior s
-    LEFT JOIN Reward_Streak r
-      ON s.senior_id = r.senior_id
+    LEFT JOIN User_Account u ON s.user_id = u.user_id
     WHERE s.senior_id = ?
   `;
 
@@ -27,8 +61,10 @@ router.get("/:senior_id/details", (req, res) => {
   });
 });
 
+/**
+ * GET MEDICAL CONDITIONS
+ */
 router.get("/:senior_id/medical-conditions", (req, res) => {
-
   const sql = `
     SELECT
       mc.condition_id,
@@ -44,45 +80,47 @@ router.get("/:senior_id/medical-conditions", (req, res) => {
   `;
 
   db.query(sql, [req.params.senior_id], (err, results) => {
-    if (err) {
-      return res.status(500).json(err);
-    }
-
+    if (err) return res.status(500).json(err);
     res.json(results);
   });
 });
 
-router.get("/:senior_id", (req, res) => {
-  db.query(
-    "SELECT * FROM Senior WHERE senior_id = ?",
-    [req.params.senior_id],
-    (err, results) => {
-      if (err) return res.status(500).json(err);
-      res.json(results[0] || null);
-    }
-  );
-});
-
-router.post("/", (req, res) => {
-  const { full_name, age, gender, address, phone_number } = req.body;
-  if (!full_name) {
-    return res.status(400).json({ error: "full_name is required" });
-  }
-
+/**
+ * GET NOK CONTACTS (FIXED STRUCTURE)
+ * 🔥 IMPORTANT FIX: return relationship properly mapped
+ */
+router.get("/:senior_id/nok", (req, res) => {
   const sql = `
-    INSERT INTO Senior
-    (full_name, age, gender, address, phone_number)
-    VALUES (?, ?, ?, ?, ?)
+    SELECT 
+      n.nok_id,
+      n.relationship_to_senior,
+      u.full_name,
+      u.phone_number,
+      u.email,
+      u.address,
+      u.postal_code
+    FROM Senior_has_NOK sn
+    JOIN NOK n ON sn.nok_id = n.nok_id
+    JOIN User_Account u ON n.user_id = u.user_id
+    WHERE sn.senior_id = ?
   `;
 
-  db.query(
-    sql,
-    [full_name, age, gender, address, phone_number],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
-      res.status(201).json({ message: "Senior created successfully", senior_id: result.insertId });
-    }
-  );
+  db.query(sql, [req.params.senior_id], (err, results) => {
+    if (err) return res.status(500).json(err);
+
+    // 🔧 normalize response for frontend safety
+    const formatted = results.map(r => ({
+      nok_id: r.nok_id,
+      full_name: r.full_name,
+      relationship_to_senior: r.relationship_to_senior,
+      phone_number: r.phone_number,
+      email: r.email,
+      address: r.address,
+      postal_code: r.postal_code
+    }));
+
+    res.json(formatted);
+  });
 });
 
 module.exports = router;
