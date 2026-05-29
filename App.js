@@ -12,6 +12,7 @@ import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
 import SeniorDetailsScreen from './screens/SeniorDetailsScreen';
 import CommunityScreen from './screens/CommunityScreen';
+import FakeCallScreen from './screens/FakeCallScreen';
 
 import {
   cancelMissedCheckInReminders,
@@ -334,7 +335,15 @@ export default function App() {
       return (
         <EmergencyScreen
           onGoBack={() => setCurrentScreen('Home')}
-          onLogout={() => setCurrentScreen('Login')}
+          onCallHelp={() => setCurrentScreen('FakeCall')}
+        />
+      );
+    }
+
+    if (currentScreen === 'FakeCall') {
+      return (
+        <FakeCallScreen
+          onEndCall={() => setCurrentScreen('Home')}
         />
       );
     }
