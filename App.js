@@ -330,6 +330,27 @@ export default function App() {
       );
     }
 
+    if (currentScreen === 'Emergency') {
+      return (
+        <EmergencyScreen
+          onGoBack={() => setCurrentScreen('Home')}
+          onLogout={() => setCurrentScreen('Login')}
+        />
+      );
+    }
+
+    if (currentScreen === 'Community') {
+      return (
+        <CommunityScreen
+          senior={currentSenior}
+          medicalConditions={currentSenior?.medicalConditions ?? []}
+          onGoToHome={() => setCurrentScreen('Home')}
+          onGoBack={() => setCurrentScreen('Home')}
+          onLogout={() => setCurrentScreen('Login')}
+        />
+      );
+    }
+
     return null;
   };
 
