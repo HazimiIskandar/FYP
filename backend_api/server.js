@@ -20,6 +20,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const medicalConditionRoutes = require("./routes/medicalConditionRoutes");
 const staffRoutes = require("./routes/staffRoutes");
 const userAccountRoutes = require("./routes/userAccountRoutes");
+const sensorRoutes = require("./routes/sensorRoutes");
 
 app.use("/checkin", checkinRoutes);
 app.use("/emergency", emergencyRoutes);
@@ -31,6 +32,7 @@ app.use("/notifications", notificationRoutes);
 app.use("/medical", medicalConditionRoutes);
 app.use("/staff", staffRoutes);
 app.use("/users", userAccountRoutes);
+app.use("/sensors", sensorRoutes);
 
 // MySQL Connection is handled in config/db.js
 
