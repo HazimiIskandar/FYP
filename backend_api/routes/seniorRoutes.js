@@ -3,18 +3,7 @@ const router = express.Router();
 const db = require("../config/db");
 
 router.get("/", (req, res) => {
-  const sql = `
-    SELECT 
-      senior_id,
-      full_name,
-      age,
-      gender,
-      unit_number,
-      phone_number
-    FROM Senior
-  `;
-
-  db.query(sql, (err, results) => {
+  db.query("SELECT * FROM Senior", (err, results) => {
     if (err) return res.status(500).json(err);
     res.json(results);
   });
