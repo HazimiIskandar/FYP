@@ -353,8 +353,7 @@ export default function App() {
         <CommunityScreen
           senior={currentSenior}
           medicalConditions={currentSenior?.medicalConditions ?? []}
-          onGoToHome={() => setCurrentScreen('Home')}
-          onGoBack={() => setCurrentScreen('Home')}
+          onHome={() => setCurrentScreen('Home')}
           onLogout={() => setCurrentScreen('Login')}
         />
       );
