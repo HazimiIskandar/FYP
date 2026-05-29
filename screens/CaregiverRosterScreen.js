@@ -18,6 +18,7 @@ export default function CaregiverRosterScreen({
   onLogout
 }) {
 
+
   const getName = (senior) => senior?.full_name || 'Unknown Senior';
 
   const getUnit = (senior) =>
