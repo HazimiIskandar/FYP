@@ -334,7 +334,7 @@ export default function App() {
     if (currentScreen === 'Emergency') {
       return (
         <EmergencyScreen
-          onGoBack={() => setCurrentScreen('Home')}
+          onCancel={() => setCurrentScreen('Home')}
           onCallHelp={() => setCurrentScreen('FakeCall')}
         />
       );
