@@ -28,19 +28,13 @@ export default function SeniorDetailsScreen({ senior, medicalConditions = [], on
     );
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Not recorded';
-
-    const date = new Date(dateString);
-    // Check if the date is valid before parsing
-    if (isNaN(date.getTime())) return dateString;
-
-    const day = date.getDate();
-    // 'short' gives you 'Jan', 'Feb', 'Mar', etc.
-    const month = date.toLocaleString('en-US', { month: 'short' });
-    const year = date.getFullYear();
-
-    return `${day}-${month}-${year}`;
+  const formatDate = (date) => {
+    if (!date) return 'Not recorded';
+    return new Date(date).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   };
 
   // prefer explicit prop, fall back to `senior.medicalConditions` set by App
@@ -153,13 +147,10 @@ export default function SeniorDetailsScreen({ senior, medicalConditions = [], on
                 <View style={styles.row}>
                   <Ionicons name="calendar-outline" size={18} color="#6B7280" />
                   <Text style={styles.rowText}>
-                    Diagnosed:{" "}
-                    {condition.diagnosed_date
-                      ? new Date(condition.diagnosed_date).toDateString()
-                      : 'Not recorded'}
+                    Diagnosed: {formatDate(condition.diagnosed_date)}
                   </Text>
                 </View>
-
+                
                 {/* divider only between items */}
                 {index !== conditions.length - 1 && (
                   <View style={styles.conditionDivider} />

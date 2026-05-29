@@ -25,13 +25,12 @@ export default function CaregiverRosterScreen({
   };
 
   const getRosterLabel = (senior) => {
-    const status = getStatusTag(senior);
-    const unit = senior?.unit_number || senior?.unit_no || senior?.unit || '#04-12';
+  const status = getStatusTag(senior);
 
-    if (status === 'Urgent') return `Fall detected | ${unit}`;
-    if (status === 'Missed') return `Missed check-in | ${unit}`;
-    if (status === 'Checked In') return `Checked in today | ${unit}`;
-    return `Pending follow up | ${unit}`;
+  if (status === 'Urgent') return `Fall detected`;
+  if (status === 'Missed') return `Missed check-in`;
+  if (status === 'Checked In') return `Checked in today`;
+  return `Pending follow up`;
   };
 
   const getSeniorDisplayName = (senior) =>
