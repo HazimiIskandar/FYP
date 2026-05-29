@@ -30,7 +30,7 @@ app.use("/emergency", emergencyRoutes);
 app.use("/rewards", rewardRoutes);
 */
 app.use("/seniors", seniorRoutes);
-/
+/*
 app.use("/escalation", escalationRoutes);
 app.use("/nok", nokRoutes);
 app.use("/notifications", notificationRoutes);
