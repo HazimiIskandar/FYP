@@ -29,33 +29,11 @@ export default function App() {
   const [emergencyEvents, setEmergencyEvents] = useState([]);
   const [rewardStreaks, setRewardStreaks] = useState([]);
 
-  const DEMO_SENIORS = [
-    {
-      senior_id: 1,
-      full_name: 'Mr Tan',
-      unit_number: '04-12',
-      age: 74,
-      phone_number: '9123 4567',
-      emergency_contact: 'Adrian Tan',
-    },
-    {
-      senior_id: 2,
-      full_name: 'Ms Lim',
-      unit_number: '05-03',
-      age: 71,
-      phone_number: '9888 1122',
-      emergency_contact: 'Grace Lim',
-    },
-  ];
-
-
   const currentSenior =
-    seniors.find((s) => parseInt(s?.senior_id, 10) === 1) ||
-    seniors?.[0] ||
-    null;
+    seniors.find((s) => parseInt(s?.senior_id, 10) === 1) || seniors?.[0] || DEMO_SENIORS[0];
 
   // FIX: MySQL field is full_name
-  const seniorName = currentSenior?.full_name ?? '';
+  const seniorName = currentSenior?.full_name || 'Mr Tan';
 
   const getStreakValue = (item) =>
     item?.current_streak ?? item?.streak ?? item?.days ?? 0;
@@ -172,14 +150,6 @@ export default function App() {
     }
 
     if (currentScreen === 'Home') {
-      if (!currentSenior) {
-        return (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text>No senior data available</Text>
-          </View>
-        );
-      }
-
       return (
         <SeniorHomeScreen
           senior={currentSenior}
@@ -289,3 +259,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
+
+// Testing 
+// 
