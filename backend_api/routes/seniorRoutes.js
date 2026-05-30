@@ -89,37 +89,27 @@ router.get("/:senior_id/medical-conditions", (req, res) => {
  * GET NOK CONTACTS (FIXED STRUCTURE)
  * 🔥 IMPORTANT FIX: return relationship properly mapped
  */
+/**
+ * GET NOK CONTACTS
+ */
 router.get("/:senior_id/nok", (req, res) => {
   const sql = `
-    SELECT 
+    SELECT
       n.nok_id,
-      n.relationship_to_senior,
-      u.full_name,
-      u.phone_number,
-      u.email,
-      u.address,
-      u.postal_code
+      n.full_name,
+      n.phone_number,
+      n.email,
+      n.relationship_to_senior
     FROM Senior_has_NOK sn
-    JOIN NOK n ON sn.nok_id = n.nok_id
-    JOIN User_Account u ON n.user_id = u.user_id
+    JOIN NOK n
+      ON sn.nok_id = n.nok_id
     WHERE sn.senior_id = ?
   `;
 
   db.query(sql, [req.params.senior_id], (err, results) => {
     if (err) return res.status(500).json(err);
 
-    // 🔧 normalize response for frontend safety
-    const formatted = results.map(r => ({
-      nok_id: r.nok_id,
-      full_name: r.full_name,
-      relationship_to_senior: r.relationship_to_senior,
-      phone_number: r.phone_number,
-      email: r.email,
-      address: r.address,
-      postal_code: r.postal_code
-    }));
-
-    res.json(formatted);
+    res.json(results);
   });
 });
 
