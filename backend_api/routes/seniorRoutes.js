@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../config/db");
+const { queryCallback } = require("../config/db-enhanced");
 
 /**
  * GET ALL SENIORS (roster)
@@ -25,9 +25,9 @@ router.get("/", (req, res) => {
     LEFT JOIN User_Account u ON s.user_id = u.user_id
   `;
 
-  db.query(sql, (err, results) => {
+  queryCallback(sql, [], (err, results) => {
     if (err) {
-      console.error("❌ ERROR fetching seniors:", err);
+      console.error("❌ ERROR fetching seniors:", err.message);
       return res.status(500).json({ 
         error: "Failed to fetch seniors",
         details: err.message 
@@ -62,9 +62,9 @@ router.get("/:senior_id", (req, res) => {
     WHERE s.senior_id = ?
   `;
 
-  db.query(sql, [req.params.senior_id], (err, results) => {
+  queryCallback(sql, [req.params.senior_id], (err, results) => {
     if (err) {
-      console.error("❌ ERROR fetching senior:", err);
+      console.error("❌ ERROR fetching senior:", err.message);
       return res.status(500).json({ 
         error: "Failed to fetch senior",
         details: err.message 
@@ -92,9 +92,9 @@ router.get("/:senior_id/medical-conditions", (req, res) => {
     WHERE smc.senior_id = ?
   `;
 
-  db.query(sql, [req.params.senior_id], (err, results) => {
+  queryCallback(sql, [req.params.senior_id], (err, results) => {
     if (err) {
-      console.error("❌ ERROR fetching medical conditions:", err);
+      console.error("❌ ERROR fetching medical conditions:", err.message);
       return res.status(500).json({ 
         error: "Failed to fetch medical conditions",
         details: err.message 
@@ -105,10 +105,6 @@ router.get("/:senior_id/medical-conditions", (req, res) => {
   });
 });
 
-/**
- * GET NOK CONTACTS (FIXED STRUCTURE)
- * 🔥 IMPORTANT FIX: return relationship properly mapped
- */
 /**
  * GET NOK CONTACTS
  */
@@ -126,9 +122,9 @@ router.get("/:senior_id/nok", (req, res) => {
     WHERE sn.senior_id = ?
   `;
 
-  db.query(sql, [req.params.senior_id], (err, results) => {
+  queryCallback(sql, [req.params.senior_id], (err, results) => {
     if (err) {
-      console.error("❌ ERROR fetching NOK contacts:", err);
+      console.error("❌ ERROR fetching NOK contacts:", err.message);
       return res.status(500).json({ 
         error: "Failed to fetch NOK contacts",
         details: err.message 
