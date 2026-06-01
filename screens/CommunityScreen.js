@@ -1,154 +1,318 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { Animated, PanResponder, ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
-const scamQuestions = [
-  {
-    scenario: 'You get a WhatsApp from a +62 number saying your Shopee parcel is stuck. They ask you to tap a link and pay $1. What should you do?',
-    answers: ['Tap the link and pay', 'Ignore and check Shopee app directly', 'Forward it to family and friends'],
-    correctAnswer: 'Ignore and check Shopee app directly',
-  },
-  {
-    scenario: 'Someone calls and says they are from your bank. They ask for your OTP to stop a suspicious transaction. What should you do?',
-    answers: ['Give the OTP quickly', 'Hang up and call the bank hotline', 'Ask them to call back later'],
-    correctAnswer: 'Hang up and call the bank hotline',
-  },
-  {
-    scenario: 'A message says you won a supermarket voucher, but you must enter your Singpass details first. What should you do?',
-    answers: ['Enter Singpass to claim', 'Delete the message', 'Send your NRIC instead'],
-    correctAnswer: 'Delete the message',
-  },
-  {
-    scenario: 'A new online friend asks you to transfer money because their account is frozen. What should you do?',
-    answers: ['Transfer a small amount first', 'Say no and tell a trusted person', 'Share your bank account number'],
-    correctAnswer: 'Say no and tell a trusted person',
-  },
+const BOARD_SIZE = 5;
+const MOVES_PER_GAME = 15;
+const CANDIES = [
+  { symbol: '●', color: '#EF4444', background: '#FEE2E2' },
+  { symbol: '◆', color: '#2563EB', background: '#DBEAFE' },
+  { symbol: '★', color: '#F59E0B', background: '#FEF3C7' },
+  { symbol: '■', color: '#16A34A', background: '#DCFCE7' },
+  { symbol: '▲', color: '#9333EA', background: '#F3E8FF' },
 ];
 
-export default function CommunityScreen({ onHome, onLogout }) {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const timeoutRef = useRef(null);
-  const currentQuestion = scamQuestions[currentQuestionIndex];
-  const quizComplete = currentQuestionIndex >= scamQuestions.length;
+const createTile = () => Math.floor(Math.random() * CANDIES.length);
 
-  useEffect(() => () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+const createBoard = () => (
+  Array.from({ length: BOARD_SIZE }, () => (
+    Array.from({ length: BOARD_SIZE }, createTile)
+  ))
+);
+
+const copyBoard = (board) => board.map((row) => [...row]);
+
+const isAdjacent = (first, second) => (
+  Math.abs(first.row - second.row) + Math.abs(first.col - second.col) === 1
+);
+
+const findMatches = (board) => {
+  const matched = new Set();
+
+  for (let row = 0; row < BOARD_SIZE; row += 1) {
+    let runStart = 0;
+
+    for (let col = 1; col <= BOARD_SIZE; col += 1) {
+      if (col < BOARD_SIZE && board[row][col] === board[row][runStart]) {
+        continue;
+      }
+
+      if (col - runStart >= 3) {
+        for (let matchCol = runStart; matchCol < col; matchCol += 1) {
+          matched.add(`${row}-${matchCol}`);
+        }
+      }
+
+      runStart = col;
     }
-  }, []);
+  }
 
-  const handleAnswer = (answer) => {
-    if (selectedAnswer) {
+  for (let col = 0; col < BOARD_SIZE; col += 1) {
+    let runStart = 0;
+
+    for (let row = 1; row <= BOARD_SIZE; row += 1) {
+      if (row < BOARD_SIZE && board[row][col] === board[runStart][col]) {
+        continue;
+      }
+
+      if (row - runStart >= 3) {
+        for (let matchRow = runStart; matchRow < row; matchRow += 1) {
+          matched.add(`${matchRow}-${col}`);
+        }
+      }
+
+      runStart = row;
+    }
+  }
+
+  return matched;
+};
+
+const replaceMatches = (board, matched) => {
+  const nextBoard = copyBoard(board);
+
+  matched.forEach((key) => {
+    const [row, col] = key.split('-').map(Number);
+    nextBoard[row][col] = createTile();
+  });
+
+  return nextBoard;
+};
+
+const resolveCascadeMatches = (startingBoard) => {
+  let nextBoard = copyBoard(startingBoard);
+  let totalPoints = 0;
+  let cascadeCount = 0;
+
+  for (let cascade = 0; cascade < 8; cascade += 1) {
+    const matched = findMatches(nextBoard);
+
+    if (matched.size === 0) {
+      break;
+    }
+
+    totalPoints += matched.size * 20;
+    cascadeCount += 1;
+    nextBoard = replaceMatches(nextBoard, matched);
+  }
+
+  return { nextBoard, totalPoints, cascadeCount };
+};
+
+export default function CommunityScreen({ onHome, onLogout }) {
+  const [board, setBoard] = useState(createBoard);
+  const [score, setScore] = useState(0);
+  const [movesLeft, setMovesLeft] = useState(MOVES_PER_GAME);
+  const [message, setMessage] = useState('Drag a candy up, down, left, or right.');
+  const boardScale = useRef(new Animated.Value(1)).current;
+  const dragOffset = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const [draggingTile, setDraggingTile] = useState(null);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const gameOver = movesLeft <= 0;
+
+  const progressText = useMemo(() => {
+    if (gameOver) {
+      return score >= 300 ? 'Great job. Kopi reward unlocked!' : 'Good try. Play again to earn more points.';
+    }
+
+    return `${movesLeft} moves left`;
+  }, [gameOver, movesLeft, score]);
+
+  const resetGame = () => {
+    setBoard(createBoard());
+    setDraggingTile(null);
+    dragOffset.setValue({ x: 0, y: 0 });
+    setScrollEnabled(true);
+    setScore(0);
+    setMovesLeft(MOVES_PER_GAME);
+    setMessage('Drag a candy up, down, left, or right.');
+  };
+
+  const playMatchAnimation = () => {
+    boardScale.setValue(0.96);
+    Animated.spring(boardScale, {
+      toValue: 1,
+      friction: 4,
+      tension: 90,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const swapTiles = (firstTile, secondTile) => {
+    if (gameOver || !isAdjacent(firstTile, secondTile)) {
       return;
     }
 
-    setSelectedAnswer(answer);
+    const swappedBoard = copyBoard(board);
+    const firstValue = swappedBoard[firstTile.row][firstTile.col];
+    swappedBoard[firstTile.row][firstTile.col] = swappedBoard[secondTile.row][secondTile.col];
+    swappedBoard[secondTile.row][secondTile.col] = firstValue;
 
-    if (answer === currentQuestion.correctAnswer) {
-      setScore((currentScore) => currentScore + 1);
+    const { nextBoard, totalPoints, cascadeCount } = resolveCascadeMatches(swappedBoard);
+
+    setMovesLeft((moves) => moves - 1);
+
+    if (totalPoints === 0) {
+      setMessage('No match. Try another swap.');
+      return;
     }
 
-    timeoutRef.current = setTimeout(() => {
-      setSelectedAnswer(null);
-      setCurrentQuestionIndex((index) => index + 1);
-    }, 900);
+    playMatchAnimation();
+    setScore((currentScore) => currentScore + totalPoints);
+    setBoard(nextBoard);
+    setMessage(cascadeCount > 1 ? `Combo x${cascadeCount}. ${totalPoints} points!` : `Nice match. ${totalPoints} points!`);
   };
 
-  const restartQuiz = () => {
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setSelectedAnswer(null);
+  const handleTileDrag = (row, col, gesture) => {
+    if (gameOver) {
+      return;
+    }
+
+    const absX = Math.abs(gesture.dx);
+    const absY = Math.abs(gesture.dy);
+
+    if (Math.max(absX, absY) < 22) {
+      return;
+    }
+
+    const targetTile = { row, col };
+
+    if (absX > absY) {
+      targetTile.col += gesture.dx > 0 ? 1 : -1;
+    } else {
+      targetTile.row += gesture.dy > 0 ? 1 : -1;
+    }
+
+    if (
+      targetTile.row < 0 ||
+      targetTile.row >= BOARD_SIZE ||
+      targetTile.col < 0 ||
+      targetTile.col >= BOARD_SIZE
+    ) {
+      setMessage('Drag toward a candy beside it.');
+      return;
+    }
+
+    swapTiles({ row, col }, targetTile);
   };
 
-  const getAnswerStyle = (answer) => {
-    if (!selectedAnswer) {
-      return null;
-    }
+  const createDragResponder = (row, col) => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, gesture) => (
+      Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) > 4
+    ),
+    onMoveShouldSetPanResponderCapture: (_, gesture) => (
+      Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) > 4
+    ),
+    onPanResponderGrant: () => {
+      setDraggingTile({ row, col });
+      setScrollEnabled(false);
+      dragOffset.setValue({ x: 0, y: 0 });
+    },
+    onPanResponderMove: (_, gesture) => {
+      dragOffset.setValue({
+        x: Math.max(-32, Math.min(32, gesture.dx)),
+        y: Math.max(-32, Math.min(32, gesture.dy)),
+      });
+    },
+    onPanResponderRelease: (_, gesture) => {
+      Animated.spring(dragOffset, {
+        toValue: { x: 0, y: 0 },
+        friction: 5,
+        tension: 120,
+        useNativeDriver: true,
+      }).start(() => {
+        setDraggingTile(null);
+        setScrollEnabled(true);
+      });
 
-    if (answer === currentQuestion.correctAnswer) {
-      return styles.answerCorrect;
-    }
+      handleTileDrag(row, col, gesture);
+    },
+    onPanResponderTerminate: (_, gesture) => {
+      Animated.spring(dragOffset, {
+        toValue: { x: 0, y: 0 },
+        friction: 5,
+        tension: 120,
+        useNativeDriver: true,
+      }).start(() => {
+        setDraggingTile(null);
+        setScrollEnabled(true);
+      });
 
-    if (answer === selectedAnswer) {
-      return styles.answerWrong;
-    }
-
-    return styles.answerDimmed;
-  };
-
-  const getAnswerTextStyle = (answer) => {
-    if (!selectedAnswer) {
-      return null;
-    }
-
-    if (answer === currentQuestion.correctAnswer || answer === selectedAnswer) {
-      return styles.answerTextSelected;
-    }
-
-    return null;
-  };
+      if (Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) >= 10) {
+        handleTileDrag(row, col, gesture);
+      }
+    },
+    onShouldBlockNativeResponder: () => false,
+  });
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Spot the Scam" subtitle="Daily quiz to stay safe from scams" />
+      <Header title="Candy Match" subtitle="A simple matching game for today" />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.scoreCard}>
-          <View style={styles.scoreIcon}>
-            <Ionicons name="shield-checkmark" size={30} color="#2563EB" />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        scrollEnabled={scrollEnabled}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.scoreRow}>
+          <View style={styles.scoreTile}>
+            <Text style={styles.scoreNumber}>{score}</Text>
+            <Text style={styles.scoreLabel}>Points</Text>
           </View>
-          <View style={styles.scoreCopy}>
-            <Text style={styles.scoreTitle}>Today's safety points</Text>
-            <Text style={styles.scoreText}>{score} / {scamQuestions.length} correct</Text>
+          <View style={styles.scoreTile}>
+            <Text style={styles.scoreNumber}>{movesLeft}</Text>
+            <Text style={styles.scoreLabel}>Moves</Text>
           </View>
         </View>
 
-        {quizComplete ? (
-          <View style={styles.completeCard}>
-            <Ionicons name="trophy" size={72} color="#F59E0B" />
-            <Text style={styles.completeTitle}>Quiz complete</Text>
-            <Text style={styles.completeText}>
-              You scored {score} out of {scamQuestions.length}. Great job practising scam safety today.
-            </Text>
-            <TouchableOpacity style={styles.restartButton} onPress={restartQuiz} activeOpacity={0.86}>
-              <Text style={styles.restartButtonText}>Try again</Text>
-            </TouchableOpacity>
+        <View style={styles.messageCard}>
+          <Ionicons name={gameOver ? 'trophy' : 'sparkles'} size={24} color="#2563EB" />
+          <View style={styles.messageCopy}>
+            <Text style={styles.messageTitle}>{gameOver ? 'Game complete' : progressText}</Text>
+            <Text style={styles.messageText}>{gameOver ? progressText : message}</Text>
           </View>
-        ) : (
-          <>
-            <View style={styles.questionCard}>
-              <View style={styles.questionMetaRow}>
-                <Text style={styles.questionMeta}>Question {currentQuestionIndex + 1} of {scamQuestions.length}</Text>
-                <Text style={styles.dailyPill}>Daily Quiz</Text>
-              </View>
-              <Text style={styles.questionTitle}>What would you do?</Text>
-              <Text style={styles.scenarioText}>{currentQuestion.scenario}</Text>
-            </View>
+        </View>
 
-            <View style={styles.answerArea}>
-              {currentQuestion.answers.map((answer) => (
-                <TouchableOpacity
-                  key={answer}
-                  style={[styles.answerButton, getAnswerStyle(answer)]}
-                  onPress={() => handleAnswer(answer)}
-                  activeOpacity={0.86}
-                >
-                  <Text style={[styles.answerText, getAnswerTextStyle(answer)]}>{answer}</Text>
-                </TouchableOpacity>
-              ))}
+        <Animated.View style={[styles.board, { transform: [{ scale: boardScale }] }]}>
+          {board.map((rowItems, row) => (
+            <View key={`row-${row}`} style={styles.boardRow}>
+              {rowItems.map((candyIndex, col) => {
+                const candy = CANDIES[candyIndex];
+                const isDragging = draggingTile?.row === row && draggingTile?.col === col;
+                const dragResponder = createDragResponder(row, col);
+
+                return (
+                  <Animated.View
+                    key={`${row}-${col}`}
+                    {...dragResponder.panHandlers}
+                    style={[
+                      styles.candyTile,
+                      { backgroundColor: candy.background },
+                      isDragging ? styles.candyDragging : null,
+                      isDragging ? { transform: dragOffset.getTranslateTransform() } : null,
+                    ]}
+                  >
+                    <Text style={[styles.candyText, { color: candy.color }]}>{candy.symbol}</Text>
+                  </Animated.View>
+                );
+              })}
             </View>
-          </>
-        )}
+          ))}
+        </Animated.View>
+
+        <TouchableOpacity style={styles.resetButton} onPress={resetGame} activeOpacity={0.86}>
+          <Ionicons name="refresh" size={22} color="#FFFFFF" />
+          <Text style={styles.resetButtonText}>{gameOver ? 'Play again' : 'Restart game'}</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.kopiButton} activeOpacity={0.86}>
-          <Ionicons name="cafe" size={28} color="#FFFFFF" />
+          <Ionicons name="cafe" size={26} color="#FFFFFF" />
           <View style={styles.kopiCopy}>
             <Text style={styles.kopiButtonText}>Redeem free kopi</Text>
-            <Text style={styles.kopiButtonSubtext}>Available after 7 daily check-ins</Text>
+            <Text style={styles.kopiButtonSubtext}>Earn points from check-ins and games</Text>
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -160,104 +324,80 @@ export default function CommunityScreen({ onHome, onLogout }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  scrollContent: { padding: 20, paddingBottom: 28 },
-  scoreCard: {
+  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 18 },
+  scoreRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  scoreTile: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 16,
-  },
-  scoreIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  scoreCopy: { flex: 1 },
-  scoreTitle: { color: '#111827', fontSize: 20, fontWeight: '900' },
-  scoreText: { color: '#2563EB', fontSize: 16, fontWeight: '900', marginTop: 4 },
-  questionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 16,
-  },
-  questionMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-    gap: 10,
-  },
-  questionMeta: { color: '#6B7280', fontSize: 15, fontWeight: '900' },
-  dailyPill: {
-    color: '#166534',
-    backgroundColor: '#DCFCE7',
     borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    fontSize: 13,
-    fontWeight: '900',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  questionTitle: { color: '#111827', fontSize: 28, fontWeight: '900', marginBottom: 12 },
-  scenarioText: { color: '#374151', fontSize: 21, lineHeight: 31, fontWeight: '700' },
-  answerArea: { marginBottom: 18 },
-  answerButton: {
+  scoreNumber: { color: '#111827', fontSize: 28, fontWeight: '900' },
+  scoreLabel: { color: '#6B7280', fontSize: 14, fontWeight: '800', marginTop: 2 },
+  messageCard: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  messageCopy: { flex: 1, marginLeft: 10 },
+  messageTitle: { color: '#111827', fontSize: 18, fontWeight: '900' },
+  messageText: { color: '#4B5563', fontSize: 14, lineHeight: 20, fontWeight: '700', marginTop: 2 },
+  board: {
     backgroundColor: '#FFFFFF',
-    minHeight: 78,
     borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 14,
+  },
+  boardRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  candyTile: {
+    width: 58,
+    height: 58,
+    cursor: 'grab',
+    touchAction: 'none',
+    borderRadius: 14,
+    alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#D8E7FF',
-    marginBottom: 12,
+    borderColor: 'transparent',
   },
-  answerCorrect: { backgroundColor: '#16A34A', borderColor: '#16A34A' },
-  answerWrong: { backgroundColor: '#DC2626', borderColor: '#DC2626' },
-  answerDimmed: { opacity: 0.5 },
-  answerText: { color: '#111827', fontSize: 20, lineHeight: 27, fontWeight: '900', textAlign: 'center' },
-  answerTextSelected: { color: '#FFFFFF' },
-  completeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 18,
+  candyDragging: {
+    zIndex: 10,
+    elevation: 6,
+    borderColor: '#2563EB',
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
   },
-  completeTitle: { color: '#111827', fontSize: 30, fontWeight: '900', marginTop: 12 },
-  completeText: { color: '#4B5563', fontSize: 19, lineHeight: 28, textAlign: 'center', marginTop: 10 },
-  restartButton: {
+  candyText: { fontSize: 30, fontWeight: '900' },
+  resetButton: {
+    minHeight: 58,
+    borderRadius: 16,
     backgroundColor: '#2563EB',
-    minHeight: 60,
-    borderRadius: 18,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
-    marginTop: 22,
+    gap: 8,
+    marginBottom: 12,
   },
-  restartButtonText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' },
+  resetButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900' },
   kopiButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#16A34A',
     width: '100%',
-    minHeight: 78,
-    borderRadius: 18,
+    minHeight: 70,
+    borderRadius: 16,
     alignItems: 'center',
     flexDirection: 'row',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
   },
   kopiCopy: { flex: 1, marginLeft: 12 },
-  kopiButtonText: { color: '#FFFFFF', fontSize: 21, fontWeight: '900' },
-  kopiButtonSubtext: { color: '#DBEAFE', fontSize: 14, fontWeight: '700', marginTop: 3 },
+  kopiButtonText: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
+  kopiButtonSubtext: { color: '#DCFCE7', fontSize: 13, fontWeight: '700', marginTop: 3 },
 });
