@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
@@ -12,6 +11,7 @@ const KOPI_COST = 1500;
 const GAME_COMPLETION_REWARD = 50;
 const REWARD_STORAGE_KEY = 'haloappRewardPoints';
 const DAILY_REWARD_STORAGE_KEY = 'haloappDailyRewardProgress';
+const memoryStorage = {};
 const CANDIES = [
   { symbol: '●', color: '#EF4444', background: '#FEE2E2' },
   { symbol: '◆', color: '#2563EB', background: '#DBEAFE' },
@@ -109,11 +109,26 @@ const resolveCascadeMatches = (startingBoard) => {
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
-const readStoredRewards = async () => {
-  const [totalPointsValue, dailyProgressValue] = await Promise.all([
-    AsyncStorage.getItem(REWARD_STORAGE_KEY),
-    AsyncStorage.getItem(DAILY_REWARD_STORAGE_KEY),
-  ]);
+const getStorageItem = (key) => {
+  if (typeof globalThis.localStorage !== 'undefined') {
+    return globalThis.localStorage.getItem(key);
+  }
+
+  return memoryStorage[key] || null;
+};
+
+const setStorageItem = (key, value) => {
+  if (typeof globalThis.localStorage !== 'undefined') {
+    globalThis.localStorage.setItem(key, value);
+    return;
+  }
+
+  memoryStorage[key] = value;
+};
+
+const readStoredRewards = () => {
+  const totalPointsValue = getStorageItem(REWARD_STORAGE_KEY);
+  const dailyProgressValue = getStorageItem(DAILY_REWARD_STORAGE_KEY);
 
   const totalPoints = Number(totalPointsValue || 0);
   let dailyProgress = {};
@@ -133,14 +148,12 @@ const readStoredRewards = async () => {
   };
 };
 
-const saveStoredRewards = async (totalPoints, dailyEarned) => {
-  await Promise.all([
-    AsyncStorage.setItem(REWARD_STORAGE_KEY, String(totalPoints)),
-    AsyncStorage.setItem(
-      DAILY_REWARD_STORAGE_KEY,
-      JSON.stringify({ date: getTodayKey(), earned: dailyEarned })
-    ),
-  ]);
+const saveStoredRewards = (totalPoints, dailyEarned) => {
+  setStorageItem(REWARD_STORAGE_KEY, String(totalPoints));
+  setStorageItem(
+    DAILY_REWARD_STORAGE_KEY,
+    JSON.stringify({ date: getTodayKey(), earned: dailyEarned })
+  );
 };
 
 export default function CommunityScreen({ onHome, onLogout }) {
@@ -173,15 +186,13 @@ export default function CommunityScreen({ onHome, onLogout }) {
   useEffect(() => {
     let mounted = true;
 
-    readStoredRewards().then((storedRewards) => {
-      if (!mounted) {
-        return;
-      }
+    const storedRewards = readStoredRewards();
 
+    if (mounted) {
       setTotalRewardPoints(storedRewards.totalPoints);
       setDailyRewardPoints(storedRewards.dailyEarned);
       setRewardsLoaded(true);
-    });
+    }
 
     return () => {
       mounted = false;
