@@ -1,11 +1,17 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
 const BOARD_SIZE = 5;
 const MOVES_PER_GAME = 15;
+const DAILY_REWARD_CAP = 50;
+const KOPI_COST = 1500;
+const GAME_COMPLETION_REWARD = 50;
+const REWARD_STORAGE_KEY = 'haloappRewardPoints';
+const DAILY_REWARD_STORAGE_KEY = 'haloappDailyRewardProgress';
 const CANDIES = [
   { symbol: '●', color: '#EF4444', background: '#FEE2E2' },
   { symbol: '◆', color: '#2563EB', background: '#DBEAFE' },
@@ -101,9 +107,49 @@ const resolveCascadeMatches = (startingBoard) => {
   return { nextBoard, totalPoints, cascadeCount };
 };
 
+const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
+const readStoredRewards = async () => {
+  const [totalPointsValue, dailyProgressValue] = await Promise.all([
+    AsyncStorage.getItem(REWARD_STORAGE_KEY),
+    AsyncStorage.getItem(DAILY_REWARD_STORAGE_KEY),
+  ]);
+
+  const totalPoints = Number(totalPointsValue || 0);
+  let dailyProgress = {};
+
+  try {
+    dailyProgress = JSON.parse(dailyProgressValue || '{}');
+  } catch {
+    dailyProgress = {};
+  }
+
+  const today = getTodayKey();
+
+  return {
+    totalPoints: Number.isFinite(totalPoints) ? totalPoints : 0,
+    dailyDate: dailyProgress.date === today ? today : today,
+    dailyEarned: dailyProgress.date === today ? Number(dailyProgress.earned || 0) : 0,
+  };
+};
+
+const saveStoredRewards = async (totalPoints, dailyEarned) => {
+  await Promise.all([
+    AsyncStorage.setItem(REWARD_STORAGE_KEY, String(totalPoints)),
+    AsyncStorage.setItem(
+      DAILY_REWARD_STORAGE_KEY,
+      JSON.stringify({ date: getTodayKey(), earned: dailyEarned })
+    ),
+  ]);
+};
+
 export default function CommunityScreen({ onHome, onLogout }) {
   const [board, setBoard] = useState(createBoard);
   const [score, setScore] = useState(0);
+  const [totalRewardPoints, setTotalRewardPoints] = useState(0);
+  const [dailyRewardPoints, setDailyRewardPoints] = useState(0);
+  const [rewardsLoaded, setRewardsLoaded] = useState(false);
+  const [rewardGrantedThisGame, setRewardGrantedThisGame] = useState(false);
   const [movesLeft, setMovesLeft] = useState(MOVES_PER_GAME);
   const [message, setMessage] = useState('Drag a candy up, down, left, or right.');
   const boardScale = useRef(new Animated.Value(1)).current;
@@ -111,14 +157,64 @@ export default function CommunityScreen({ onHome, onLogout }) {
   const [draggingTile, setDraggingTile] = useState(null);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const gameOver = movesLeft <= 0;
+  const pointsToKopi = Math.max(0, KOPI_COST - totalRewardPoints);
+  const canRedeemKopi = totalRewardPoints >= KOPI_COST;
 
   const progressText = useMemo(() => {
     if (gameOver) {
-      return score >= 300 ? 'Great job. Kopi reward unlocked!' : 'Good try. Play again to earn more points.';
+      return dailyRewardPoints >= DAILY_REWARD_CAP
+        ? 'Daily reward cap reached. Come back tomorrow.'
+        : 'Game complete. Reward points added if today has cap left.';
     }
 
     return `${movesLeft} moves left`;
-  }, [gameOver, movesLeft, score]);
+  }, [dailyRewardPoints, gameOver, movesLeft]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    readStoredRewards().then((storedRewards) => {
+      if (!mounted) {
+        return;
+      }
+
+      setTotalRewardPoints(storedRewards.totalPoints);
+      setDailyRewardPoints(storedRewards.dailyEarned);
+      setRewardsLoaded(true);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!rewardsLoaded) {
+      return;
+    }
+
+    saveStoredRewards(totalRewardPoints, dailyRewardPoints);
+  }, [dailyRewardPoints, rewardsLoaded, totalRewardPoints]);
+
+  useEffect(() => {
+    if (!gameOver || rewardGrantedThisGame) {
+      return;
+    }
+
+    const remainingDailyPoints = Math.max(0, DAILY_REWARD_CAP - dailyRewardPoints);
+    const pointsToAdd = Math.min(GAME_COMPLETION_REWARD, remainingDailyPoints);
+
+    setRewardGrantedThisGame(true);
+
+    if (pointsToAdd <= 0) {
+      setMessage('Daily reward cap reached. Come back tomorrow for more kopi points.');
+      return;
+    }
+
+    setDailyRewardPoints((currentPoints) => currentPoints + pointsToAdd);
+    setTotalRewardPoints((currentPoints) => currentPoints + pointsToAdd);
+    setMessage(`Game complete. You earned ${pointsToAdd} kopi points today.`);
+  }, [dailyRewardPoints, gameOver, rewardGrantedThisGame]);
 
   const resetGame = () => {
     setBoard(createBoard());
@@ -126,8 +222,18 @@ export default function CommunityScreen({ onHome, onLogout }) {
     dragOffset.setValue({ x: 0, y: 0 });
     setScrollEnabled(true);
     setScore(0);
+    setRewardGrantedThisGame(false);
     setMovesLeft(MOVES_PER_GAME);
     setMessage('Drag a candy up, down, left, or right.');
+  };
+
+  const redeemKopi = () => {
+    if (!canRedeemKopi) {
+      return;
+    }
+
+    setTotalRewardPoints((currentPoints) => currentPoints - KOPI_COST);
+    setMessage('Kopi redeemed. Enjoy your treat!');
   };
 
   const playMatchAnimation = () => {
@@ -260,12 +366,25 @@ export default function CommunityScreen({ onHome, onLogout }) {
         <View style={styles.scoreRow}>
           <View style={styles.scoreTile}>
             <Text style={styles.scoreNumber}>{score}</Text>
-            <Text style={styles.scoreLabel}>Points</Text>
+            <Text style={styles.scoreLabel}>Game Score</Text>
           </View>
           <View style={styles.scoreTile}>
-            <Text style={styles.scoreNumber}>{movesLeft}</Text>
-            <Text style={styles.scoreLabel}>Moves</Text>
+            <Text style={styles.scoreNumber}>{totalRewardPoints}</Text>
+            <Text style={styles.scoreLabel}>Kopi Points</Text>
           </View>
+        </View>
+
+        <View style={styles.rewardCard}>
+          <View style={styles.rewardHeader}>
+            <Text style={styles.rewardTitle}>Kopi Reward Progress</Text>
+            <Text style={styles.rewardMeta}>{dailyRewardPoints} / {DAILY_REWARD_CAP} today</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.min(100, (totalRewardPoints / KOPI_COST) * 100)}%` }]} />
+          </View>
+          <Text style={styles.rewardText}>
+            {canRedeemKopi ? 'You have enough points to redeem kopi.' : `${pointsToKopi} more points to redeem kopi.`}
+          </Text>
         </View>
 
         <View style={styles.messageCard}>
@@ -308,11 +427,16 @@ export default function CommunityScreen({ onHome, onLogout }) {
           <Text style={styles.resetButtonText}>{gameOver ? 'Play again' : 'Restart game'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.kopiButton} activeOpacity={0.86}>
+        <TouchableOpacity
+          style={[styles.kopiButton, !canRedeemKopi ? styles.kopiButtonDisabled : null]}
+          onPress={redeemKopi}
+          activeOpacity={0.86}
+          disabled={!canRedeemKopi}
+        >
           <Ionicons name="cafe" size={26} color="#FFFFFF" />
           <View style={styles.kopiCopy}>
-            <Text style={styles.kopiButtonText}>Redeem free kopi</Text>
-            <Text style={styles.kopiButtonSubtext}>Earn points from check-ins and games</Text>
+            <Text style={styles.kopiButtonText}>{canRedeemKopi ? 'Redeem free kopi' : 'Kopi costs 1,500 points'}</Text>
+            <Text style={styles.kopiButtonSubtext}>Earn up to 50 kopi points per day</Text>
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -336,6 +460,26 @@ const styles = StyleSheet.create({
   },
   scoreNumber: { color: '#111827', fontSize: 28, fontWeight: '900' },
   scoreLabel: { color: '#6B7280', fontSize: 14, fontWeight: '800', marginTop: 2 },
+  rewardCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  rewardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  rewardTitle: { color: '#111827', fontSize: 17, fontWeight: '900', flex: 1 },
+  rewardMeta: { color: '#2563EB', fontSize: 13, fontWeight: '900' },
+  progressTrack: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#E5E7EB',
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  progressFill: { height: '100%', borderRadius: 6, backgroundColor: '#16A34A' },
+  rewardText: { color: '#4B5563', fontSize: 14, lineHeight: 20, fontWeight: '700', marginTop: 8 },
   messageCard: {
     backgroundColor: '#EFF6FF',
     borderRadius: 16,
@@ -397,6 +541,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
   },
+  kopiButtonDisabled: { backgroundColor: '#9CA3AF' },
   kopiCopy: { flex: 1, marginLeft: 12 },
   kopiButtonText: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
   kopiButtonSubtext: { color: '#DCFCE7', fontSize: 13, fontWeight: '700', marginTop: 3 },
