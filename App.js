@@ -5,6 +5,10 @@ import { Platform, StyleSheet, View } from 'react-native';
 // Screens
 import LanguageScreen from './screens/LanguageScreen';
 import LoginScreen from './screens/LoginScreen';
+import SingpassLoginScreen from './screens/SingpassLoginScreen';
+import SingpassQrScreen from './screens/SingpassQrScreen';
+import SingpassDetailsScreen from './screens/SingpassDetailsScreen';
+import CaregiverLoginScreen from './screens/CaregiverLoginScreen';
 import BiometricFaceScreen from './screens/BiometricFaceScreen';
 import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
@@ -257,14 +261,45 @@ export default function App() {
   const renderScreen = () => {
 
     if (currentScreen === 'Language') {
-      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('Login')} />;
+      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('SingpassLogin')} />;
+    }
+
+    if (currentScreen === 'SingpassLogin') {
+      return (
+        <SingpassLoginScreen
+          onRetrieve={() => setCurrentScreen('SingpassQr')}
+          onClose={() => setCurrentScreen('Login')}
+        />
+      );
+    }
+
+    if (currentScreen === 'SingpassQr') {
+      return <SingpassQrScreen onDone={() => setCurrentScreen('SingpassDetails')} />;
+    }
+
+    if (currentScreen === 'SingpassDetails') {
+      return (
+        <SingpassDetailsScreen
+          onAgree={() => setCurrentScreen('Biometric')}
+          onCancel={() => setCurrentScreen('SingpassLogin')}
+        />
+      );
     }
 
     if (currentScreen === 'Login') {
       return (
         <LoginScreen
           onLogin={() => setCurrentScreen('Biometric')}
-          onCaregiverLogin={() => setCurrentScreen('CaregiverHome')}
+          onCaregiverLogin={() => setCurrentScreen('CaregiverLogin')}
+        />
+      );
+    }
+
+    if (currentScreen === 'CaregiverLogin') {
+      return (
+        <CaregiverLoginScreen
+          onBack={() => setCurrentScreen('Login')}
+          onFaceId={() => setCurrentScreen('CaregiverBiometric')}
         />
       );
     }
@@ -273,6 +308,14 @@ export default function App() {
       return (
         <BiometricFaceScreen
           onAuthenticated={() => setCurrentScreen('Home')}
+        />
+     );
+    }
+
+    if (currentScreen === 'CaregiverBiometric') {
+      return (
+        <BiometricFaceScreen
+          onAuthenticated={() => setCurrentScreen('CaregiverHome')}
         />
      );
     }

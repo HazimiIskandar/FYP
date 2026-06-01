@@ -15,6 +15,7 @@ export default function SingpassQrScreen({ onDone }) {
         <Text style={styles.logo}>singpass</Text>
         <Text style={styles.title}>Scan with Singpass app</Text>
         <Image source={amandaLimQr} style={styles.qrImage} resizeMode="contain" />
+        <Text style={styles.helperText}>Amanda Lim QR code</Text>
       </View>
     </SafeAreaView>
   );
