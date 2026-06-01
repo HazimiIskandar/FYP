@@ -182,11 +182,14 @@ export default function App() {
   // -------------------------
   useEffect(() => {
     const fetchJson = async (url) => {
+      console.log(`📡 Fetching: ${url}`);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Request failed: ${response.status}`);
       }
-      return response.json();
+      const data = await response.json();
+      console.log(`✅ Response from ${url}:`, data);
+      return data;
     };
 
     const fetchData = async () => {
@@ -200,8 +203,8 @@ export default function App() {
             fetchJson(`${API_BASE}/rewards`),
           ]);
 
-        console.log('=== FETCHED SENIORS DATA ===');
-        console.log('=== FETCHED USERS DATA ===');
+        console.log('=== FETCHED SENIORS DATA ===', seniorsData);
+        console.log('=== FETCHED USERS DATA ===', usersData);
 
         const userMap = new Map(
           (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
@@ -219,7 +222,7 @@ export default function App() {
         setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
 
       } catch (err) {
-        console.log("API fetch error:", err);
+        console.error("❌ API fetch error:", err);
 
         setSeniors([]);
         setUsers([]);

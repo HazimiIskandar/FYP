@@ -26,8 +26,15 @@ router.get("/", (req, res) => {
   `;
 
   db.query(sql, (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
+    if (err) {
+      console.error("❌ ERROR fetching seniors:", err);
+      return res.status(500).json({ 
+        error: "Failed to fetch seniors",
+        details: err.message 
+      });
+    }
+    console.log(`✅ Fetched ${results?.length || 0} seniors`);
+    res.json(results || []);
   });
 });
 
@@ -56,7 +63,13 @@ router.get("/:senior_id", (req, res) => {
   `;
 
   db.query(sql, [req.params.senior_id], (err, results) => {
-    if (err) return res.status(500).json(err);
+    if (err) {
+      console.error("❌ ERROR fetching senior:", err);
+      return res.status(500).json({ 
+        error: "Failed to fetch senior",
+        details: err.message 
+      });
+    }
     res.json(results[0] || null);
   });
 });
@@ -80,8 +93,15 @@ router.get("/:senior_id/medical-conditions", (req, res) => {
   `;
 
   db.query(sql, [req.params.senior_id], (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
+    if (err) {
+      console.error("❌ ERROR fetching medical conditions:", err);
+      return res.status(500).json({ 
+        error: "Failed to fetch medical conditions",
+        details: err.message 
+      });
+    }
+    console.log(`✅ Fetched ${results?.length || 0} medical conditions for senior ${req.params.senior_id}`);
+    res.json(results || []);
   });
 });
 
@@ -107,9 +127,15 @@ router.get("/:senior_id/nok", (req, res) => {
   `;
 
   db.query(sql, [req.params.senior_id], (err, results) => {
-    if (err) return res.status(500).json(err);
-
-    res.json(results);
+    if (err) {
+      console.error("❌ ERROR fetching NOK contacts:", err);
+      return res.status(500).json({ 
+        error: "Failed to fetch NOK contacts",
+        details: err.message 
+      });
+    }
+    console.log(`✅ Fetched ${results?.length || 0} NOK contacts for senior ${req.params.senior_id}`);
+    res.json(results || []);
   });
 });
 
