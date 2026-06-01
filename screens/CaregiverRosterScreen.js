@@ -8,7 +8,8 @@ export default function CaregiverRosterScreen({
   seniors = [],
   onGoToHome,
   onLogout,
-  onSelectSenior
+  onSelectSenior,
+  backendError,
 }) {
   const getRawText = (value) => (value ?? '').toString();
 
@@ -228,6 +229,9 @@ export default function CaregiverRosterScreen({
             <Text style={styles.emptyText}>
               Please sync your roster or check your database connection.
             </Text>
+            {backendError ? (
+              <Text style={styles.errorText}>{backendError}</Text>
+            ) : null}
           </View>
         )}
       </ScrollView>
@@ -334,5 +338,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     maxWidth: 280,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 10,
+    maxWidth: 300,
   },
 });

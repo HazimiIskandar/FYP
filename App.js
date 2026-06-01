@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { Platform, StyleSheet, View } from 'react-native';
 
 // Screens
@@ -29,7 +30,21 @@ export default function App() {
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [selectedSenior, setSelectedSenior] = useState(null);
 
-  const API_BASE = 'https://fyp-senior-connect.onrender.com';
+  const REMOTE_API_BASE = 'https://fyp-senior-connect.onrender.com';
+  const getHostFromUri = (uri) => {
+    if (!uri) return null;
+    const match = uri.match(/^(?:https?:\/\/)?([^:\/]+)(?::\d+)?/);
+    return match ? match[1] : null;
+  };
+  const expoHost =
+    getHostFromUri(Constants.manifest?.debuggerHost) ||
+    getHostFromUri(Constants.expoConfig?.hostUri);
+  const LOCAL_API_BASES = [
+    Platform.OS === 'android' ? 'http://10.0.2.2:10000' : 'http://localhost:10000',
+    expoHost && expoHost !== 'localhost' ? `http://${expoHost}:10000` : null,
+  ].filter(Boolean);
+  const [apiBase, setApiBase] = useState(null);
+  const [backendError, setBackendError] = useState(null);
 
   const [seniors, setSeniors] = useState([]);
   const [users, setUsers] = useState([]);
@@ -113,9 +128,10 @@ export default function App() {
     console.log('=== SELECTING SENIOR ===');
 
     try {
+      if (!apiBase) throw new Error('Backend not configured');
       const [conditionsRes, nokRes] = await Promise.all([
-        fetch(`${API_BASE}/seniors/${senior.senior_id}/medical-conditions`),
-        fetch(`${API_BASE}/seniors/${senior.senior_id}/nok`)
+        fetch(`${apiBase}/seniors/${senior.senior_id}/medical-conditions`),
+        fetch(`${apiBase}/seniors/${senior.senior_id}/nok`)
       ]);
 
       const conditionsData = await conditionsRes.json();
@@ -181,6 +197,41 @@ export default function App() {
   // FETCH DATA (FIXED NORMALIZATION)
   // -------------------------
   useEffect(() => {
+    const testEndpoint = async (baseUrl) => {
+      try {
+        const response = await fetch(`${baseUrl}/test`);
+        return response.ok;
+      } catch (error) {
+        return false;
+      }
+    };
+
+    const resolveBackendBase = async () => {
+      if (await testEndpoint(REMOTE_API_BASE)) {
+        setApiBase(REMOTE_API_BASE);
+        return;
+      }
+
+      for (const localBase of LOCAL_API_BASES) {
+        if (await testEndpoint(localBase)) {
+          setApiBase(localBase);
+          return;
+        }
+      }
+
+      setBackendError(
+        `Unable to reach backend on ${REMOTE_API_BASE} or ${LOCAL_API_BASES.join(
+          ', '
+        )}. Please start your backend server.`
+      );
+    };
+
+    resolveBackendBase();
+  }, []);
+
+  useEffect(() => {
+    if (!apiBase) return;
+
     const fetchJson = async (url) => {
       const response = await fetch(url);
       if (!response.ok) {
@@ -193,15 +244,16 @@ export default function App() {
       try {
         const [seniorsData, usersData, checkInsData, emergencyData, rewardsData] =
           await Promise.all([
-            fetchJson(`${API_BASE}/seniors`),
-            fetchJson(`${API_BASE}/users`),
-            fetchJson(`${API_BASE}/checkins`),
-            fetchJson(`${API_BASE}/emergency-events`),
-            fetchJson(`${API_BASE}/rewards`),
+            fetchJson(`${apiBase}/seniors`),
+            fetchJson(`${apiBase}/users`),
+            fetchJson(`${apiBase}/checkins`),
+            fetchJson(`${apiBase}/emergency-events`),
+            fetchJson(`${apiBase}/rewards`),
           ]);
 
         console.log('=== FETCHED SENIORS DATA ===');
         console.log('=== FETCHED USERS DATA ===');
+        console.log('=== USING API BASE ===', apiBase);
 
         const userMap = new Map(
           (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
@@ -217,9 +269,8 @@ export default function App() {
         setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
         setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
         setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
-
       } catch (err) {
-        console.log("API fetch error:", err);
+        console.log('API fetch error:', err);
 
         setSeniors([]);
         setUsers([]);
@@ -230,16 +281,16 @@ export default function App() {
     };
 
     fetchData();
-  }, []);
+  }, [apiBase]);
 
   // -------------------------
   // CHECK-IN
   // -------------------------
   const handleCheckIn = async () => {
     try {
-      if (!currentSenior?.senior_id) return;
+      if (!currentSenior?.senior_id || !apiBase) return;
 
-      await fetch(`${API_BASE}/checkin`, {
+      await fetch(`${apiBase}/checkin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -358,6 +409,7 @@ export default function App() {
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onLogout={() => setCurrentScreen('Login')}
           onSelectSenior={handleSelectSenior}
+          backendError={backendError}
         />
       );
     }
