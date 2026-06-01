@@ -5,10 +5,6 @@ import { Platform, StyleSheet, View } from 'react-native';
 // Screens
 import LanguageScreen from './screens/LanguageScreen';
 import LoginScreen from './screens/LoginScreen';
-import SingpassLoginScreen from './screens/SingpassLoginScreen';
-import SingpassQrScreen from './screens/SingpassQrScreen';
-import SingpassDetailsScreen from './screens/SingpassDetailsScreen';
-import CaregiverLoginScreen from './screens/CaregiverLoginScreen';
 import BiometricFaceScreen from './screens/BiometricFaceScreen';
 import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
@@ -182,14 +178,11 @@ export default function App() {
   // -------------------------
   useEffect(() => {
     const fetchJson = async (url) => {
-      console.log(`📡 Fetching: ${url}`);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Request failed: ${response.status}`);
       }
-      const data = await response.json();
-      console.log(`✅ Response from ${url}:`, data);
-      return data;
+      return response.json();
     };
 
     const fetchData = async () => {
@@ -203,8 +196,8 @@ export default function App() {
             fetchJson(`${API_BASE}/rewards`),
           ]);
 
-        console.log('=== FETCHED SENIORS DATA ===', seniorsData);
-        console.log('=== FETCHED USERS DATA ===', usersData);
+        console.log('=== FETCHED SENIORS DATA ===');
+        console.log('=== FETCHED USERS DATA ===');
 
         const userMap = new Map(
           (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
@@ -222,7 +215,7 @@ export default function App() {
         setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
 
       } catch (err) {
-        console.error("❌ API fetch error:", err);
+        console.log("API fetch error:", err);
 
         setSeniors([]);
         setUsers([]);
@@ -264,45 +257,14 @@ export default function App() {
   const renderScreen = () => {
 
     if (currentScreen === 'Language') {
-      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('SingpassLogin')} />;
-    }
-
-    if (currentScreen === 'SingpassLogin') {
-      return (
-        <SingpassLoginScreen
-          onRetrieve={() => setCurrentScreen('SingpassQr')}
-          onClose={() => setCurrentScreen('Login')}
-        />
-      );
-    }
-
-    if (currentScreen === 'SingpassQr') {
-      return <SingpassQrScreen onDone={() => setCurrentScreen('SingpassDetails')} />;
-    }
-
-    if (currentScreen === 'SingpassDetails') {
-      return (
-        <SingpassDetailsScreen
-          onAgree={() => setCurrentScreen('Biometric')}
-          onCancel={() => setCurrentScreen('SingpassLogin')}
-        />
-      );
+      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('Login')} />;
     }
 
     if (currentScreen === 'Login') {
       return (
         <LoginScreen
           onLogin={() => setCurrentScreen('Biometric')}
-          onCaregiverLogin={() => setCurrentScreen('CaregiverLogin')}
-        />
-      );
-    }
-
-    if (currentScreen === 'CaregiverLogin') {
-      return (
-        <CaregiverLoginScreen
-          onBack={() => setCurrentScreen('Login')}
-          onFaceId={() => setCurrentScreen('CaregiverBiometric')}
+          onCaregiverLogin={() => setCurrentScreen('CaregiverHome')}
         />
       );
     }
@@ -311,14 +273,6 @@ export default function App() {
       return (
         <BiometricFaceScreen
           onAuthenticated={() => setCurrentScreen('Home')}
-        />
-     );
-    }
-
-    if (currentScreen === 'CaregiverBiometric') {
-      return (
-        <BiometricFaceScreen
-          onAuthenticated={() => setCurrentScreen('CaregiverHome')}
         />
      );
     }

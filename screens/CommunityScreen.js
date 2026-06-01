@@ -257,7 +257,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 18,
   },
-  kopiButtonDisabled: { backgroundColor: '#9CA3AF' },
   kopiCopy: { flex: 1, marginLeft: 12 },
   kopiButtonText: { color: '#FFFFFF', fontSize: 21, fontWeight: '900' },
   kopiButtonSubtext: { color: '#DBEAFE', fontSize: 14, fontWeight: '700', marginTop: 3 },
