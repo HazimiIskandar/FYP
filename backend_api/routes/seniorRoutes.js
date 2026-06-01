@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { queryCallback } = require("../config/db-enhanced");
+const { query } = require("../config/db");
 
 /**
  * GET ALL SENIORS (roster)
@@ -25,7 +25,7 @@ router.get("/", (req, res) => {
     LEFT JOIN User_Account u ON s.user_id = u.user_id
   `;
 
-  queryCallback(sql, [], (err, results) => {
+  query(sql, (err, results) => {
     if (err) {
       console.error("❌ ERROR fetching seniors:", err.message);
       return res.status(500).json({ 
@@ -62,7 +62,7 @@ router.get("/:senior_id", (req, res) => {
     WHERE s.senior_id = ?
   `;
 
-  queryCallback(sql, [req.params.senior_id], (err, results) => {
+  query(sql, [req.params.senior_id], (err, results) => {
     if (err) {
       console.error("❌ ERROR fetching senior:", err.message);
       return res.status(500).json({ 
@@ -92,7 +92,7 @@ router.get("/:senior_id/medical-conditions", (req, res) => {
     WHERE smc.senior_id = ?
   `;
 
-  queryCallback(sql, [req.params.senior_id], (err, results) => {
+  query(sql, [req.params.senior_id], (err, results) => {
     if (err) {
       console.error("❌ ERROR fetching medical conditions:", err.message);
       return res.status(500).json({ 
@@ -122,7 +122,7 @@ router.get("/:senior_id/nok", (req, res) => {
     WHERE sn.senior_id = ?
   `;
 
-  queryCallback(sql, [req.params.senior_id], (err, results) => {
+  query(sql, [req.params.senior_id], (err, results) => {
     if (err) {
       console.error("❌ ERROR fetching NOK contacts:", err.message);
       return res.status(500).json({ 
