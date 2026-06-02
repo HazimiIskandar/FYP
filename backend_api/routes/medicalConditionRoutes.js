@@ -18,10 +18,15 @@ router.get("/", (req, res) => {
 router.get("/:senior_id", (req, res) => {
 
     const sql = `
-        SELECT mc.*
+        SELECT
+          mc.condition_id,
+          mc.condition_name,
+          mc.severity_level,
+          mc.medication_required,
+          smc.diagnosed_date
         FROM Medical_Condition mc
         JOIN Senior_Medical_Condition smc
-        ON mc.condition_id = smc.condition_id
+          ON mc.condition_id = smc.condition_id
         WHERE smc.senior_id = ?
     `;
 
