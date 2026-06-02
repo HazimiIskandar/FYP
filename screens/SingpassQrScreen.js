@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Image, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
-const amandaLimQr = require('../assets/qrcode/amanda lim caregiver 5.png');
+const amandaLimQr = require('../assets/qrcode/tan ah kow senior 1.png');
 
 export default function SingpassQrScreen({ onDone }) {
   useEffect(() => {
@@ -15,7 +15,6 @@ export default function SingpassQrScreen({ onDone }) {
         <Text style={styles.logo}>singpass</Text>
         <Text style={styles.title}>Scan with Singpass app</Text>
         <Image source={amandaLimQr} style={styles.qrImage} resizeMode="contain" />
-        <Text style={styles.helperText}>Amanda Lim QR code</Text>
       </View>
     </SafeAreaView>
   );
