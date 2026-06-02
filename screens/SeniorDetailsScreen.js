@@ -233,12 +233,6 @@ export default function SeniorDetailsScreen({ senior, medicalConditions = [], on
           )}
         </View>
 
-        {/* ACTION BUTTONS */}
-        <TouchableOpacity style={styles.emergencyBtn} onPress={handleEmergency}>
-          <Ionicons name="alert-circle" size={20} color="#fff" />
-          <Text style={styles.emergencyText}>Trigger Emergency</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.backBtn} onPress={onGoBack}>
           <Text style={styles.backText}>Go Back</Text>
         </TouchableOpacity>
@@ -369,7 +363,7 @@ const styles = StyleSheet.create({
   },
 
   backBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2563EB',
     padding: 14,
     borderRadius: 18,
     alignItems: 'center',
@@ -380,7 +374,7 @@ const styles = StyleSheet.create({
 
   backText: {
     fontWeight: '900',
-    color: '#111827',
+    color: '#FFFFFF',
   },
 
   conditionItem: {
