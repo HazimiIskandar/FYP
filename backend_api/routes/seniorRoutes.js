@@ -10,7 +10,7 @@ router.get("/", (req, res) => {
     SELECT 
       s.senior_id,
       s.user_id,
-      s.age,
+      YEAR(CURDATE()) - YEAR(u.dob) - (DATE_FORMAT(u.dob, '%m%d') > DATE_FORMAT(CURDATE(), '%m%d')) AS age,
       s.has_nok,
       s.created_at,
       u.full_name,
@@ -39,7 +39,7 @@ router.get("/:senior_id", (req, res) => {
     SELECT 
       s.senior_id,
       s.user_id,
-      s.age,
+      YEAR(CURDATE()) - YEAR(u.dob) - (DATE_FORMAT(u.dob, '%m%d') > DATE_FORMAT(CURDATE(), '%m%d')) AS age,
       s.has_nok,
       s.created_at,
       u.full_name,
