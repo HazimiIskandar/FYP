@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Image, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
-const amandaLimQr = require('../assets/qrcode/tan ah kow senior 1.png');
+const amandaLimQr = require('../assets/qrcode/margaret tan senior 1.png');
 
 export default function SingpassQrScreen({ onDone }) {
   useEffect(() => {
