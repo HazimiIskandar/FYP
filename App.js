@@ -151,7 +151,15 @@ export default function App() {
 
       setAuthenticatedUser(body);
       setLoginError(null);
-      setCurrentScreen('Home');
+      
+      // Route based on role_id
+      if (body.role_id === 2) {
+        // Caregiver
+        setCurrentScreen('CaregiverHome');
+      } else {
+        // Senior or default
+        setCurrentScreen('Home');
+      }
     } catch (err) {
       console.log('Login error:', err);
       setLoginError(err?.message || 'Login failed');
