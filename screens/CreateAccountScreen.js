@@ -2,42 +2,47 @@ import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
-  View,
-  TouchableOpacity,
-  SafeAreaView,
   TextInput,
+  TouchableOpacity,
+  View,
+  SafeAreaView,
 } from 'react-native';
+
 import Header from '../components/Header';
 
-export default function LoginScreen({
-  onLogin,
-  loginError,
-  onForgot,
-  onSignUp,
-}) {
+export default function CreateAccountScreen({ onCreate, onSignIn, error }) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handlePress = () => {
-    onLogin({ email: email.trim(), password });
-  };
-
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Haloapp" subtitle="Safe check-ins for seniors" />
+      <Header
+        title="Haloapp"
+        subtitle="Safe check-ins for seniors"
+      />
 
       <View style={styles.content}>
-        <Text style={styles.title}>Sign In</Text>
+        <Text style={styles.title}>Create Account</Text>
 
         <Text style={styles.subtitle}>
-          Enter your Email and Password to continue
+          Enter your Full Name and Email to set up your account.
         </Text>
+
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="Full Name"
+          placeholderTextColor="#000000"
+          autoCapitalize="words"
+        />
 
         <TextInput
           style={styles.input}
           value={email}
           onChangeText={setEmail}
-          placeholder="Email"
+          placeholder="Email Address"
           placeholderTextColor="#000000"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -53,32 +58,39 @@ export default function LoginScreen({
           secureTextEntry
         />
 
-        <TouchableOpacity onPress={onForgot} style={styles.forgotLink}>
-          <Text style={styles.forgotText}>Forgot password?</Text>
-        </TouchableOpacity>
-
-        {loginError ? (
-          <Text style={styles.errorText}>{loginError}</Text>
+        {error ? (
+          <Text style={styles.errorText}>{error}</Text>
         ) : null}
 
         <TouchableOpacity
           style={[
             styles.primaryButton,
-            (!email.trim() || !password) && styles.disabledButton,
+            (!name.trim() || !email.trim()) && styles.disabledButton,
           ]}
-          onPress={handlePress}
-          disabled={!email.trim() || !password}
+          onPress={() =>
+            onCreate({
+              name: name.trim(),
+              email: email.trim(),
+              password,
+            })
+          }
+          disabled={!name.trim() || !email.trim()}
+          activeOpacity={0.86}
         >
-          <Text style={styles.primaryButtonText}>Login</Text>
+          <Text style={styles.primaryButtonText}>
+            Create Account
+          </Text>
         </TouchableOpacity>
 
-        <View style={styles.signUpContainer}>
-          <Text style={styles.signUpLabel}>
-            Haven't any account?{' '}
+        <View style={styles.signInContainer}>
+          <Text style={styles.signInLabel}>
+            Already have an account?{' '}
           </Text>
 
-          <TouchableOpacity onPress={onSignUp} activeOpacity={0.7}>
-            <Text style={styles.signUpLinkText}>Sign Up</Text>
+          <TouchableOpacity onPress={onSignIn} activeOpacity={0.7}>
+            <Text style={styles.signInLinkText}>
+              Sign In
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -125,17 +137,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  forgotLink: {
-    alignSelf: 'flex-end',
-    marginBottom: 14,
-  },
-
-  forgotText: {
-    color: '#2563EB',
-    fontWeight: '700',
-    fontSize: 22,
-  },
-
   errorText: {
     color: '#DC2626',
     marginBottom: 14,
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  signUpContainer: {
+  signInContainer: {
     marginTop: 24,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -171,13 +172,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
 
-  signUpLabel: {
+  signInLabel: {
     fontSize: 22,
     color: '#4B5563',
     fontWeight: '400',
   },
 
-  signUpLinkText: {
+  signInLinkText: {
     fontSize: 22,
     color: '#2563EB',
     fontWeight: '700',

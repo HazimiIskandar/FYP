@@ -6,11 +6,10 @@ import { Platform, StyleSheet, View } from 'react-native';
 // Screens
 import LanguageScreen from './screens/LanguageScreen';
 import LoginScreen from './screens/LoginScreen';
-import SingpassLoginScreen from './screens/SingpassLoginScreen';
-import SingpassQrScreen from './screens/SingpassQrScreen';
-import SingpassDetailsScreen from './screens/SingpassDetailsScreen';
 import CaregiverLoginScreen from './screens/CaregiverLoginScreen';
 import BiometricFaceScreen from './screens/BiometricFaceScreen';
+import CreateAccountScreen from './screens/CreateAccountScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
@@ -29,6 +28,9 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [selectedSenior, setSelectedSenior] = useState(null);
+  const [authenticatedUser, setAuthenticatedUser] = useState(null);
+  const [loginError, setLoginError] = useState(null);
+  const [registerError, setRegisterError] = useState(null);
 
   const REMOTE_API_BASE = 'https://fyp-senior-connect.onrender.com';
   const getHostFromUri = (uri) => {
@@ -120,6 +122,80 @@ export default function App() {
   };
 
   const seniorName = getSeniorDisplayName(currentSenior);
+
+  const handleLogin = async (payload) => {
+    const email = typeof payload === 'string' ? payload : payload?.email;
+
+    if (!email) {
+      setLoginError('Please enter your email address.');
+      return;
+    }
+
+    if (!apiBase) {
+      setLoginError('Backend server is not available yet.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = body?.error || body || 'Login failed';
+        throw new Error(message);
+      }
+
+      setAuthenticatedUser(body);
+      setLoginError(null);
+      setCurrentScreen('Home');
+    } catch (err) {
+      console.log('Login error:', err);
+      setLoginError(err?.message || 'Login failed');
+    }
+  };
+
+  const handleRegister = async ({ name, email }) => {
+    if (!name || !email) {
+      setRegisterError('Please enter both name and email.');
+      return;
+    }
+
+    if (!apiBase) {
+      setRegisterError('Backend server is not available yet.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/users/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          phone_number: '',
+          role: 'user',
+          biometric_enabled: 0,
+        }),
+      });
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = body?.error || body || 'Registration failed';
+        throw new Error(message);
+      }
+
+      setRegisterError(null);
+      setLoginError('Account created. Please sign in.');
+      setCurrentScreen('Login');
+    } catch (err) {
+      console.log('Register error:', err);
+      setRegisterError(err?.message || 'Registration failed');
+    }
+  };
 
   // -------------------------
   // SELECT SENIOR (UPDATED)
@@ -312,27 +388,17 @@ export default function App() {
   const renderScreen = () => {
 
     if (currentScreen === 'Language') {
-      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('SingpassLogin')} />;
+      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('CreateAccount')} />;
     }
 
-    if (currentScreen === 'SingpassLogin') {
+    // Account choice screen removed; language now goes directly to CreateAccount
+
+    if (currentScreen === 'CreateAccount') {
       return (
-        <SingpassLoginScreen
-          onRetrieve={() => setCurrentScreen('SingpassQr')}
-          onClose={() => setCurrentScreen('Login')}
-        />
-      );
-    }
-
-    if (currentScreen === 'SingpassQr') {
-      return <SingpassQrScreen onDone={() => setCurrentScreen('SingpassDetails')} />;
-    }
-
-    if (currentScreen === 'SingpassDetails') {
-      return (
-        <SingpassDetailsScreen
-          onAgree={() => setCurrentScreen('Biometric')}
-          onCancel={() => setCurrentScreen('SingpassLogin')}
+        <CreateAccountScreen
+          onCreate={handleRegister}
+          onSignIn={() => setCurrentScreen('Login')}
+          error={registerError}
         />
       );
     }
@@ -340,9 +406,18 @@ export default function App() {
     if (currentScreen === 'Login') {
       return (
         <LoginScreen
-          onLogin={() => setCurrentScreen('Biometric')}
+          onLogin={handleLogin}
           onCaregiverLogin={() => setCurrentScreen('CaregiverLogin')}
+          loginError={loginError}
+          onForgot={() => setCurrentScreen('ForgotPassword')}
+          onSignUp={() => setCurrentScreen('CreateAccount')}
         />
+      );
+    }
+
+    if (currentScreen === 'ForgotPassword') {
+      return (
+        <ForgotPasswordScreen onBack={() => setCurrentScreen('Login')} />
       );
     }
 
