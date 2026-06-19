@@ -14,6 +14,7 @@ export default function CreateAccountScreen({ onCreate, onSignIn, error }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('Senior');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -58,6 +59,20 @@ export default function CreateAccountScreen({ onCreate, onSignIn, error }) {
           secureTextEntry
         />
 
+        <Text style={styles.roleLabel}>Select role</Text>
+        <View style={styles.roleRow}>
+          {['Senior', 'Caregiver', 'AIC Staff'].map((r) => (
+            <TouchableOpacity
+              key={r}
+              style={[styles.roleButton, role === r ? styles.roleButtonActive : null]}
+              onPress={() => setRole(r)}
+              activeOpacity={0.86}
+            >
+              <Text style={[styles.roleText, role === r ? styles.roleTextActive : null]}>{r}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {error ? (
           <Text style={styles.errorText}>{error}</Text>
         ) : null}
@@ -72,6 +87,7 @@ export default function CreateAccountScreen({ onCreate, onSignIn, error }) {
               name: name.trim(),
               email: email.trim(),
               password,
+              role,
             })
           }
           disabled={!name.trim() || !email.trim()}
@@ -184,4 +200,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
+  roleLabel: {
+    fontSize: 18,
+    color: '#374151',
+    marginBottom: 8,
+    marginTop: 6,
+    fontWeight: '700',
+  },
+  roleRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  roleButton: {
+    flex: 1,
+    marginHorizontal: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  roleButtonActive: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  roleText: { color: '#374151', fontSize: 16, fontWeight: '700' },
+  roleTextActive: { color: '#FFFFFF' },
 });

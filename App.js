@@ -125,12 +125,12 @@ export default function App() {
 
   const handleLogin = async (payload) => {
     const email = typeof payload === 'string' ? payload : payload?.email;
+    const password = typeof payload === 'string' ? null : payload?.password;
 
-    if (!email) {
-      setLoginError('Please enter your email address.');
+    if (!email || !password) {
+      setLoginError('Please enter your email address and password.');
       return;
     }
-
     if (!apiBase) {
       setLoginError('Backend server is not available yet.');
       return;
@@ -140,7 +140,7 @@ export default function App() {
       const response = await fetch(`${apiBase}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, password }),
       });
 
       const body = await response.json().catch(() => null);
@@ -158,7 +158,7 @@ export default function App() {
     }
   };
 
-  const handleRegister = async ({ name, email }) => {
+  const handleRegister = async ({ name, email, password, role }) => {
     if (!name || !email) {
       setRegisterError('Please enter both name and email.');
       return;
@@ -176,8 +176,9 @@ export default function App() {
         body: JSON.stringify({
           name,
           email,
+          password,
           phone_number: '',
-          role: 'user',
+          role: role || 'Senior',
           biometric_enabled: 0,
         }),
       });
