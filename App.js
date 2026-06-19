@@ -179,7 +179,6 @@ export default function App() {
           password,
           phone_number: '',
           role: role || 'Senior',
-          biometric_enabled: 0,
         }),
       });
 

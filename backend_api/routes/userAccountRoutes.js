@@ -58,7 +58,7 @@ router.post("/login", (req, res) => {
 });
 
 router.post("/register", (req, res) => {
-    const { name, email, phone_number, role, biometric_enabled, password } = req.body;
+    const { name, email, phone_number, role, password } = req.body;
 
     if (!name || !email || !password) {
         return res.status(400).json({ error: "Name, email and password are required" });
@@ -78,24 +78,38 @@ router.post("/register", (req, res) => {
             const roleMap = { 'Senior': 1, 'Caregiver': 2, 'AIC Staff': 3 };
             const roleId = roleMap[role] || null;
 
-            // detect if role_id column exists
-            db.query("SHOW COLUMNS FROM User_Account LIKE 'role_id'", (colErr, colRes) => {
+            // detect which password/role columns exist
+            db.query("SHOW COLUMNS FROM User_Account", (colErr, colRes) => {
                 if (colErr) return res.status(500).json({ error: colErr.message || colErr });
 
-                let sql;
-                let params;
+                const columns = colRes.map((column) => column.Field);
+                const passwordColumn = columns.includes('password_hash')
+                    ? 'password_hash'
+                    : columns.includes('password')
+                        ? 'password'
+                        : null;
 
-                if (colRes && colRes.length) {
-                    // table has role_id column
-                    sql = `INSERT INTO User_Account (full_name, email, phone_number, password_hash, role_id, biometric_enabled) VALUES (?, ?, ?, ?, ?, ?)`;
-                    params = [name, email, phone_number || '', hash, roleId, biometric_enabled || 0];
-                } else {
-                    // fallback to role string column
-                    sql = `INSERT INTO User_Account (full_name, email, phone_number, password_hash, role, biometric_enabled) VALUES (?, ?, ?, ?, ?, ?)`;
-                    params = [name, email, phone_number || '', hash, role || 'Senior', biometric_enabled || 0];
+                if (!passwordColumn) {
+                    return res.status(500).json({ error: 'User_Account table does not have password columns' });
                 }
 
-                db.query(sql, params, (err, result) => {
+                const hasRoleId = columns.includes('role_id');
+                const hasRole = columns.includes('role');
+
+                const insertFields = ['full_name', 'email', 'phone_number', passwordColumn];
+                const insertValues = [name, email, phone_number || '', hash];
+
+                if (hasRoleId) {
+                    insertFields.push('role_id');
+                    insertValues.push(roleId);
+                } else if (hasRole) {
+                    insertFields.push('role');
+                    insertValues.push(role || 'Senior');
+                }
+
+                const sql = `INSERT INTO User_Account (${insertFields.join(', ')}) VALUES (${insertFields.map(() => '?').join(', ')})`;
+
+                db.query(sql, insertValues, (err, result) => {
                     if (err) {
                         return res.status(500).json({ error: err.message || err });
                     }
