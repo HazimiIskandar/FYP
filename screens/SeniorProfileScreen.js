@@ -3,13 +3,10 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
-<<<<<<< HEAD
 import {
   isValidCheckInTime,
   scheduleCheckInReminders,
 } from '../services/checkInNotifications';
-=======
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
 
 const getSeniorName = (senior) =>
   senior?.full_name ||
@@ -28,7 +25,6 @@ const formatDate = (value) => {
   });
 };
 
-<<<<<<< HEAD
 const formatCheckInTime = (value) => {
   const raw = String(value || '').trim();
 
@@ -50,8 +46,6 @@ const formatCheckInTime = (value) => {
   return `${hour12}:${minute} ${period}`;
 };
 
-=======
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
 export default function SeniorProfileScreen({
   senior = {},
   onHome,
@@ -66,10 +60,7 @@ export default function SeniorProfileScreen({
     postalCode: senior?.postal_code || '',
     unitNumber: senior?.unit_number || senior?.unit_no || '',
     phone: senior?.phone_number || senior?.contact || '',
-<<<<<<< HEAD
     checkInTime: formatCheckInTime(senior?.preferred_checkin_time || senior?.check_in_time),
-=======
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
     condition: senior?.medicalConditions?.[0]?.condition_name || '',
     severity: senior?.medicalConditions?.[0]?.severity_level || '',
     medicationRequired: senior?.medicalConditions?.[0]?.medication_required || '',
@@ -82,16 +73,12 @@ export default function SeniorProfileScreen({
 
   const [details, setDetails] = useState(initialDetails);
   const [savedMessage, setSavedMessage] = useState('');
-<<<<<<< HEAD
   const [errorMessage, setErrorMessage] = useState('');
-=======
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
   const [confirmVisible, setConfirmVisible] = useState(false);
 
   const updateDetail = (key, value) => {
     setDetails((current) => ({ ...current, [key]: value }));
     setSavedMessage('');
-<<<<<<< HEAD
     setErrorMessage('');
   };
 
@@ -122,17 +109,6 @@ export default function SeniorProfileScreen({
         ? `Profile saved. Check-in reminders set for ${details.checkInTime}.`
         : 'Profile saved, but notification permission was not granted.'
     );
-=======
-  };
-
-  const handleSave = () => {
-    setConfirmVisible(true);
-  };
-
-  const confirmSave = () => {
-    setConfirmVisible(false);
-    setSavedMessage('Profile details saved on this device.');
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
   };
 
   const renderInput = (icon, label, key, placeholder, keyboardType = 'default') => (
@@ -194,7 +170,6 @@ export default function SeniorProfileScreen({
           {renderInput('mail-outline', 'Email', 'emergencyEmail', 'Enter email address', 'email-address')}
         </View>
 
-<<<<<<< HEAD
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Daily Check-In Time</Text>
           <View style={styles.noticeBox}>
@@ -208,8 +183,6 @@ export default function SeniorProfileScreen({
         </View>
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-=======
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
         {savedMessage ? <Text style={styles.savedText}>{savedMessage}</Text> : null}
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.86}>
@@ -234,11 +207,7 @@ export default function SeniorProfileScreen({
             </View>
             <Text style={styles.confirmTitle}>Save profile?</Text>
             <Text style={styles.confirmMessage}>
-<<<<<<< HEAD
               Save these changes and schedule reminders before your {details.checkInTime} check-in?
-=======
-              Do you want to save these profile changes?
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
             </Text>
             <TouchableOpacity style={styles.yesButton} onPress={confirmSave} activeOpacity={0.86}>
               <Text style={styles.yesButtonText}>Yes</Text>
@@ -306,7 +275,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-<<<<<<< HEAD
   noticeBox: {
     backgroundColor: '#EFF6FF',
     borderRadius: 14,
@@ -330,8 +298,6 @@ const styles = StyleSheet.create({
     marginTop: -4,
     lineHeight: 18,
   },
-=======
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
   savedText: {
     color: '#15803D',
     fontSize: 14,
@@ -339,7 +305,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-<<<<<<< HEAD
   errorText: {
     color: '#DC2626',
     fontSize: 14,
@@ -348,8 +313,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     lineHeight: 20,
   },
-=======
->>>>>>> b87e0623916809f1b1f00eea660c852baf58c56e
   saveButton: {
     minHeight: 62,
     borderRadius: 18,
