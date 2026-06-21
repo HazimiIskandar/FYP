@@ -112,10 +112,24 @@ export default function App() {
     };
   };
 
-  const currentSenior =
-    (authenticatedUser?.user_id && seniors.find((s) => String(s?.user_id) === String(authenticatedUser.user_id))) ||
-    seniors?.[0] ||
-    null;
+  const currentSenior = (() => {
+    if (!authenticatedUser) return null;
+
+    const matchedSenior = seniors.find(
+      (s) => String(s?.user_id) === String(authenticatedUser.user_id)
+    );
+
+    if (matchedSenior) {
+      return matchedSenior;
+    }
+
+    return {
+      ...authenticatedUser,
+      senior_id: null,
+      medicalConditions: [],
+      nokContacts: [],
+    };
+  })();
 
   const getSeniorDisplayName = (senior) => {
     return (
