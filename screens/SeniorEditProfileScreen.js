@@ -67,7 +67,7 @@ const parseDateParts = (value) => {
 
 const buildDateValue = (day, month, year) => {
   if (!day || !month || !year) return '';
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  return `${day}/${month.padStart(2, '0')}/${year}`;
 };
 
 const formatDateForDB = (value) => {
