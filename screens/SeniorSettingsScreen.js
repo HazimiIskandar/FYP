@@ -39,6 +39,7 @@ const generateLinkCode = () => String(Math.floor(100000 + Math.random() * 900000
 
 export default function SeniorSettingsScreen({
   senior = {},
+  apiBase,
   onHome,
   onCommunity,
   onProfile,
@@ -54,6 +55,9 @@ export default function SeniorSettingsScreen({
   const [settingsMessage, setSettingsMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [linkCode, setLinkCode] = useState('');
+  const [linkStatusMessage, setLinkStatusMessage] = useState('');
+  const [linkStatusError, setLinkStatusError] = useState('');
+  const [linkSaving, setLinkSaving] = useState(false);
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
 
   const saveCheckInTime = async () => {
@@ -81,7 +85,46 @@ export default function SeniorSettingsScreen({
 
   const openCaregiverModal = () => {
     setLinkCode('');
+    setLinkStatusMessage('');
+    setLinkStatusError('');
     setActiveModal('Caregiver');
+  };
+
+  const saveSeniorLinkCode = async (code) => {
+    if (!apiBase) {
+      setLinkStatusError('Backend server is not available yet.');
+      setLinkStatusMessage('');
+      return;
+    }
+
+    if (!code || !/^\d{6}$/.test(code)) {
+      setLinkStatusError('Please generate a valid 6-digit link code.');
+      setLinkStatusMessage('');
+      return;
+    }
+
+    setLinkSaving(true);
+    setLinkStatusError('');
+    setLinkStatusMessage('');
+
+    try {
+      const response = await fetch(`${apiBase}/seniors/${senior?.senior_id}/link-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link_code: code }),
+      });
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error || body?.message || 'Unable to save link code.');
+      }
+
+      setLinkStatusMessage('Link code saved for your caregiver.');
+    } catch (err) {
+      setLinkStatusError(err?.message || 'Unable to save link code.');
+    } finally {
+      setLinkSaving(false);
+    }
   };
 
   return (
@@ -193,6 +236,16 @@ export default function SeniorSettingsScreen({
                 <Text style={styles.codeLabel}>Your unique link code</Text>
                 <Text style={styles.linkCode}>{linkCode}</Text>
                 <Text style={styles.codeHelp}>Share this code with your caregiver.</Text>
+                {linkStatusError ? <Text style={styles.errorText}>{linkStatusError}</Text> : null}
+                {linkStatusMessage ? <Text style={styles.savedText}>{linkStatusMessage}</Text> : null}
+                <TouchableOpacity
+                  style={[styles.primaryButton, linkSaving && styles.disabledButton]}
+                  onPress={() => saveSeniorLinkCode(linkCode)}
+                  activeOpacity={0.86}
+                  disabled={linkSaving}
+                >
+                  <Text style={styles.primaryButtonText}>{linkSaving ? 'Saving...' : 'Save Link Code'}</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity

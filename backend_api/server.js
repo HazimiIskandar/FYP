@@ -24,6 +24,38 @@ app.use("/medical", require("./routes/medicalConditionRoutes"));
 app.use("/staff", require("./routes/staffRoutes"));
 app.use("/users", require("./routes/userAccountRoutes"));
 app.use("/sensors", require("./routes/sensorRoutes"));
+app.use("/caregiver", require("./routes/caregiverRoutes"));
+
+const initializeSeniorRelationTables = () => {
+  const createLinkCodeTable = `
+    CREATE TABLE IF NOT EXISTS Senior_Link_Code (
+      senior_id INT NOT NULL PRIMARY KEY,
+      link_code VARCHAR(6) NOT NULL UNIQUE,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_Senior_Link_Code_Senior FOREIGN KEY (senior_id) REFERENCES Senior (senior_id) ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+  `;
+
+  const createSeniorCaregiverTable = `
+    CREATE TABLE IF NOT EXISTS Senior_has_Caregiver (
+      senior_id INT NOT NULL PRIMARY KEY,
+      caregiver_id INT NOT NULL,
+      KEY fk_Senior_has_Caregiver_Caregiver_idx (caregiver_id),
+      CONSTRAINT fk_Senior_has_Caregiver_Senior FOREIGN KEY (senior_id) REFERENCES Senior (senior_id) ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT fk_Senior_has_Caregiver_Caregiver FOREIGN KEY (caregiver_id) REFERENCES User_Account (user_id) ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+  `;
+
+  db.query(createLinkCodeTable, (err) => {
+    if (err) console.error('Failed to create Senior_Link_Code table:', err);
+  });
+
+  db.query(createSeniorCaregiverTable, (err) => {
+    if (err) console.error('Failed to create Senior_has_Caregiver table:', err);
+  });
+};
+
+initializeSeniorRelationTables();
 
 // =========================
 // HEALTH CHECK

@@ -12,6 +12,7 @@ export default function CaregiverSeniorsListScreen({
   onSelectSenior,
   backendError,
   apiBase,
+  authenticatedUser,
 }) {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [linkCode, setLinkCode] = useState('');
@@ -79,6 +80,12 @@ export default function CaregiverSeniorsListScreen({
       return;
     }
 
+    if (!authenticatedUser?.user_id) {
+      setSubmitError('You must be signed in as a caregiver to link a senior.');
+      setSubmitMessage('');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError('');
     setSubmitMessage('');
@@ -87,7 +94,10 @@ export default function CaregiverSeniorsListScreen({
       const response = await fetch(`${apiBase}/caregiver/link-senior`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ link_code: cleanedCode }),
+        body: JSON.stringify({
+          link_code: cleanedCode,
+          caregiver_id: authenticatedUser.user_id,
+        }),
       });
 
       const body = await response.json().catch(() => null);

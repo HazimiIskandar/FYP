@@ -494,6 +494,7 @@ export default function App() {
       return (
         <SeniorSettingsScreen
           senior={currentSenior}
+          apiBase={apiBase}
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
@@ -523,6 +524,8 @@ export default function App() {
       return (
         <CaregiverSeniorsListScreen
           seniors={seniors}
+          apiBase={apiBase}
+          authenticatedUser={authenticatedUser}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
           onLogout={() => setCurrentScreen('Login')}

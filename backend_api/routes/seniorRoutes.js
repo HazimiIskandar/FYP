@@ -57,6 +57,26 @@ router.get("/:senior_id", (req, res) => {
   });
 });
 
+router.post("/:senior_id/link-code", (req, res) => {
+  const { link_code } = req.body;
+  const { senior_id } = req.params;
+
+  if (!link_code || !/^\d{6}$/.test(link_code)) {
+    return res.status(400).json({ error: "A valid 6-digit link code is required." });
+  }
+
+  const sql = `
+    INSERT INTO Senior_Link_Code (senior_id, link_code)
+    VALUES (?, ?)
+    ON DUPLICATE KEY UPDATE link_code = VALUES(link_code)
+  `;
+
+  db.query(sql, [senior_id, link_code], (err) => {
+    if (err) return res.status(500).json({ error: err.message || err });
+    res.json({ message: "Senior link code saved successfully." });
+  });
+});
+
 /**
  * GET MEDICAL CONDITIONS
  */
