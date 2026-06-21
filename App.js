@@ -113,9 +113,9 @@ export default function App() {
   };
 
   const currentSenior =
-  seniors.find((s) => parseInt(s?.senior_id, 10) === 1) ||
-  seniors?.[0] ||
-  null;
+    (authenticatedUser?.user_id && seniors.find((s) => String(s?.user_id) === String(authenticatedUser.user_id))) ||
+    seniors?.[0] ||
+    null;
 
   const getSeniorDisplayName = (senior) => {
     return (
