@@ -1,110 +1,53 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
-const BOARD_SIZE = 5;
-const MOVES_PER_GAME = 15;
 const DAILY_REWARD_CAP = 50;
 const KOPI_COST = 1500;
 const GAME_COMPLETION_REWARD = 50;
 const REWARD_STORAGE_KEY = 'haloappRewardPoints';
 const DAILY_REWARD_STORAGE_KEY = 'haloappDailyRewardProgress';
 const memoryStorage = {};
-const CANDIES = [
-  { symbol: '●', color: '#EF4444', background: '#FEE2E2' },
-  { symbol: '◆', color: '#2563EB', background: '#DBEAFE' },
-  { symbol: '★', color: '#F59E0B', background: '#FEF3C7' },
-  { symbol: '■', color: '#16A34A', background: '#DCFCE7' },
-  { symbol: '▲', color: '#9333EA', background: '#F3E8FF' },
+
+const MEMORY_ITEMS = [
+  { key: 'kopi', label: 'Kopi', icon: 'cafe', color: '#92400E', background: '#FEF3C7' },
+  { key: 'radio', label: 'Radio', icon: 'radio', color: '#1D4ED8', background: '#DBEAFE' },
+  { key: 'home', label: 'Home', icon: 'home', color: '#166534', background: '#DCFCE7' },
+  { key: 'music', label: 'Music', icon: 'musical-notes', color: '#7C2D12', background: '#FFEDD5' },
+  { key: 'photo', label: 'Photo', icon: 'images', color: '#6D28D9', background: '#EDE9FE' },
+  { key: 'book', label: 'Book', icon: 'book', color: '#BE123C', background: '#FFE4E6' },
 ];
 
-const createTile = () => Math.floor(Math.random() * CANDIES.length);
-
-const createBoard = () => (
-  Array.from({ length: BOARD_SIZE }, () => (
-    Array.from({ length: BOARD_SIZE }, createTile)
-  ))
-);
-
-const copyBoard = (board) => board.map((row) => [...row]);
-
-const isAdjacent = (first, second) => (
-  Math.abs(first.row - second.row) + Math.abs(first.col - second.col) === 1
-);
-
-const findMatches = (board) => {
-  const matched = new Set();
-
-  for (let row = 0; row < BOARD_SIZE; row += 1) {
-    let runStart = 0;
-
-    for (let col = 1; col <= BOARD_SIZE; col += 1) {
-      if (col < BOARD_SIZE && board[row][col] === board[row][runStart]) {
-        continue;
-      }
-
-      if (col - runStart >= 3) {
-        for (let matchCol = runStart; matchCol < col; matchCol += 1) {
-          matched.add(`${row}-${matchCol}`);
-        }
-      }
-
-      runStart = col;
-    }
-  }
-
-  for (let col = 0; col < BOARD_SIZE; col += 1) {
-    let runStart = 0;
-
-    for (let row = 1; row <= BOARD_SIZE; row += 1) {
-      if (row < BOARD_SIZE && board[row][col] === board[runStart][col]) {
-        continue;
-      }
-
-      if (row - runStart >= 3) {
-        for (let matchRow = runStart; matchRow < row; matchRow += 1) {
-          matched.add(`${matchRow}-${col}`);
-        }
-      }
-
-      runStart = row;
-    }
-  }
-
-  return matched;
+const LUCKY_CARD = {
+  key: 'lucky',
+  label: 'Lucky',
+  icon: 'star',
+  color: '#B45309',
+  background: '#FEF9C3',
+  isLucky: true,
 };
 
-const replaceMatches = (board, matched) => {
-  const nextBoard = copyBoard(board);
+const shuffle = (items) => {
+  const nextItems = [...items];
 
-  matched.forEach((key) => {
-    const [row, col] = key.split('-').map(Number);
-    nextBoard[row][col] = createTile();
-  });
-
-  return nextBoard;
-};
-
-const resolveCascadeMatches = (startingBoard) => {
-  let nextBoard = copyBoard(startingBoard);
-  let totalPoints = 0;
-  let cascadeCount = 0;
-
-  for (let cascade = 0; cascade < 8; cascade += 1) {
-    const matched = findMatches(nextBoard);
-
-    if (matched.size === 0) {
-      break;
-    }
-
-    totalPoints += matched.size * 20;
-    cascadeCount += 1;
-    nextBoard = replaceMatches(nextBoard, matched);
+  for (let index = nextItems.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [nextItems[index], nextItems[swapIndex]] = [nextItems[swapIndex], nextItems[index]];
   }
 
-  return { nextBoard, totalPoints, cascadeCount };
+  return nextItems;
+};
+
+const createDeck = () => {
+  const selectedItems = shuffle(MEMORY_ITEMS).slice(0, 4);
+  const pairedItems = selectedItems.flatMap((item) => [
+    { ...item, id: `${item.key}-a` },
+    { ...item, id: `${item.key}-b` },
+  ]);
+
+  return shuffle([...pairedItems, { ...LUCKY_CARD, id: 'lucky-card' }]);
 };
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
@@ -143,7 +86,7 @@ const readStoredRewards = () => {
 
   return {
     totalPoints: Number.isFinite(totalPoints) ? totalPoints : 0,
-    dailyDate: dailyProgress.date === today ? today : today,
+    dailyDate: today,
     dailyEarned: dailyProgress.date === today ? Number(dailyProgress.earned || 0) : 0,
   };
 };
@@ -157,35 +100,34 @@ const saveStoredRewards = (totalPoints, dailyEarned) => {
 };
 
 export default function CommunityScreen({ onHome, onProfile, onLogout }) {
-  const [board, setBoard] = useState(createBoard);
+  const [cards, setCards] = useState(createDeck);
+  const [flippedIds, setFlippedIds] = useState([]);
+  const [matchedKeys, setMatchedKeys] = useState([]);
+  const [attempts, setAttempts] = useState(0);
   const [score, setScore] = useState(0);
+  const [message, setMessage] = useState('Tap two cards to find a matching pair.');
+  const [isChecking, setIsChecking] = useState(false);
   const [totalRewardPoints, setTotalRewardPoints] = useState(0);
   const [dailyRewardPoints, setDailyRewardPoints] = useState(0);
   const [rewardsLoaded, setRewardsLoaded] = useState(false);
   const [rewardGrantedThisGame, setRewardGrantedThisGame] = useState(false);
-  const [movesLeft, setMovesLeft] = useState(MOVES_PER_GAME);
-  const [message, setMessage] = useState('Drag a candy up, down, left, or right.');
-  const boardScale = useRef(new Animated.Value(1)).current;
-  const dragOffset = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const [draggingTile, setDraggingTile] = useState(null);
-  const [scrollEnabled, setScrollEnabled] = useState(true);
-  const gameOver = movesLeft <= 0;
+
+  const gameComplete = matchedKeys.length === 5;
   const pointsToKopi = Math.max(0, KOPI_COST - totalRewardPoints);
   const canRedeemKopi = totalRewardPoints >= KOPI_COST;
 
   const progressText = useMemo(() => {
-    if (gameOver) {
+    if (gameComplete) {
       return dailyRewardPoints >= DAILY_REWARD_CAP
         ? 'Daily reward cap reached. Come back tomorrow.'
         : 'Game complete. Reward points added if today has cap left.';
     }
 
-    return `${movesLeft} moves left`;
-  }, [dailyRewardPoints, gameOver, movesLeft]);
+    return `${Math.min(matchedKeys.length, 5)} of 5 cards found`;
+  }, [dailyRewardPoints, gameComplete, matchedKeys.length]);
 
   useEffect(() => {
     let mounted = true;
-
     const storedRewards = readStoredRewards();
 
     if (mounted) {
@@ -208,7 +150,7 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
   }, [dailyRewardPoints, rewardsLoaded, totalRewardPoints]);
 
   useEffect(() => {
-    if (!gameOver || rewardGrantedThisGame) {
+    if (!gameComplete || rewardGrantedThisGame) {
       return;
     }
 
@@ -224,18 +166,18 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
 
     setDailyRewardPoints((currentPoints) => currentPoints + pointsToAdd);
     setTotalRewardPoints((currentPoints) => currentPoints + pointsToAdd);
-    setMessage(`Game complete. You earned ${pointsToAdd} kopi points today.`);
-  }, [dailyRewardPoints, gameOver, rewardGrantedThisGame]);
+    setMessage(`Well done. You earned ${pointsToAdd} kopi points today.`);
+  }, [dailyRewardPoints, gameComplete, rewardGrantedThisGame]);
 
   const resetGame = () => {
-    setBoard(createBoard());
-    setDraggingTile(null);
-    dragOffset.setValue({ x: 0, y: 0 });
-    setScrollEnabled(true);
+    setCards(createDeck());
+    setFlippedIds([]);
+    setMatchedKeys([]);
+    setAttempts(0);
     setScore(0);
+    setMessage('Tap two cards to find a matching pair.');
+    setIsChecking(false);
     setRewardGrantedThisGame(false);
-    setMovesLeft(MOVES_PER_GAME);
-    setMessage('Drag a candy up, down, left, or right.');
   };
 
   const redeemKopi = () => {
@@ -247,133 +189,62 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
     setMessage('Kopi redeemed. Enjoy your treat!');
   };
 
-  const playMatchAnimation = () => {
-    boardScale.setValue(0.96);
-    Animated.spring(boardScale, {
-      toValue: 1,
-      friction: 4,
-      tension: 90,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const swapTiles = (firstTile, secondTile) => {
-    if (gameOver || !isAdjacent(firstTile, secondTile)) {
-      return;
-    }
-
-    const swappedBoard = copyBoard(board);
-    const firstValue = swappedBoard[firstTile.row][firstTile.col];
-    swappedBoard[firstTile.row][firstTile.col] = swappedBoard[secondTile.row][secondTile.col];
-    swappedBoard[secondTile.row][secondTile.col] = firstValue;
-
-    const { nextBoard, totalPoints, cascadeCount } = resolveCascadeMatches(swappedBoard);
-
-    setMovesLeft((moves) => moves - 1);
-
-    if (totalPoints === 0) {
-      setMessage('No match. Try another swap.');
-      return;
-    }
-
-    playMatchAnimation();
-    setScore((currentScore) => currentScore + totalPoints);
-    setBoard(nextBoard);
-    setMessage(cascadeCount > 1 ? `Combo x${cascadeCount}. ${totalPoints} points!` : `Nice match. ${totalPoints} points!`);
-  };
-
-  const handleTileDrag = (row, col, gesture) => {
-    if (gameOver) {
-      return;
-    }
-
-    const absX = Math.abs(gesture.dx);
-    const absY = Math.abs(gesture.dy);
-
-    if (Math.max(absX, absY) < 22) {
-      return;
-    }
-
-    const targetTile = { row, col };
-
-    if (absX > absY) {
-      targetTile.col += gesture.dx > 0 ? 1 : -1;
-    } else {
-      targetTile.row += gesture.dy > 0 ? 1 : -1;
-    }
-
+  const handleCardPress = (card) => {
     if (
-      targetTile.row < 0 ||
-      targetTile.row >= BOARD_SIZE ||
-      targetTile.col < 0 ||
-      targetTile.col >= BOARD_SIZE
+      isChecking ||
+      gameComplete ||
+      flippedIds.includes(card.id) ||
+      matchedKeys.includes(card.key)
     ) {
-      setMessage('Drag toward a candy beside it.');
       return;
     }
 
-    swapTiles({ row, col }, targetTile);
+    if (card.isLucky) {
+      setFlippedIds((currentFlippedIds) => [...currentFlippedIds, card.id]);
+      setMatchedKeys((currentMatches) => [...currentMatches, card.key]);
+      setScore((currentScore) => currentScore + 50);
+      setMessage('Lucky card found. Nice one.');
+      return;
+    }
+
+    const nextFlippedIds = [...flippedIds, card.id];
+    setFlippedIds(nextFlippedIds);
+
+    if (nextFlippedIds.length === 1) {
+      setMessage('Pick one more card.');
+      return;
+    }
+
+    const [firstCardId, secondCardId] = nextFlippedIds;
+    const firstCard = cards.find((item) => item.id === firstCardId);
+    const secondCard = cards.find((item) => item.id === secondCardId);
+
+    setAttempts((currentAttempts) => currentAttempts + 1);
+    setIsChecking(true);
+
+    if (firstCard?.key === secondCard?.key) {
+      setTimeout(() => {
+        setMatchedKeys((currentMatches) => [...currentMatches, card.key]);
+        setScore((currentScore) => currentScore + 100);
+        setFlippedIds([]);
+        setIsChecking(false);
+        setMessage('Nice match. Keep going.');
+      }, 450);
+      return;
+    }
+
+    setTimeout(() => {
+      setFlippedIds([]);
+      setIsChecking(false);
+      setMessage('Not a match. Try again.');
+    }, 850);
   };
-
-  const createDragResponder = (row, col) => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gesture) => (
-      Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) > 4
-    ),
-    onMoveShouldSetPanResponderCapture: (_, gesture) => (
-      Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) > 4
-    ),
-    onPanResponderGrant: () => {
-      setDraggingTile({ row, col });
-      setScrollEnabled(false);
-      dragOffset.setValue({ x: 0, y: 0 });
-    },
-    onPanResponderMove: (_, gesture) => {
-      dragOffset.setValue({
-        x: Math.max(-32, Math.min(32, gesture.dx)),
-        y: Math.max(-32, Math.min(32, gesture.dy)),
-      });
-    },
-    onPanResponderRelease: (_, gesture) => {
-      Animated.spring(dragOffset, {
-        toValue: { x: 0, y: 0 },
-        friction: 5,
-        tension: 120,
-        useNativeDriver: true,
-      }).start(() => {
-        setDraggingTile(null);
-        setScrollEnabled(true);
-      });
-
-      handleTileDrag(row, col, gesture);
-    },
-    onPanResponderTerminate: (_, gesture) => {
-      Animated.spring(dragOffset, {
-        toValue: { x: 0, y: 0 },
-        friction: 5,
-        tension: 120,
-        useNativeDriver: true,
-      }).start(() => {
-        setDraggingTile(null);
-        setScrollEnabled(true);
-      });
-
-      if (Math.max(Math.abs(gesture.dx), Math.abs(gesture.dy)) >= 10) {
-        handleTileDrag(row, col, gesture);
-      }
-    },
-    onShouldBlockNativeResponder: () => false,
-  });
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Candy Match" subtitle="A simple matching game for today" />
+      <Header title="Memory Match" subtitle="Find the pairs in a 3 by 3 grid" />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        scrollEnabled={scrollEnabled}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.scoreRow}>
           <View style={styles.scoreTile}>
             <Text style={styles.scoreNumber}>{score}</Text>
@@ -399,43 +270,49 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
         </View>
 
         <View style={styles.messageCard}>
-          <Ionicons name={gameOver ? 'trophy' : 'sparkles'} size={24} color="#2563EB" />
+          <Ionicons name={gameComplete ? 'trophy' : 'albums'} size={24} color="#2563EB" />
           <View style={styles.messageCopy}>
-            <Text style={styles.messageTitle}>{gameOver ? 'Game complete' : progressText}</Text>
-            <Text style={styles.messageText}>{gameOver ? progressText : message}</Text>
+            <Text style={styles.messageTitle}>{gameComplete ? 'Game complete' : progressText}</Text>
+            <Text style={styles.messageText}>{gameComplete ? progressText : message}</Text>
           </View>
         </View>
 
-        <Animated.View style={[styles.board, { transform: [{ scale: boardScale }] }]}>
-          {board.map((rowItems, row) => (
-            <View key={`row-${row}`} style={styles.boardRow}>
-              {rowItems.map((candyIndex, col) => {
-                const candy = CANDIES[candyIndex];
-                const isDragging = draggingTile?.row === row && draggingTile?.col === col;
-                const dragResponder = createDragResponder(row, col);
+        <View style={styles.memoryGrid}>
+          {cards.map((card) => {
+            const isFaceUp = flippedIds.includes(card.id) || matchedKeys.includes(card.key);
 
-                return (
-                  <Animated.View
-                    key={`${row}-${col}`}
-                    {...dragResponder.panHandlers}
-                    style={[
-                      styles.candyTile,
-                      { backgroundColor: candy.background },
-                      isDragging ? styles.candyDragging : null,
-                      isDragging ? { transform: dragOffset.getTranslateTransform() } : null,
-                    ]}
-                  >
-                    <Text style={[styles.candyText, { color: candy.color }]}>{candy.symbol}</Text>
-                  </Animated.View>
-                );
-              })}
-            </View>
-          ))}
-        </Animated.View>
+            return (
+              <TouchableOpacity
+                key={card.id}
+                style={[
+                  styles.memoryCard,
+                  isFaceUp ? { backgroundColor: card.background, borderColor: card.color } : styles.memoryCardBack,
+                  matchedKeys.includes(card.key) ? styles.memoryCardMatched : null,
+                ]}
+                onPress={() => handleCardPress(card)}
+                activeOpacity={0.86}
+              >
+                {isFaceUp ? (
+                  <>
+                    <Ionicons name={card.icon} size={38} color={card.color} />
+                    <Text style={[styles.cardLabel, { color: card.color }]}>{card.label}</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="help" size={36} color="#FFFFFF" />
+                    <Text style={styles.cardBackText}>Tap</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={styles.attemptText}>{attempts} attempt(s)</Text>
 
         <TouchableOpacity style={styles.resetButton} onPress={resetGame} activeOpacity={0.86}>
           <Ionicons name="refresh" size={22} color="#FFFFFF" />
-          <Text style={styles.resetButtonText}>{gameOver ? 'Play again' : 'Restart game'}</Text>
+          <Text style={styles.resetButtonText}>{gameComplete ? 'Play again' : 'Restart game'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -502,36 +379,42 @@ const styles = StyleSheet.create({
   messageCopy: { flex: 1, marginLeft: 10 },
   messageTitle: { color: '#111827', fontSize: 18, fontWeight: '900' },
   messageText: { color: '#4B5563', fontSize: 14, lineHeight: 20, fontWeight: '700', marginTop: 2 },
-  board: {
+  memoryGrid: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    padding: 10,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    marginBottom: 14,
+    padding: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  boardRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  candyTile: {
-    width: 58,
-    height: 58,
-    cursor: 'grab',
-    touchAction: 'none',
-    borderRadius: 14,
+  memoryCard: {
+    width: '31.5%',
+    aspectRatio: 0.82,
+    borderRadius: 16,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    marginBottom: 10,
   },
-  candyDragging: {
-    zIndex: 10,
-    elevation: 6,
-    borderColor: '#2563EB',
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
+  memoryCardBack: {
+    backgroundColor: '#2563EB',
+    borderColor: '#1D4ED8',
   },
-  candyText: { fontSize: 30, fontWeight: '900' },
+  memoryCardMatched: {
+    opacity: 0.72,
+  },
+  cardLabel: { fontSize: 13, fontWeight: '900', marginTop: 7 },
+  cardBackText: { color: '#DBEAFE', fontSize: 13, fontWeight: '900', marginTop: 4 },
+  attemptText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
   resetButton: {
     minHeight: 58,
     borderRadius: 16,
