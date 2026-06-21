@@ -12,6 +12,7 @@ import CreateAccountScreen from './screens/CreateAccountScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import SeniorProfileScreen from './screens/SeniorProfileScreen';
+import SeniorEditProfileScreen from './screens/SeniorEditProfileScreen';
 import SeniorSettingsScreen from './screens/SeniorSettingsScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
@@ -499,10 +500,22 @@ export default function App() {
       return (
         <SeniorProfileScreen
           senior={currentSenior}
+          onHome={() => setCurrentScreen('Home')}
+          onCommunity={() => setCurrentScreen('Community')}
+          onSettings={() => setCurrentScreen('SeniorSettings')}
+        />
+      );
+    }
+
+    if (currentScreen === 'SeniorEditProfile') {
+      return (
+        <SeniorEditProfileScreen
+          senior={currentSenior}
           apiBase={apiBase}
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
+          onBack={() => setCurrentScreen('SeniorSettings')}
         />
       );
     }
@@ -515,6 +528,7 @@ export default function App() {
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
+          onEditProfile={() => setCurrentScreen('SeniorEditProfile')}
           onLogout={() => setCurrentScreen('Login')}
         />
       );
