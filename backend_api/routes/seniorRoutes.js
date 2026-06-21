@@ -20,7 +20,7 @@ router.get("/", (req, res) => {
       u.postal_code,
       u.unit_number
     FROM Senior s
-    LEFT JOIN User_Account u ON s.user_id = u.user_id
+    JOIN User_Account u ON s.user_id = u.user_id
   `;
 
   db.query(sql, (err, results) => {
@@ -47,7 +47,7 @@ router.get("/:senior_id", (req, res) => {
       u.postal_code,
       u.unit_number
     FROM Senior s
-    LEFT JOIN User_Account u ON s.user_id = u.user_id
+    JOIN User_Account u ON s.user_id = u.user_id
     WHERE s.senior_id = ?
   `;
 

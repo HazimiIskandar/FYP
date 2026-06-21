@@ -355,7 +355,9 @@ export default function App() {
         setUsers(Array.isArray(usersData) ? usersData : []);
         setSeniors(
           Array.isArray(seniorsData)
-            ? seniorsData.map((senior) => normalizeSenior(senior, userMap))
+            ? seniorsData
+                .map((senior) => normalizeSenior(senior, userMap))
+                .filter((normalizedSenior) => normalizedSenior.full_name !== 'Unknown Senior')
             : []
         );
 
