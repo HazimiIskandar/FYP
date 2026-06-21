@@ -192,27 +192,31 @@ export default function SeniorProfileScreen({
 
   const selectDropdownValue = (value) => {
     if (dropdownState.key === 'condition') {
-      updateDetail('condition', value);
+      const nextDetails = { condition: value };
+
       if (value === CONDITION_OTHER) {
-        updateDetail('conditionId', null);
-        updateDetail('customCondition', '');
-        updateDetail('severity', '');
-        updateDetail('medicationRequired', '');
+        nextDetails.conditionId = null;
+        nextDetails.customCondition = '';
+        nextDetails.severity = '';
+        nextDetails.medicationRequired = '';
       } else {
         const item = medicalConditionsList.find(
           (option) => option.condition_name === value
         );
-        updateDetail('conditionId', item?.condition_id || null);
+        nextDetails.conditionId = item?.condition_id || null;
         if (item) {
-          updateDetail('severity', item.severity_level || '');
-          updateDetail('medicationRequired', item.medication_required || '');
+          nextDetails.severity = item.severity_level || '';
+          nextDetails.medicationRequired = item.medication_required || '';
         }
       }
+
+      setDetails((current) => ({ ...current, ...nextDetails }));
     } else if (dropdownState.key === 'emergencyRelationship') {
-      updateDetail('emergencyRelationship', value);
+      const nextDetails = { emergencyRelationship: value };
       if (value === CONDITION_OTHER) {
-        updateDetail('emergencyRelationshipCustom', '');
+        nextDetails.emergencyRelationshipCustom = '';
       }
+      setDetails((current) => ({ ...current, ...nextDetails }));
     } else {
       updateDetail(dropdownState.key, value);
     }
@@ -518,8 +522,8 @@ export default function SeniorProfileScreen({
             loadingConditions ? 'Loading conditions...' : 'Select condition',
             [...medicalConditionsList.map((condition) => condition.condition_name), CONDITION_OTHER]
           )}
-          {details.condition === CONDITION_OTHER ? (
-            renderInput('warning-outline', 'Condition (custom)', 'customCondition', 'Enter condition name')
+          {(details.condition === CONDITION_OTHER || details.customCondition) ? (
+            renderInput('warning-outline', 'Condition (Others)', 'customCondition', 'Enter condition name')
           ) : null}
           {renderSelect('warning-outline', 'Severity', 'severity', 'Select severity', SEVERITY_OPTIONS)}
           {renderSelect('medical-outline', 'Medication Required', 'medicationRequired', 'Select option', MEDICATION_OPTIONS)}
@@ -530,8 +534,8 @@ export default function SeniorProfileScreen({
           <Text style={styles.cardTitle}>Emergency Contact</Text>
           {renderInput('person-outline', 'Name', 'emergencyName', 'Enter contact name')}
           {renderSelect('people-outline', 'Relationship', 'emergencyRelationship', 'Select relationship', RELATIONSHIPS)}
-          {details.emergencyRelationship === CONDITION_OTHER ? (
-            renderInput('person-outline', 'Relationship (custom)', 'emergencyRelationshipCustom', 'Enter relationship')
+          {(details.emergencyRelationship === CONDITION_OTHER || details.emergencyRelationshipCustom) ? (
+            renderInput('person-outline', 'Relationship (Others)', 'emergencyRelationshipCustom', 'Enter relationship')
           ) : null}
           {renderInput('call-outline', 'Phone', 'emergencyPhone', 'Enter phone number', 'phone-pad')}
           {renderInput('mail-outline', 'Email', 'emergencyEmail', 'Enter email address', 'email-address')}
