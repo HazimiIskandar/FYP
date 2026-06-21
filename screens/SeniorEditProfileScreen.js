@@ -99,6 +99,7 @@ export default function SeniorEditProfileScreen({
     return {
       fullName: getSeniorName(senior),
       dob: buildDateValue(dobParts.day, dobParts.month, dobParts.year),
+      dobDate: buildDateValue(dobParts.day, dobParts.month, dobParts.year),
       dobDay: dobParts.day,
       dobMonth: dobParts.month,
       dobYear: dobParts.year,
@@ -295,6 +296,11 @@ export default function SeniorEditProfileScreen({
           parseDateParts(formatDate(profileData?.dob)).month,
           parseDateParts(formatDate(profileData?.dob)).year,
         ),
+        dobDate: buildDateValue(
+          parseDateParts(formatDate(profileData?.dob)).day,
+          parseDateParts(formatDate(profileData?.dob)).month,
+          parseDateParts(formatDate(profileData?.dob)).year,
+        ),
         dobDay: parseDateParts(formatDate(profileData?.dob)).day,
         dobMonth: parseDateParts(formatDate(profileData?.dob)).month,
         dobYear: parseDateParts(formatDate(profileData?.dob)).year,
@@ -341,6 +347,9 @@ export default function SeniorEditProfileScreen({
     const { type, day, month, year } = datePicker;
     const formatted = buildDateValue(day, month, year);
     updateDetail(`${type}Date`, formatted);
+    if (type === 'dob') {
+      updateDetail('dob', formatted);
+    }
     updateDetail(`${type}Day`, day);
     updateDetail(`${type}Month`, month);
     updateDetail(`${type}Year`, year);
@@ -371,7 +380,7 @@ export default function SeniorEditProfileScreen({
         unit_number: details.unitNumber,
       };
 
-      const dob = formatDateForDB(details.dob);
+      const dob = formatDateForDB(details.dob || details.dobDate);
       if (dob) {
         userPayload.dob = dob;
       }
