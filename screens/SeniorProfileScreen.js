@@ -46,18 +46,35 @@ const YEARS = Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i)
 
 const parseDateParts = (value) => {
   if (!value) return { day: '', month: '', year: '' };
-  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!match) return { day: '', month: '', year: '' };
-  return { day: match[1], month: match[2], year: match[3] };
+
+  const dbMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dbMatch) {
+    return { day: dbMatch[3], month: dbMatch[2], year: dbMatch[1] };
+  }
+
+  const dbSlashMatch = value.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (dbSlashMatch) {
+    return { day: dbSlashMatch[3], month: dbSlashMatch[2], year: dbSlashMatch[1] };
+  }
+
+  const displayMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (displayMatch) {
+    return { day: displayMatch[1], month: displayMatch[2], year: displayMatch[3] };
+  }
+
+  return { day: '', month: '', year: '' };
 };
 
 const buildDateValue = (day, month, year) => {
   if (!day || !month || !year) return '';
-  return `${day}/${month}/${year}`;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
 
 const formatDateForDB = (value) => {
   if (!value) return null;
+  const dbMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dbMatch) return value;
+
   const parts = value.split('/');
   if (parts.length !== 3) return null;
   const [day, month, year] = parts;
