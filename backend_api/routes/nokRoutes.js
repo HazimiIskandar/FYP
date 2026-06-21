@@ -78,4 +78,41 @@ router.get("/senior/:senior_id", (req, res) => {
     });
 });
 
+router.put('/:nok_id', (req, res) => {
+  const { full_name, relationship_to_senior, phone_number, email } = req.body;
+  const nokId = req.params.nok_id;
+
+  const fields = [];
+  const params = [];
+
+  if (full_name !== undefined) {
+    fields.push('full_name = ?');
+    params.push(full_name);
+  }
+  if (relationship_to_senior !== undefined) {
+    fields.push('relationship_to_senior = ?');
+    params.push(relationship_to_senior);
+  }
+  if (phone_number !== undefined) {
+    fields.push('phone_number = ?');
+    params.push(phone_number);
+  }
+  if (email !== undefined) {
+    fields.push('email = ?');
+    params.push(email);
+  }
+
+  if (!fields.length) {
+    return res.status(400).json({ error: 'No NOK fields to update.' });
+  }
+
+  const sql = `UPDATE NOK SET ${fields.join(', ')} WHERE nok_id = ?`;
+  params.push(nokId);
+
+  db.query(sql, params, (err) => {
+    if (err) return res.status(500).json({ error: err.message || err });
+    res.json({ message: 'NOK updated successfully' });
+  });
+});
+
 module.exports = router;

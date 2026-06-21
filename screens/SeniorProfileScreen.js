@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -21,21 +21,10 @@ const formatDate = (value) => {
   });
 };
 
-const CONDITIONS = [
-  { id: 1, name: 'Arthritis', severity: 'Moderate' },
-  { id: 2, name: 'Heart Disease', severity: 'High' },
-  { id: 3, name: 'Cancer', severity: 'High' },
-  { id: 4, name: 'Respiratory Diseases', severity: 'Moderate' },
-  { id: 5, name: 'Alzheimer’s Disease', severity: 'High' },
-  { id: 6, name: 'Osteoporosis', severity: 'Moderate' },
-  { id: 7, name: 'Diabetes', severity: 'Moderate' },
-  { id: 8, name: 'Dementia', severity: 'High' },
-  { id: 9, name: 'Obesity', severity: 'Moderate' },
-  { id: 10, name: 'Depression', severity: 'Moderate' },
-];
+const CONDITION_OTHER = 'Others';
 
 const GENDERS = ['Male', 'Female'];
-const RELATIONSHIPS = ['Son', 'Daughter', 'Spouse', 'Sibling', 'Friend', 'Neighbor', 'Other'];
+const RELATIONSHIPS = ['Son', 'Daughter', 'Spouse', 'Sibling', 'Friend', 'Neighbor', CONDITION_OTHER];
 const SEVERITY_OPTIONS = ['Low', 'Moderate', 'High'];
 const MEDICATION_OPTIONS = ['Yes', 'No'];
 const MONTHS = [
@@ -67,20 +56,27 @@ const buildDateValue = (day, month, year) => {
   return `${day}/${month}/${year}`;
 };
 
+const formatDateForDB = (value) => {
+  if (!value) return null;
+  const parts = value.split('/');
+  if (parts.length !== 3) return null;
+  const [day, month, year] = parts;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+};
+
 export default function SeniorProfileScreen({
   senior = {},
+  apiBase,
   onHome,
   onCommunity,
   onSettings,
 }) {
+  const seniorCondition = senior?.medicalConditions?.[0] || {};
+  const initialRelationship = senior?.nokContacts?.[0]?.relationship_to_senior || '';
+  const isRelationshipStandard = RELATIONSHIPS.includes(initialRelationship);
   const initialDetails = useMemo(() => {
-    const existingCondition = CONDITIONS.find(
-      (item) => item.name === senior?.medicalConditions?.[0]?.condition_name
-    );
     const dobParts = parseDateParts(formatDate(senior?.dob));
-    const diagnosedParts = parseDateParts(
-      formatDate(senior?.medicalConditions?.[0]?.diagnosed_date)
-    );
+    const diagnosedParts = parseDateParts(formatDate(seniorCondition?.diagnosed_date));
 
     return {
       fullName: getSeniorName(senior),
@@ -93,25 +89,93 @@ export default function SeniorProfileScreen({
       postalCode: senior?.postal_code || '',
       unitNumber: senior?.unit_number || senior?.unit_no || '',
       phone: senior?.phone_number || senior?.contact || '',
-      condition: existingCondition?.name || senior?.medicalConditions?.[0]?.condition_name || '',
-      severity: existingCondition?.severity || senior?.medicalConditions?.[0]?.severity_level || '',
-      medicationRequired: senior?.medicalConditions?.[0]?.medication_required || '',
+      condition: seniorCondition?.condition_name || '',
+      conditionId: seniorCondition?.condition_id || null,
+      customCondition: '',
+      severity: seniorCondition?.severity_level || '',
+      medicationRequired: seniorCondition?.medication_required || '',
       diagnosedDate: buildDateValue(diagnosedParts.day, diagnosedParts.month, diagnosedParts.year),
       diagnosedDay: diagnosedParts.day,
       diagnosedMonth: diagnosedParts.month,
       diagnosedYear: diagnosedParts.year,
       emergencyName: senior?.nokContacts?.[0]?.full_name || '',
-      emergencyRelationship: senior?.nokContacts?.[0]?.relationship_to_senior || '',
+      emergencyRelationship: isRelationshipStandard ? initialRelationship : (initialRelationship ? CONDITION_OTHER : ''),
+      emergencyRelationshipCustom: isRelationshipStandard ? '' : initialRelationship || '',
       emergencyPhone: senior?.nokContacts?.[0]?.phone_number || '',
       emergencyEmail: senior?.nokContacts?.[0]?.email || '',
+      nokId: senior?.nokContacts?.[0]?.nok_id || null,
+      userId: senior?.user_id || null,
+      seniorId: senior?.senior_id || null,
     };
   }, [senior]);
 
   const [details, setDetails] = useState(initialDetails);
   const [savedMessage, setSavedMessage] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [dropdownState, setDropdownState] = useState({ visible: false, title: '', key: '', options: [] });
   const [datePicker, setDatePicker] = useState({ visible: false, type: '', day: '', month: '', year: '' });
+  const [medicalConditionsList, setMedicalConditionsList] = useState([]);
+  const [loadingConditions, setLoadingConditions] = useState(false);
+  const [conditionLoadError, setConditionLoadError] = useState('');
+
+  useEffect(() => {
+    setDetails(initialDetails);
+  }, [initialDetails]);
+
+  useEffect(() => {
+    if (!apiBase) return;
+    setLoadingConditions(true);
+    setConditionLoadError('');
+
+    fetch(`${apiBase}/medical`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load medical conditions (${response.status})`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        const conditions = Array.isArray(data) ? data : [];
+        setMedicalConditionsList(conditions);
+      })
+      .catch((err) => {
+        console.log('Failed to load medical conditions:', err);
+        setConditionLoadError(err.message);
+      })
+      .finally(() => setLoadingConditions(false));
+  }, [apiBase]);
+
+  useEffect(() => {
+    if (!medicalConditionsList.length || !details.condition) return;
+
+    const selectedCondition = medicalConditionsList.find(
+      (item) => item.condition_name === details.condition
+    );
+
+    if (selectedCondition && !details.conditionId) {
+      setDetails((current) => ({
+        ...current,
+        conditionId: selectedCondition.condition_id,
+        severity: current.severity || selectedCondition.severity_level || '',
+        medicationRequired: current.medicationRequired || selectedCondition.medication_required || '',
+      }));
+      return;
+    }
+
+    if (
+      details.condition &&
+      details.condition !== CONDITION_OTHER &&
+      !selectedCondition &&
+      !details.customCondition
+    ) {
+      setDetails((current) => ({
+        ...current,
+        condition: CONDITION_OTHER,
+        customCondition: current.condition,
+      }));
+    }
+  }, [medicalConditionsList, details.condition, details.conditionId, details.customCondition]);
 
   const openDropdown = (key, title, options) => {
     setDropdownState({ visible: true, title, key, options });
@@ -128,14 +192,31 @@ export default function SeniorProfileScreen({
 
   const selectDropdownValue = (value) => {
     if (dropdownState.key === 'condition') {
-      const item = CONDITIONS.find((option) => option.name === value);
       updateDetail('condition', value);
-      if (item) {
-        updateDetail('severity', item.severity);
+      if (value === CONDITION_OTHER) {
+        updateDetail('conditionId', null);
+        updateDetail('customCondition', '');
+        updateDetail('severity', '');
+        updateDetail('medicationRequired', '');
+      } else {
+        const item = medicalConditionsList.find(
+          (option) => option.condition_name === value
+        );
+        updateDetail('conditionId', item?.condition_id || null);
+        if (item) {
+          updateDetail('severity', item.severity_level || '');
+          updateDetail('medicationRequired', item.medication_required || '');
+        }
+      }
+    } else if (dropdownState.key === 'emergencyRelationship') {
+      updateDetail('emergencyRelationship', value);
+      if (value === CONDITION_OTHER) {
+        updateDetail('emergencyRelationshipCustom', '');
       }
     } else {
       updateDetail(dropdownState.key, value);
     }
+
     closeDropdown();
   };
 
@@ -153,6 +234,87 @@ export default function SeniorProfileScreen({
     setDatePicker((current) => ({ ...current, [key]: value }));
   };
 
+  const refreshSavedProfile = async () => {
+    if (!apiBase || !details.seniorId) return;
+
+    try {
+      const [profileResponse, conditionsResponse, nokResponse] = await Promise.all([
+        fetch(`${apiBase}/seniors/${details.seniorId}`),
+        fetch(`${apiBase}/seniors/${details.seniorId}/medical-conditions`),
+        fetch(`${apiBase}/seniors/${details.seniorId}/nok`),
+      ]);
+
+      if (!profileResponse.ok) {
+        throw new Error(`Failed to refresh profile (${profileResponse.status})`);
+      }
+      if (!conditionsResponse.ok) {
+        throw new Error(`Failed to refresh medical conditions (${conditionsResponse.status})`);
+      }
+      if (!nokResponse.ok) {
+        throw new Error(`Failed to refresh emergency contact (${nokResponse.status})`);
+      }
+
+      const profileData = await profileResponse.json();
+      const conditionsData = await conditionsResponse.json();
+      const nokData = await nokResponse.json();
+      const savedCondition = Array.isArray(conditionsData) ? conditionsData[0] : conditionsData;
+      const diagnosedParts = parseDateParts(formatDate(savedCondition?.diagnosed_date));
+      const relationship = nokData?.[0]?.relationship_to_senior || '';
+      const isRelationshipStandard = RELATIONSHIPS.includes(relationship);
+      const conditionMatchesList = medicalConditionsList.some(
+        (item) => item.condition_id === savedCondition?.condition_id
+      );
+
+      setDetails((current) => ({
+        ...current,
+        fullName: getSeniorName(profileData),
+        dob: buildDateValue(
+          parseDateParts(formatDate(profileData?.dob)).day,
+          parseDateParts(formatDate(profileData?.dob)).month,
+          parseDateParts(formatDate(profileData?.dob)).year,
+        ),
+        dobDay: parseDateParts(formatDate(profileData?.dob)).day,
+        dobMonth: parseDateParts(formatDate(profileData?.dob)).month,
+        dobYear: parseDateParts(formatDate(profileData?.dob)).year,
+        gender: profileData?.gender || '',
+        address: profileData?.address || '',
+        postalCode: profileData?.postal_code || '',
+        unitNumber: profileData?.unit_number || profileData?.unit_no || '',
+        phone: profileData?.phone_number || profileData?.contact || '',
+        condition: savedCondition
+          ? conditionMatchesList
+            ? savedCondition.condition_name
+            : CONDITION_OTHER
+          : current.condition,
+        conditionId: savedCondition?.condition_id || current.conditionId,
+        customCondition:
+          savedCondition && !conditionMatchesList
+            ? savedCondition.condition_name || current.customCondition
+            : current.customCondition,
+        severity: savedCondition?.severity_level || current.severity,
+        medicationRequired: savedCondition?.medication_required || current.medicationRequired,
+        diagnosedDate: buildDateValue(diagnosedParts.day, diagnosedParts.month, diagnosedParts.year),
+        diagnosedDay: diagnosedParts.day,
+        diagnosedMonth: diagnosedParts.month,
+        diagnosedYear: diagnosedParts.year,
+        emergencyName: nokData?.[0]?.full_name || current.emergencyName,
+        emergencyRelationship: isRelationshipStandard
+          ? relationship
+          : relationship
+          ? CONDITION_OTHER
+          : current.emergencyRelationship,
+        emergencyRelationshipCustom: isRelationshipStandard
+          ? ''
+          : relationship || current.emergencyRelationshipCustom,
+        emergencyPhone: nokData?.[0]?.phone_number || current.emergencyPhone,
+        emergencyEmail: nokData?.[0]?.email || current.emergencyEmail,
+        nokId: nokData?.[0]?.nok_id || current.nokId,
+      }));
+    } catch (err) {
+      console.log('Failed to refresh profile:', err);
+    }
+  };
+
   const confirmDateSelection = () => {
     const { type, day, month, year } = datePicker;
     const formatted = buildDateValue(day, month, year);
@@ -167,9 +329,113 @@ export default function SeniorProfileScreen({
     setConfirmVisible(true);
   };
 
-  const confirmSave = () => {
+  const confirmSave = async () => {
     setConfirmVisible(false);
-    setSavedMessage('Profile details saved on this device.');
+    setSavedMessage('');
+    setSaveError('');
+
+    if (!apiBase) {
+      setSaveError('Backend not configured.');
+      return;
+    }
+
+    try {
+      const userPayload = {
+        full_name: details.fullName,
+        phone_number: details.phone,
+        gender: details.gender,
+        address: details.address,
+        postal_code: details.postalCode,
+        unit_number: details.unitNumber,
+      };
+
+      const dob = formatDateForDB(details.dob);
+      if (dob) {
+        userPayload.dob = dob;
+      }
+
+      const filteredUserPayload = Object.fromEntries(
+        Object.entries(userPayload).filter(
+          ([, value]) => value !== undefined && value !== null && value !== ''
+        )
+      );
+
+      if (details.userId) {
+        const response = await fetch(`${apiBase}/users/${details.userId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(filteredUserPayload),
+        });
+
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || result?.message || 'Failed to update user profile');
+        }
+      }
+
+      const emergencyRelationship =
+        details.emergencyRelationship === CONDITION_OTHER
+          ? details.emergencyRelationshipCustom
+          : details.emergencyRelationship;
+
+      const nokPayload = {
+        full_name: details.emergencyName,
+        relationship_to_senior: emergencyRelationship,
+        phone_number: details.emergencyPhone,
+        email: details.emergencyEmail,
+      };
+
+      if (details.nokId) {
+        const response = await fetch(`${apiBase}/nok/${details.nokId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(nokPayload),
+        });
+
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || result?.message || 'Failed to update emergency contact');
+        }
+      }
+
+      if (details.seniorId) {
+        const conditionPayload = {
+          condition_id: details.conditionId,
+          customCondition: details.condition === CONDITION_OTHER ? details.customCondition : undefined,
+          diagnosed_date: formatDateForDB(details.diagnosedDate),
+          severity_level: details.severity,
+          medication_required: details.medicationRequired,
+        };
+
+        const filteredConditionPayload = Object.fromEntries(
+          Object.entries(conditionPayload).filter(
+            ([, value]) => value !== undefined && value !== null && value !== ''
+          )
+        );
+
+        if (filteredConditionPayload.condition_id || filteredConditionPayload.customCondition) {
+          const conditionResponse = await fetch(`${apiBase}/seniors/${details.seniorId}/medical-condition`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(filteredConditionPayload),
+          });
+
+          const conditionResult = await conditionResponse.json().catch(() => null);
+          if (!conditionResponse.ok) {
+            throw new Error(conditionResult?.error || conditionResult?.message || 'Failed to save medical condition');
+          }
+        }
+      }
+
+      if (details.seniorId) {
+        await refreshSavedProfile();
+      }
+
+      setSavedMessage('Profile details saved.');
+    } catch (err) {
+      console.log('Save profile error:', err);
+      setSaveError(err?.message || 'Save failed.');
+    }
   };
 
   const renderInput = (icon, label, key, placeholder, keyboardType = 'default') => (
@@ -245,7 +511,16 @@ export default function SeniorProfileScreen({
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Medical Conditions</Text>
-          {renderSelect('fitness-outline', 'Condition', 'condition', 'Select condition', CONDITIONS.map((condition) => condition.name))}
+          {renderSelect(
+            'fitness-outline',
+            'Condition',
+            'condition',
+            loadingConditions ? 'Loading conditions...' : 'Select condition',
+            [...medicalConditionsList.map((condition) => condition.condition_name), CONDITION_OTHER]
+          )}
+          {details.condition === CONDITION_OTHER ? (
+            renderInput('warning-outline', 'Condition (custom)', 'customCondition', 'Enter condition name')
+          ) : null}
           {renderSelect('warning-outline', 'Severity', 'severity', 'Select severity', SEVERITY_OPTIONS)}
           {renderSelect('medical-outline', 'Medication Required', 'medicationRequired', 'Select option', MEDICATION_OPTIONS)}
           {renderDateField('calendar-outline', 'Diagnosed', 'diagnosed', 'DD/MM/YYYY')}
@@ -255,11 +530,16 @@ export default function SeniorProfileScreen({
           <Text style={styles.cardTitle}>Emergency Contact</Text>
           {renderInput('person-outline', 'Name', 'emergencyName', 'Enter contact name')}
           {renderSelect('people-outline', 'Relationship', 'emergencyRelationship', 'Select relationship', RELATIONSHIPS)}
+          {details.emergencyRelationship === CONDITION_OTHER ? (
+            renderInput('person-outline', 'Relationship (custom)', 'emergencyRelationshipCustom', 'Enter relationship')
+          ) : null}
           {renderInput('call-outline', 'Phone', 'emergencyPhone', 'Enter phone number', 'phone-pad')}
           {renderInput('mail-outline', 'Email', 'emergencyEmail', 'Enter email address', 'email-address')}
         </View>
 
         {savedMessage ? <Text style={styles.savedText}>{savedMessage}</Text> : null}
+        {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
+        {conditionLoadError ? <Text style={styles.errorText}>{conditionLoadError}</Text> : null}
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.86}>
           <Ionicons name="save-outline" size={22} color="#FFFFFF" />

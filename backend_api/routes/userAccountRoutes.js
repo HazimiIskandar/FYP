@@ -120,4 +120,61 @@ router.post("/register", (req, res) => {
     });
 });
 
+router.put('/:user_id', (req, res) => {
+    const userId = req.params.user_id;
+    const {
+        full_name,
+        phone_number,
+        dob,
+        gender,
+        address,
+        postal_code,
+        unit_number,
+    } = req.body;
+
+    const fields = [];
+    const params = [];
+
+    if (full_name !== undefined) {
+        fields.push('full_name = ?');
+        params.push(full_name);
+    }
+    if (phone_number !== undefined) {
+        fields.push('phone_number = ?');
+        params.push(phone_number);
+    }
+    if (dob !== undefined) {
+        fields.push('dob = ?');
+        params.push(dob);
+    }
+    if (gender !== undefined) {
+        fields.push('gender = ?');
+        params.push(gender);
+    }
+    if (address !== undefined) {
+        fields.push('address = ?');
+        params.push(address);
+    }
+    if (postal_code !== undefined) {
+        fields.push('postal_code = ?');
+        params.push(postal_code);
+    }
+    if (unit_number !== undefined) {
+        fields.push('unit_number = ?');
+        params.push(unit_number);
+    }
+
+    if (!fields.length) {
+        return res.status(400).json({ error: 'No user fields to update.' });
+    }
+
+    const sql = `UPDATE User_Account SET ${fields.join(', ')} WHERE user_id = ?`;
+    params.push(userId);
+
+    db.query(sql, params, (err) => {
+        if (err) return res.status(500).json({ error: err.message || err });
+        res.json({ message: 'User updated successfully' });
+    });
+});
+
 module.exports = router;

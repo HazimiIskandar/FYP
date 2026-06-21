@@ -128,4 +128,56 @@ router.get("/:senior_id/nok", (req, res) => {
   });
 });
 
+router.put('/:senior_id/medical-condition', (req, res) => {
+  const seniorId = req.params.senior_id;
+  const {
+    condition_id,
+    customCondition,
+    diagnosed_date,
+    severity_level,
+    medication_required,
+  } = req.body;
+
+  if (!seniorId) {
+    return res.status(400).json({ error: 'Senior ID is required.' });
+  }
+
+  const upsertCondition = (resolvedConditionId) => {
+    if (!resolvedConditionId) {
+      return res.status(400).json({ error: 'A valid condition_id or customCondition is required.' });
+    }
+
+    const sql = `
+      INSERT INTO Senior_Medical_Condition (senior_id, condition_id, diagnosed_date)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        condition_id = VALUES(condition_id),
+        diagnosed_date = VALUES(diagnosed_date)
+    `;
+
+    db.query(sql, [seniorId, resolvedConditionId, diagnosed_date || null], (err) => {
+      if (err) return res.status(500).json(err);
+      res.json({ message: 'Senior medical condition saved successfully.' });
+    });
+  };
+
+  if (customCondition && !condition_id) {
+    const insertConditionSql = `
+      INSERT INTO Medical_Condition (condition_name, severity_level, medication_required)
+      VALUES (?, ?, ?)
+    `;
+
+    db.query(
+      insertConditionSql,
+      [customCondition, severity_level || null, medication_required || null],
+      (err, result) => {
+        if (err) return res.status(500).json(err);
+        upsertCondition(result.insertId);
+      }
+    );
+  } else {
+    upsertCondition(condition_id);
+  }
+});
+
 module.exports = router;
