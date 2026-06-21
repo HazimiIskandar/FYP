@@ -4,7 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
 
-export default function SeniorDetailsScreen({ senior, medicalConditions = [], onGoBack, onGoToHome, onLogout }) {
+export default function SeniorDetailsScreen({
+  senior,
+  medicalConditions = [],
+  showStatusBadge = true,
+  onGoBack,
+  onGoToHome,
+  onGoToSeniorsList,
+  onGoToStatus,
+  onLogout,
+}) {
   console.log('=== SENIOR DETAILS SCREEN MOUNTED ===');
   console.log('Senior prop received:', JSON.stringify(senior, null, 2));
   console.log('Medical conditions prop:', medicalConditions);
@@ -70,11 +79,13 @@ export default function SeniorDetailsScreen({ senior, medicalConditions = [], on
             <Text style={styles.name}>{name}</Text>
           </View>
 
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
-            <Text style={styles.statusText}>
-              {senior?.status || 'Pending'}
-            </Text>
-          </View>
+          {showStatusBadge ? (
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
+              <Text style={styles.statusText}>
+                {senior?.status || 'Pending'}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* PERSONAL DETAILS CARD */}
@@ -242,7 +253,8 @@ export default function SeniorDetailsScreen({ senior, medicalConditions = [], on
       <CaregiverBottomNav
         activeTab="Seniors"
         onHome={onGoToHome}
-        onSeniors={() => { }}
+        onSeniors={onGoToSeniorsList}
+        onStatus={onGoToStatus}
         onLogout={onLogout}
       />
 

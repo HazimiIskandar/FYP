@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
-export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn, onSOS, onCommunity, onProfile, onLogout, currentStreak }) {
+export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn, onSOS, onCommunity, onProfile, onSettings, currentStreak }) {
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -105,7 +105,7 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
         </TouchableOpacity>
       </View>
 
-      <SeniorBottomNav activeTab="Home" onHome={() => {}} onCommunity={onCommunity} onProfile={onProfile} onLogout={onLogout} />
+      <SeniorBottomNav activeTab="Home" onHome={() => {}} onCommunity={onCommunity} onProfile={onProfile} onSettings={onSettings} />
 
       {languageModalVisible ? (
         <TouchableOpacity

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function CaregiverBottomNav({ activeTab, onHome, onSeniors, onLogout }) {
+export default function CaregiverBottomNav({ activeTab, onHome, onSeniors, onStatus, onLogout }) {
   return (
     <View style={styles.bottomNav}>
       <TouchableOpacity style={styles.navItem} onPress={onHome}>
@@ -12,6 +12,10 @@ export default function CaregiverBottomNav({ activeTab, onHome, onSeniors, onLog
       <TouchableOpacity style={styles.navItem} onPress={onSeniors}>
         <Ionicons name="accessibility" size={26} color={activeTab === 'Seniors' ? '#2563EB' : '#6B7280'} />
         <Text style={[styles.navText, { color: activeTab === 'Seniors' ? '#2563EB' : '#6B7280' }]}>Seniors</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.navItem} onPress={onStatus}>
+        <Ionicons name="pulse" size={26} color={activeTab === 'Status' ? '#2563EB' : '#6B7280'} />
+        <Text style={[styles.navText, { color: activeTab === 'Status' ? '#2563EB' : '#6B7280' }]}>Status</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.navItem} onPress={onLogout}>
         <Ionicons name="log-out-outline" size={26} color="#6B7280" />
@@ -31,6 +35,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#E5E7EB',
   },
-  navItem: { alignItems: 'center', minWidth: 88 },
-  navText: { color: '#6B7280', fontSize: 13, marginTop: 4, fontWeight: '700' },
+  navItem: { alignItems: 'center', minWidth: 72 },
+  navText: { color: '#6B7280', fontSize: 12, marginTop: 4, fontWeight: '700' },
 });

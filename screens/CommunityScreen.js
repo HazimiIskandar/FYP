@@ -18,16 +18,9 @@ const MEMORY_ITEMS = [
   { key: 'music', label: 'Music', icon: 'musical-notes', color: '#7C2D12', background: '#FFEDD5' },
   { key: 'photo', label: 'Photo', icon: 'images', color: '#6D28D9', background: '#EDE9FE' },
   { key: 'book', label: 'Book', icon: 'book', color: '#BE123C', background: '#FFE4E6' },
+  { key: 'phone', label: 'Phone', icon: 'call', color: '#0F766E', background: '#CCFBF1' },
+  { key: 'news', label: 'News', icon: 'newspaper', color: '#4338CA', background: '#E0E7FF' },
 ];
-
-const LUCKY_CARD = {
-  key: 'lucky',
-  label: 'Lucky',
-  icon: 'star',
-  color: '#B45309',
-  background: '#FEF9C3',
-  isLucky: true,
-};
 
 const shuffle = (items) => {
   const nextItems = [...items];
@@ -41,13 +34,13 @@ const shuffle = (items) => {
 };
 
 const createDeck = () => {
-  const selectedItems = shuffle(MEMORY_ITEMS).slice(0, 4);
+  const selectedItems = shuffle(MEMORY_ITEMS).slice(0, 8);
   const pairedItems = selectedItems.flatMap((item) => [
     { ...item, id: `${item.key}-a` },
     { ...item, id: `${item.key}-b` },
   ]);
 
-  return shuffle([...pairedItems, { ...LUCKY_CARD, id: 'lucky-card' }]);
+  return shuffle(pairedItems);
 };
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
@@ -99,7 +92,7 @@ const saveStoredRewards = (totalPoints, dailyEarned) => {
   );
 };
 
-export default function CommunityScreen({ onHome, onProfile, onLogout }) {
+export default function CommunityScreen({ onHome, onProfile, onSettings }) {
   const [cards, setCards] = useState(createDeck);
   const [flippedIds, setFlippedIds] = useState([]);
   const [matchedKeys, setMatchedKeys] = useState([]);
@@ -112,7 +105,7 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
   const [rewardsLoaded, setRewardsLoaded] = useState(false);
   const [rewardGrantedThisGame, setRewardGrantedThisGame] = useState(false);
 
-  const gameComplete = matchedKeys.length === 5;
+  const gameComplete = matchedKeys.length === 8;
   const pointsToKopi = Math.max(0, KOPI_COST - totalRewardPoints);
   const canRedeemKopi = totalRewardPoints >= KOPI_COST;
 
@@ -123,7 +116,7 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
         : 'Game complete. Reward points added if today has cap left.';
     }
 
-    return `${Math.min(matchedKeys.length, 5)} of 5 cards found`;
+    return `${matchedKeys.length} of 8 pairs found`;
   }, [dailyRewardPoints, gameComplete, matchedKeys.length]);
 
   useEffect(() => {
@@ -199,14 +192,6 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
       return;
     }
 
-    if (card.isLucky) {
-      setFlippedIds((currentFlippedIds) => [...currentFlippedIds, card.id]);
-      setMatchedKeys((currentMatches) => [...currentMatches, card.key]);
-      setScore((currentScore) => currentScore + 50);
-      setMessage('Lucky card found. Nice one.');
-      return;
-    }
-
     const nextFlippedIds = [...flippedIds, card.id];
     setFlippedIds(nextFlippedIds);
 
@@ -242,7 +227,7 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Memory Match" subtitle="Find the pairs in a 3 by 3 grid" />
+      <Header title="Memory Match" subtitle="Find 8 pairs in a 4 by 4 grid" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.scoreRow}>
@@ -294,7 +279,7 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
               >
                 {isFaceUp ? (
                   <>
-                    <Ionicons name={card.icon} size={38} color={card.color} />
+                    <Ionicons name={card.icon} size={30} color={card.color} />
                     <Text style={[styles.cardLabel, { color: card.color }]}>{card.label}</Text>
                   </>
                 ) : (
@@ -329,7 +314,7 @@ export default function CommunityScreen({ onHome, onProfile, onLogout }) {
         </TouchableOpacity>
       </ScrollView>
 
-      <SeniorBottomNav onHome={onHome} onCommunity={() => {}} onProfile={onProfile} onLogout={onLogout} activeTab="Community" />
+      <SeniorBottomNav onHome={onHome} onCommunity={() => {}} onProfile={onProfile} onSettings={onSettings} activeTab="Community" />
     </SafeAreaView>
   );
 }
@@ -384,16 +369,16 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    padding: 12,
+    padding: 10,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 10,
   },
   memoryCard: {
-    width: '31.5%',
-    aspectRatio: 0.82,
-    borderRadius: 16,
+    width: '23.5%',
+    aspectRatio: 0.92,
+    borderRadius: 13,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -406,8 +391,8 @@ const styles = StyleSheet.create({
   memoryCardMatched: {
     opacity: 0.72,
   },
-  cardLabel: { fontSize: 13, fontWeight: '900', marginTop: 7 },
-  cardBackText: { color: '#DBEAFE', fontSize: 13, fontWeight: '900', marginTop: 4 },
+  cardLabel: { fontSize: 11, fontWeight: '900', marginTop: 5 },
+  cardBackText: { color: '#DBEAFE', fontSize: 11, fontWeight: '900', marginTop: 3 },
   attemptText: {
     color: '#6B7280',
     fontSize: 14,

@@ -3,10 +3,6 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
-import {
-  isValidCheckInTime,
-  scheduleCheckInReminders,
-} from '../services/checkInNotifications';
 
 const getSeniorName = (senior) =>
   senior?.full_name ||
@@ -25,32 +21,11 @@ const formatDate = (value) => {
   });
 };
 
-const formatCheckInTime = (value) => {
-  const raw = String(value || '').trim();
-
-  if (/^(1[0-2]|[1-9]):[0-5]\d\s?(AM|PM)$/i.test(raw)) {
-    return raw.replace(/\s?(AM|PM)$/i, (match) => ` ${match.trim().toUpperCase()}`);
-  }
-
-  const match = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-
-  if (!match) {
-    return '9:00 AM';
-  }
-
-  const hour24 = Number(match[1]);
-  const minute = match[2];
-  const period = hour24 >= 12 ? 'PM' : 'AM';
-  const hour12 = hour24 % 12 || 12;
-
-  return `${hour12}:${minute} ${period}`;
-};
-
 export default function SeniorProfileScreen({
   senior = {},
   onHome,
   onCommunity,
-  onLogout,
+  onSettings,
 }) {
   const initialDetails = useMemo(() => ({
     fullName: getSeniorName(senior),
@@ -60,7 +35,6 @@ export default function SeniorProfileScreen({
     postalCode: senior?.postal_code || '',
     unitNumber: senior?.unit_number || senior?.unit_no || '',
     phone: senior?.phone_number || senior?.contact || '',
-    checkInTime: formatCheckInTime(senior?.preferred_checkin_time || senior?.check_in_time),
     condition: senior?.medicalConditions?.[0]?.condition_name || '',
     severity: senior?.medicalConditions?.[0]?.severity_level || '',
     medicationRequired: senior?.medicalConditions?.[0]?.medication_required || '',
@@ -73,42 +47,20 @@ export default function SeniorProfileScreen({
 
   const [details, setDetails] = useState(initialDetails);
   const [savedMessage, setSavedMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
   const [confirmVisible, setConfirmVisible] = useState(false);
 
   const updateDetail = (key, value) => {
     setDetails((current) => ({ ...current, [key]: value }));
     setSavedMessage('');
-    setErrorMessage('');
   };
 
   const handleSave = () => {
-    if (!isValidCheckInTime(details.checkInTime)) {
-      setErrorMessage('Please enter check-in time with AM or PM, for example 9:00 AM or 8:30 PM.');
-      return;
-    }
-
     setConfirmVisible(true);
   };
 
-  const confirmSave = async () => {
-    let notificationsScheduled = false;
-
-    try {
-      notificationsScheduled = await scheduleCheckInReminders(
-        details.fullName || 'Senior',
-        details.checkInTime
-      );
-    } catch (error) {
-      console.log('Failed to schedule check-in reminders:', error);
-    }
-
+  const confirmSave = () => {
     setConfirmVisible(false);
-    setSavedMessage(
-      notificationsScheduled
-        ? `Profile saved. Check-in reminders set for ${details.checkInTime}.`
-        : 'Profile saved, but notification permission was not granted.'
-    );
+    setSavedMessage('Profile details saved on this device.');
   };
 
   const renderInput = (icon, label, key, placeholder, keyboardType = 'default') => (
@@ -170,19 +122,6 @@ export default function SeniorProfileScreen({
           {renderInput('mail-outline', 'Email', 'emergencyEmail', 'Enter email address', 'email-address')}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Daily Check-In Time</Text>
-          <View style={styles.noticeBox}>
-            <Ionicons name="notifications-outline" size={22} color="#2563EB" />
-            <Text style={styles.noticeText}>
-              Choose the time you want to check in each day. The app will remind you 30 minutes and 15 minutes before.
-            </Text>
-          </View>
-          {renderInput('time-outline', 'Preferred Check-In Time', 'checkInTime', 'Example: 9:00 AM')}
-          <Text style={styles.helperText}>Use 12-hour format with AM or PM.</Text>
-        </View>
-
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         {savedMessage ? <Text style={styles.savedText}>{savedMessage}</Text> : null}
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.86}>
@@ -196,7 +135,7 @@ export default function SeniorProfileScreen({
         onHome={onHome}
         onCommunity={onCommunity}
         onProfile={() => {}}
-        onLogout={onLogout}
+        onSettings={onSettings}
       />
 
       {confirmVisible ? (
@@ -207,7 +146,7 @@ export default function SeniorProfileScreen({
             </View>
             <Text style={styles.confirmTitle}>Save profile?</Text>
             <Text style={styles.confirmMessage}>
-              Save these changes and schedule reminders before your {details.checkInTime} check-in?
+              Do you want to save these profile changes?
             </Text>
             <TouchableOpacity style={styles.yesButton} onPress={confirmSave} activeOpacity={0.86}>
               <Text style={styles.yesButtonText}>Yes</Text>

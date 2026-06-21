@@ -7,6 +7,7 @@ import CaregiverBottomNav from '../components/CaregiverBottomNav';
 export default function CaregiverRosterScreen({
   seniors = [],
   onGoToHome,
+  onGoToSeniorsList,
   onLogout,
   onSelectSenior,
   backendError,
@@ -118,7 +119,7 @@ export default function CaregiverRosterScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Seniors List" subtitle="Sort by urgency and follow up quickly" />
+      <Header title="Seniors Status" subtitle="Sort by urgency and follow up quickly" />
 
       {/* FILTERS */}
       <View style={styles.filterArea}>
@@ -237,9 +238,10 @@ export default function CaregiverRosterScreen({
       </ScrollView>
 
       <CaregiverBottomNav
-        activeTab="Seniors"
+        activeTab="Status"
         onHome={onGoToHome}
-        onSeniors={() => {}}
+        onSeniors={onGoToSeniorsList}
+        onStatus={() => {}}
         onLogout={onLogout}
       />
     </SafeAreaView>

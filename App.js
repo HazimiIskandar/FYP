@@ -12,8 +12,10 @@ import CreateAccountScreen from './screens/CreateAccountScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import SeniorProfileScreen from './screens/SeniorProfileScreen';
+import SeniorSettingsScreen from './screens/SeniorSettingsScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
+import CaregiverSeniorsListScreen from './screens/CaregiverSeniorsListScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
 import AICPortalScreen from './screens/AICPortalScreen';
 import SeniorDetailsScreen from './screens/SeniorDetailsScreen';
@@ -30,6 +32,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [selectedSenior, setSelectedSenior] = useState(null);
+  const [selectedSeniorOrigin, setSelectedSeniorOrigin] = useState('Status');
   const [authenticatedUser, setAuthenticatedUser] = useState(null);
   const [loginError, setLoginError] = useState(null);
   const [registerError, setRegisterError] = useState(null);
@@ -213,8 +216,9 @@ export default function App() {
   // -------------------------
   // SELECT SENIOR (UPDATED)
   // -------------------------
-  const handleSelectSenior = async (senior) => {
+  const handleSelectSenior = async (senior, origin = 'Status') => {
     console.log('=== SELECTING SENIOR ===');
+    setSelectedSeniorOrigin(origin);
 
     try {
       if (!apiBase) throw new Error('Backend not configured');
@@ -470,7 +474,7 @@ export default function App() {
           onSOS={() => setCurrentScreen('Emergency')}
           onCommunity={() => setCurrentScreen('Community')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
-          onLogout={() => setCurrentScreen('Login')}
+          onSettings={() => setCurrentScreen('SeniorSettings')}
         />
       );
     }
@@ -481,6 +485,18 @@ export default function App() {
           senior={currentSenior}
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
+          onSettings={() => setCurrentScreen('SeniorSettings')}
+        />
+      );
+    }
+
+    if (currentScreen === 'SeniorSettings') {
+      return (
+        <SeniorSettingsScreen
+          senior={currentSenior}
+          onHome={() => setCurrentScreen('Home')}
+          onCommunity={() => setCurrentScreen('Community')}
+          onProfile={() => setCurrentScreen('SeniorProfile')}
           onLogout={() => setCurrentScreen('Login')}
         />
       );
@@ -496,8 +512,22 @@ export default function App() {
           }}
           prioritySenior={currentSenior}
           activeTicket={emergencyEvents?.[0]}
+          onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
           onLogout={() => setCurrentScreen('Login')}
+        />
+      );
+    }
+
+    if (currentScreen === 'CaregiverSeniorsList') {
+      return (
+        <CaregiverSeniorsListScreen
+          seniors={seniors}
+          onGoToHome={() => setCurrentScreen('CaregiverHome')}
+          onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
+          onLogout={() => setCurrentScreen('Login')}
+          onSelectSenior={(senior) => handleSelectSenior(senior, 'SeniorsList')}
+          backendError={backendError}
         />
       );
     }
@@ -507,8 +537,9 @@ export default function App() {
         <CaregiverRosterScreen
           seniors={seniors}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
+          onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onLogout={() => setCurrentScreen('Login')}
-          onSelectSenior={handleSelectSenior}
+          onSelectSenior={(senior) => handleSelectSenior(senior, 'Status')}
           backendError={backendError}
         />
       );
@@ -531,8 +562,17 @@ export default function App() {
         <SeniorDetailsScreen
           senior={selectedSenior}
           medicalConditions={selectedSenior?.medicalConditions ?? []}
+          showStatusBadge={selectedSeniorOrigin !== 'SeniorsList'}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
-          onGoBack={() => setCurrentScreen('CaregiverRoster')}
+          onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
+          onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
+          onGoBack={() =>
+            setCurrentScreen(
+              selectedSeniorOrigin === 'SeniorsList'
+                ? 'CaregiverSeniorsList'
+                : 'CaregiverRoster'
+            )
+          }
           onLogout={() => setCurrentScreen('Login')}
         />
       );
@@ -562,7 +602,7 @@ export default function App() {
           medicalConditions={currentSenior?.medicalConditions ?? []}
           onHome={() => setCurrentScreen('Home')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
-          onLogout={() => setCurrentScreen('Login')}
+          onSettings={() => setCurrentScreen('SeniorSettings')}
         />
       );
     }

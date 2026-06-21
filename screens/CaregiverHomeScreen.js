@@ -9,6 +9,7 @@ export default function CaregiverHomeScreen({
   prioritySenior = {},
   activeTicket = {},
   onCallEmergencyContact = () => {},
+  onGoToSeniorsList,
   onGoToRoster,
   onLogout,
 }) {
@@ -93,7 +94,13 @@ export default function CaregiverHomeScreen({
         </View>
       </ScrollView>
 
-      <CaregiverBottomNav activeTab="Home" onHome={() => {}} onSeniors={onGoToRoster} onLogout={onLogout} />
+      <CaregiverBottomNav
+        activeTab="Home"
+        onHome={() => {}}
+        onSeniors={onGoToSeniorsList}
+        onStatus={onGoToRoster}
+        onLogout={onLogout}
+      />
     </SafeAreaView>
   );
 }
