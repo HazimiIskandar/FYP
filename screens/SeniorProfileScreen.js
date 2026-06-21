@@ -42,7 +42,7 @@ const MONTHS = [
   { label: '12', value: '12' },
 ];
 const DAYS = Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1).padStart(2, '0'), value: String(i + 1).padStart(2, '0') }));
-const YEARS = Array.from({ length: 70 }, (_, i) => String(new Date().getFullYear() - i));
+const YEARS = Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => String(new Date().getFullYear() - i));
 
 const parseDateParts = (value) => {
   if (!value) return { day: '', month: '', year: '' };
