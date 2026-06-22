@@ -641,6 +641,7 @@ export default function App() {
       });
 
       setHasCheckedIn(true);
+      await refreshAll(authenticatedUser);
       cancelMissedCheckInReminders();
 
     } catch (err) {
@@ -756,7 +757,7 @@ export default function App() {
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
           onBack={() => setCurrentScreen('SeniorSettings')}
-          onProfile={() => setCurrentScreen('Home')}
+          onProfile={() => setCurrentScreen('SeniorProfile')}
           onRefresh={refreshAll}
         />
       );

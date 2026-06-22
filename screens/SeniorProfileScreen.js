@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     color: '#374151',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '900',
     marginBottom: 2,
   },
