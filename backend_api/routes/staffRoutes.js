@@ -6,7 +6,7 @@ const ASSIGNED_CASES_SQL = `
         SELECT
             shas.senior_id,
             ee.event_id,
-            NULL AS event_type,
+            ee.event_type,
             ee.event_status,
             ee.escalation_level,
             ee.created_at,

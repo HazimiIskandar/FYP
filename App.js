@@ -83,8 +83,8 @@ export default function App() {
   const resolveBackendBase = async () => {
     const candidates = [
       ...new Set([
-        ...LOCAL_API_BASES,
         apiBase,
+        ...LOCAL_API_BASES,
         REMOTE_API_BASE,
       ].filter(Boolean)),
     ];
