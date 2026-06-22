@@ -450,9 +450,6 @@ export default function SeniorEditProfileScreen({
         (value) => `${value ?? ''}`.trim().length > 0
       );
 
-<<<<<<< HEAD
-      if (details.nokId) {
-=======
       let seniorId = details.seniorId;
       if (!seniorId && details.userId) {
         const createSeniorResponse = await fetch(`${apiBase}/seniors`, {
@@ -475,7 +472,6 @@ export default function SeniorEditProfileScreen({
       }
 
       if (details.nokId && hasEmergencyContactDetails) {
->>>>>>> ea70cad5b0827394e3042aa401c5d97c52e7f03e
         const response = await fetch(
           `${apiBase}/nok/${details.nokId}`,
           {
@@ -502,11 +498,7 @@ export default function SeniorEditProfileScreen({
           );
         }
       }
-<<<<<<< HEAD
-      else if (details.seniorId) {
-=======
       else if (seniorId && hasEmergencyContactDetails) {
->>>>>>> ea70cad5b0827394e3042aa401c5d97c52e7f03e
         const response = await fetch(
           `${apiBase}/seniors/${details.seniorId}/nok`,
           {
