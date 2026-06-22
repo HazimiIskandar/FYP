@@ -173,6 +173,7 @@ export default function App() {
 
       setAuthenticatedUser(body);
       setLoginError(null);
+      await refreshAll(body);
       
       const roleName = `${body?.role || body?.role_name || body?.roleName || ''}`.toLowerCase();
       const roleId = Number(body?.role_id);
@@ -400,7 +401,7 @@ export default function App() {
   }, [apiBase]);
 
   // helper to refresh users + seniors on demand
-  const refreshAll = async () => {
+  const refreshAll = async (userOverride = null) => {
     if (!apiBase) return;
     try {
       const [seniorsRes, usersRes] = await Promise.all([
@@ -422,14 +423,15 @@ export default function App() {
       setSeniors(normalizedSeniors);
       // if someone is authenticated, update their cached user object too
       let updatedSeniorWithExtras = null;
-      if (authenticatedUser && authenticatedUser.user_id) {
+      const effectiveUser = userOverride || authenticatedUser;
+      if (effectiveUser && effectiveUser.user_id) {
         const updated = (Array.isArray(usersData) ? usersData : []).find(
-          (u) => String(u.user_id) === String(authenticatedUser.user_id)
+          (u) => String(u.user_id) === String(effectiveUser.user_id)
         );
         if (updated) setAuthenticatedUser(updated);
 
         const matchingSenior = normalizedSeniors.find(
-          (s) => String(s.user_id) === String(authenticatedUser.user_id)
+          (s) => String(s.user_id) === String(effectiveUser.user_id)
         );
 
         if (matchingSenior?.senior_id && apiBase) {
@@ -595,6 +597,7 @@ export default function App() {
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
           onBack={() => setCurrentScreen('SeniorSettings')}
+          onProfile={() => setCurrentScreen('SeniorProfile')}
           onRefresh={refreshAll}
         />
       );

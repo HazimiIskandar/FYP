@@ -89,6 +89,7 @@ export default function SeniorEditProfileScreen({
   onSettings,
   onBack,
   onRefresh,
+  onProfile,
 }) {
   const seniorCondition = senior?.medicalConditions?.[0] || {};
   const initialRelationship = senior?.nokContacts?.[0]?.relationship_to_senior || '';
@@ -517,6 +518,11 @@ export default function SeniorEditProfileScreen({
       }
 
       setSavedMessage('Profile details saved.');
+      if (typeof onProfile === 'function') {
+        onProfile();
+      } else if (typeof onBack === 'function') {
+        onBack();
+      }
     } catch (err) {
       console.log('Save profile error:', err);
       setSaveError(err?.message || 'Save failed.');
@@ -584,7 +590,7 @@ export default function SeniorEditProfileScreen({
         title="Edit Profile" 
         rightContent={(
           <TouchableOpacity onPress={onBack} style={{ padding: 8 }}>
-            <Text style={{ color: '#2563EB', fontSize: 16, fontWeight: 'bold' }}>Done</Text>
+            <Text style={{ color: '#2563EB', fontSize: 16, fontWeight: 'bold' }}>Back</Text>
           </TouchableOpacity>
         )}
       />
