@@ -12,13 +12,26 @@ const getSeniorName = (senior) =>
 
 const formatDate = (value) => {
   if (!value) return '';
-  const date = new Date(value);
+  const stringValue = `${value}`.trim();
+
+  const isoMatch = stringValue.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+  if (isoMatch) {
+    return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  }
+
+  const slashYmdMatch = stringValue.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (slashYmdMatch) {
+    return `${slashYmdMatch[3]}/${slashYmdMatch[2]}/${slashYmdMatch[1]}`;
+  }
+
+  const displayMatch = stringValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (displayMatch) {
+    return stringValue;
+  }
+
+  const date = new Date(stringValue);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 };
 
 const CONDITION_OTHER = 'Others';
@@ -47,19 +60,31 @@ const YEARS = Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i)
 const parseDateParts = (value) => {
   if (!value) return { day: '', month: '', year: '' };
 
-  const dbMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const normalized = `${value}`.trim();
+
+  const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+  if (isoMatch) {
+    return { day: isoMatch[3], month: isoMatch[2], year: isoMatch[1] };
+  }
+
+  const dbMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dbMatch) {
     return { day: dbMatch[3], month: dbMatch[2], year: dbMatch[1] };
   }
 
-  const dbSlashMatch = value.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  const dbSlashMatch = normalized.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
   if (dbSlashMatch) {
     return { day: dbSlashMatch[3], month: dbSlashMatch[2], year: dbSlashMatch[1] };
   }
 
-  const displayMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const displayMatch = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (displayMatch) {
     return { day: displayMatch[1], month: displayMatch[2], year: displayMatch[3] };
+  }
+
+  const dashDisplayMatch = normalized.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dashDisplayMatch) {
+    return { day: dashDisplayMatch[1], month: dashDisplayMatch[2], year: dashDisplayMatch[3] };
   }
 
   return { day: '', month: '', year: '' };
@@ -72,13 +97,64 @@ const buildDateValue = (day, month, year) => {
 
 const formatDateForDB = (value) => {
   if (!value) return null;
-  const dbMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const normalized = `${value}`.trim();
+
+  const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  const dbMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dbMatch) return value;
 
-  const parts = value.split('/');
+  const dashDisplayMatch = normalized.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dashDisplayMatch) {
+    return `${dashDisplayMatch[3]}-${dashDisplayMatch[2]}-${dashDisplayMatch[1]}`;
+  }
+
+  const parts = normalized.split('/');
   if (parts.length !== 3) return null;
   const [day, month, year] = parts;
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+};
+
+const normalizeDisplayDateInput = (value) => {
+  if (!value) return '';
+  const normalized = `${value}`.trim();
+  const shouldNormalize =
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.test(normalized) ||
+    /^(\d{4})\/(\d{2})\/(\d{2})$/.test(normalized) ||
+    /^(\d{2})-(\d{2})-(\d{4})$/.test(normalized);
+
+  if (!shouldNormalize) return value;
+  return formatDate(normalized);
+};
+
+const buildMedicalEntry = (condition = {}) => {
+  const conditionName = condition?.condition_name || '';
+  const isStandardCondition = !conditionName || conditionName === CONDITION_OTHER;
+  const diagnosedParts = parseDateParts(formatDate(condition?.diagnosed_date));
+
+  return {
+    condition: isStandardCondition ? conditionName : CONDITION_OTHER,
+    conditionId: condition?.condition_id || null,
+    customCondition: isStandardCondition ? '' : conditionName,
+    severity: condition?.severity_level || '',
+    medicationRequired: condition?.medication_required || '',
+    diagnosedDate: buildDateValue(diagnosedParts.day, diagnosedParts.month, diagnosedParts.year),
+  };
+};
+
+const buildEmergencyEntry = (contact = {}) => {
+  const relationship = contact?.relationship_to_senior || '';
+  const isStandardRelationship = RELATIONSHIPS.includes(relationship);
+
+  return {
+    nokId: contact?.nok_id || null,
+    name: contact?.full_name || '',
+    relationship: isStandardRelationship ? relationship : (relationship ? CONDITION_OTHER : ''),
+    relationshipCustom: isStandardRelationship ? '' : relationship,
+    phone: contact?.phone_number || '',
+    email: contact?.email || '',
+  };
 };
 
 export default function SeniorEditProfileScreen({
@@ -92,11 +168,15 @@ export default function SeniorEditProfileScreen({
   onProfile,
 }) {
   const seniorCondition = senior?.medicalConditions?.[0] || {};
+  const seniorCondition2 = senior?.medicalConditions?.[1] || {};
   const initialRelationship = senior?.nokContacts?.[0]?.relationship_to_senior || '';
+  const initialRelationship2 = senior?.nokContacts?.[1]?.relationship_to_senior || '';
   const isRelationshipStandard = RELATIONSHIPS.includes(initialRelationship);
+  const isRelationship2Standard = RELATIONSHIPS.includes(initialRelationship2);
   const initialDetails = useMemo(() => {
     const dobParts = parseDateParts(formatDate(senior?.dob));
     const diagnosedParts = parseDateParts(formatDate(seniorCondition?.diagnosed_date));
+    const diagnosedParts2 = parseDateParts(formatDate(seniorCondition2?.diagnosed_date));
 
     return {
       fullName: getSeniorName(senior),
@@ -119,16 +199,40 @@ export default function SeniorEditProfileScreen({
       diagnosedDay: diagnosedParts.day,
       diagnosedMonth: diagnosedParts.month,
       diagnosedYear: diagnosedParts.year,
+      condition2: seniorCondition2?.condition_name || '',
+      conditionId2: seniorCondition2?.condition_id || null,
+      customCondition2: '',
+      severity2: seniorCondition2?.severity_level || '',
+      medicationRequired2: seniorCondition2?.medication_required || '',
+      diagnosedDate2: buildDateValue(diagnosedParts2.day, diagnosedParts2.month, diagnosedParts2.year),
+      diagnosedDay2: diagnosedParts2.day,
+      diagnosedMonth2: diagnosedParts2.month,
+      diagnosedYear2: diagnosedParts2.year,
+      hasSecondCondition:
+        Boolean(seniorCondition2?.condition_name) ||
+        Boolean(seniorCondition2?.severity_level) ||
+        Boolean(seniorCondition2?.medication_required) ||
+        Boolean(seniorCondition2?.diagnosed_date),
       emergencyName: senior?.nokContacts?.[0]?.full_name || '',
       emergencyRelationship: isRelationshipStandard ? initialRelationship : (initialRelationship ? CONDITION_OTHER : ''),
       emergencyRelationshipCustom: isRelationshipStandard ? '' : initialRelationship || '',
       emergencyPhone: senior?.nokContacts?.[0]?.phone_number || '',
       emergencyEmail: senior?.nokContacts?.[0]?.email || '',
       nokId: senior?.nokContacts?.[0]?.nok_id || null,
+      emergencyName2: senior?.nokContacts?.[1]?.full_name || '',
+      emergencyRelationship2: isRelationship2Standard ? initialRelationship2 : (initialRelationship2 ? CONDITION_OTHER : ''),
+      emergencyRelationshipCustom2: isRelationship2Standard ? '' : initialRelationship2 || '',
+      emergencyPhone2: senior?.nokContacts?.[1]?.phone_number || '',
+      emergencyEmail2: senior?.nokContacts?.[1]?.email || '',
+      nokId2: senior?.nokContacts?.[1]?.nok_id || null,
+      hasSecondEmergency:
+        Boolean(senior?.nokContacts?.[1]?.full_name) ||
+        Boolean(senior?.nokContacts?.[1]?.phone_number) ||
+        Boolean(senior?.nokContacts?.[1]?.email),
       userId: senior?.user_id || null,
       seniorId: senior?.senior_id || null,
     };
-  }, [senior]);
+  }, [senior, seniorCondition, seniorCondition2, initialRelationship2, isRelationship2Standard, initialRelationship, isRelationshipStandard]);
 
   const [details, setDetails] = useState(initialDetails);
   const [savedMessage, setSavedMessage] = useState('');
@@ -137,17 +241,76 @@ export default function SeniorEditProfileScreen({
   const [dropdownState, setDropdownState] = useState({ visible: false, title: '', key: '', options: [] });
   const [datePicker, setDatePicker] = useState({ visible: false, type: '', day: '', month: '', year: '' });
   const [medicalConditionsList, setMedicalConditionsList] = useState([]);
-  const [medicalDatePicker, setMedicalDatePicker] = useState({ visible: false, index: null, day: '', month: '', year: ''});
   const [loadingConditions, setLoadingConditions] = useState(false);
   const [conditionLoadError, setConditionLoadError] = useState('');
+  const [medicalEntries, setMedicalEntries] = useState(() => {
+    const source = Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : [];
+    return source.length ? source.map((item) => buildMedicalEntry(item)) : [buildMedicalEntry({})];
+  });
+  const [emergencyEntries, setEmergencyEntries] = useState(() => {
+    const source = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
+    return source.length ? source.map((item) => buildEmergencyEntry(item)) : [buildEmergencyEntry({})];
+  });
 
   useEffect(() => {
     setDetails(initialDetails);
   }, [initialDetails]);
 
-  // Lists to support multiple entries
-  const [emergencyList, setEmergencyList] = useState([]);
-  const [medicalList, setMedicalList] = useState([]);
+  useEffect(() => {
+    const medicalSource = Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : [];
+    const emergencySource = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
+
+    setMedicalEntries(
+      medicalSource.length ? medicalSource.map((item) => buildMedicalEntry(item)) : [buildMedicalEntry({})]
+    );
+    setEmergencyEntries(
+      emergencySource.length ? emergencySource.map((item) => buildEmergencyEntry(item)) : [buildEmergencyEntry({})]
+    );
+  }, [senior]);
+
+  const updateMedicalEntry = (index, key, value) => {
+    setMedicalEntries((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [key]: value } : entry
+      )
+    );
+    setSavedMessage('');
+  };
+
+  const addMedicalEntry = () => {
+    setMedicalEntries((current) => [...current, buildMedicalEntry({})]);
+    setSavedMessage('');
+  };
+
+  const removeMedicalEntry = (index) => {
+    setMedicalEntries((current) => {
+      const next = current.filter((_, entryIndex) => entryIndex !== index);
+      return next.length ? next : [buildMedicalEntry({})];
+    });
+    setSavedMessage('');
+  };
+
+  const updateEmergencyEntry = (index, key, value) => {
+    setEmergencyEntries((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [key]: value } : entry
+      )
+    );
+    setSavedMessage('');
+  };
+
+  const addEmergencyEntry = () => {
+    setEmergencyEntries((current) => [...current, buildEmergencyEntry({})]);
+    setSavedMessage('');
+  };
+
+  const removeEmergencyEntry = (index) => {
+    setEmergencyEntries((current) => {
+      const next = current.filter((_, entryIndex) => entryIndex !== index);
+      return next.length ? next : [buildEmergencyEntry({})];
+    });
+    setSavedMessage('');
+  };
 
   useEffect(() => {
     if (!apiBase) return;
@@ -171,33 +334,6 @@ export default function SeniorEditProfileScreen({
       })
       .finally(() => setLoadingConditions(false));
   }, [apiBase]);
-
-  // initialize lists from senior prop
-  useEffect(() => {
-    const initialNoks = Array.isArray(senior?.nokContacts) && senior.nokContacts.length
-      ? senior.nokContacts.map((n) => ({
-          nok_id: n.nok_id,
-          full_name: n.full_name || '',
-          relationship_to_senior: n.relationship_to_senior || '',
-          phone_number: n.phone_number || '',
-          email: n.email || '',
-        }))
-      : [{ full_name: '', relationship_to_senior: '', phone_number: '', email: '' }];
-
-    const initialConditions = Array.isArray(senior?.medicalConditions) && senior.medicalConditions.length
-      ? senior.medicalConditions.map((c) => ({
-          condition_id: c.condition_id || null,
-          condition_name: c.condition_name || '',
-          customCondition: c.condition_name || '',
-          severity_level: c.severity_level || '',
-          medication_required: c.medication_required || '',
-          diagnosed_date: c.diagnosed_date || '',
-        }))
-      : [];
-
-    setEmergencyList(initialNoks);
-    setMedicalList(initialConditions.length ? initialConditions : []);
-  }, [senior]);
 
   useEffect(() => {
     if (!medicalConditionsList.length || !details.condition) return;
@@ -230,6 +366,37 @@ export default function SeniorEditProfileScreen({
     }
   }, [medicalConditionsList, details.condition, details.conditionId, details.customCondition]);
 
+  useEffect(() => {
+    if (!medicalConditionsList.length || !details.condition2) return;
+
+    const selectedCondition = medicalConditionsList.find(
+      (item) => item.condition_name === details.condition2
+    );
+
+    if (selectedCondition && !details.conditionId2) {
+      setDetails((current) => ({
+        ...current,
+        conditionId2: selectedCondition.condition_id,
+        severity2: current.severity2 || selectedCondition.severity_level || '',
+        medicationRequired2: current.medicationRequired2 || selectedCondition.medication_required || '',
+      }));
+      return;
+    }
+
+    if (
+      details.condition2 &&
+      details.condition2 !== CONDITION_OTHER &&
+      !selectedCondition &&
+      !details.customCondition2
+    ) {
+      setDetails((current) => ({
+        ...current,
+        condition2: CONDITION_OTHER,
+        customCondition2: current.condition2,
+      }));
+    }
+  }, [medicalConditionsList, details.condition2, details.conditionId2, details.customCondition2]);
+
   const openDropdown = (key, title, options) => {
     setDropdownState({ visible: true, title, key, options });
   };
@@ -244,48 +411,56 @@ export default function SeniorEditProfileScreen({
   };
 
   const selectDropdownValue = (value) => {
-    // support keys targeting list items: e.g. medical:0:condition or emergency:1:relationship
-    if (dropdownState.key && dropdownState.key.startsWith('medical:')) {
-      const parts = dropdownState.key.split(':');
-      const index = Number(parts[1]);
-      const field = parts[2];
+    if (dropdownState.key.startsWith('medical:')) {
+      const [, indexPart, field] = dropdownState.key.split(':');
+      const index = Number(indexPart);
+      if (Number.isNaN(index)) {
+        closeDropdown();
+        return;
+      }
 
-      setMedicalList((current) => {
-        const next = [...current];
-        if (!next[index]) next[index] = {};
-        if (field === 'condition') {
-          next[index].condition_name = value;
-          // resolve condition id if available
-          const item = medicalConditionsList.find((m) => m.condition_name === value);
-          next[index].condition_id = item?.condition_id || null;
+      if (field === 'condition') {
+        if (value === CONDITION_OTHER) {
+          updateMedicalEntry(index, 'condition', CONDITION_OTHER);
+          updateMedicalEntry(index, 'conditionId', null);
+          updateMedicalEntry(index, 'customCondition', '');
+          updateMedicalEntry(index, 'severity', '');
+          updateMedicalEntry(index, 'medicationRequired', '');
+        } else {
+          const item = medicalConditionsList.find((option) => option.condition_name === value);
+          updateMedicalEntry(index, 'condition', value);
+          updateMedicalEntry(index, 'conditionId', item?.condition_id || null);
+          updateMedicalEntry(index, 'customCondition', '');
           if (item) {
-            next[index].severity_level = next[index].severity_level || item.severity_level || '';
-            next[index].medication_required = next[index].medication_required || item.medication_required || '';
+            updateMedicalEntry(index, 'severity', item.severity_level || '');
+            updateMedicalEntry(index, 'medicationRequired', item.medication_required || '');
           }
-        } else if (field === 'severity') {
-          next[index].severity_level = value;
-        } else if (field === 'medication') {
-          next[index].medication_required = value;
         }
-        return next;
-      });
+      } else {
+        updateMedicalEntry(index, field, value);
+      }
+
       closeDropdown();
       return;
     }
 
-    if (dropdownState.key && dropdownState.key.startsWith('emergency:')) {
-      const parts = dropdownState.key.split(':');
-      const index = Number(parts[1]);
-      const field = parts[2];
+    if (dropdownState.key.startsWith('emergency:')) {
+      const [, indexPart, field] = dropdownState.key.split(':');
+      const index = Number(indexPart);
+      if (Number.isNaN(index)) {
+        closeDropdown();
+        return;
+      }
 
-      setEmergencyList((current) => {
-        const next = [...current];
-        if (!next[index]) next[index] = {};
-        if (field === 'relationship') {
-          next[index].relationship_to_senior = value;
+      if (field === 'relationship') {
+        updateEmergencyEntry(index, 'relationship', value);
+        if (value === CONDITION_OTHER) {
+          updateEmergencyEntry(index, 'relationshipCustom', '');
         }
-        return next;
-      });
+      } else {
+        updateEmergencyEntry(index, field, value);
+      }
+
       closeDropdown();
       return;
     }
@@ -310,10 +485,36 @@ export default function SeniorEditProfileScreen({
       }
 
       setDetails((current) => ({ ...current, ...nextDetails }));
+    } else if (dropdownState.key === 'condition2') {
+      const nextDetails = { condition2: value };
+
+      if (value === CONDITION_OTHER) {
+        nextDetails.conditionId2 = null;
+        nextDetails.customCondition2 = '';
+        nextDetails.severity2 = '';
+        nextDetails.medicationRequired2 = '';
+      } else {
+        const item = medicalConditionsList.find(
+          (option) => option.condition_name === value
+        );
+        nextDetails.conditionId2 = item?.condition_id || null;
+        if (item) {
+          nextDetails.severity2 = item.severity_level || '';
+          nextDetails.medicationRequired2 = item.medication_required || '';
+        }
+      }
+
+      setDetails((current) => ({ ...current, ...nextDetails }));
     } else if (dropdownState.key === 'emergencyRelationship') {
       const nextDetails = { emergencyRelationship: value };
       if (value === CONDITION_OTHER) {
         nextDetails.emergencyRelationshipCustom = '';
+      }
+      setDetails((current) => ({ ...current, ...nextDetails }));
+    } else if (dropdownState.key === 'emergencyRelationship2') {
+      const nextDetails = { emergencyRelationship2: value };
+      if (value === CONDITION_OTHER) {
+        nextDetails.emergencyRelationshipCustom2 = '';
       }
       setDetails((current) => ({ ...current, ...nextDetails }));
     } else {
@@ -337,65 +538,15 @@ export default function SeniorEditProfileScreen({
     setDatePicker((current) => ({ ...current, [key]: value }));
   };
 
-  // Helpers for lists
-  const openMedicalDatePicker = (index, currentDate = '') => {
-  const parts = parseDateParts(currentDate);
-
-    setMedicalDatePicker({
-      visible: true,
-      index,
-      day: parts.day,
-      month: parts.month,
-      year: parts.year,
-    });
-  };
-
-  const confirmMedicalDateSelection = () => {
-    const { index, day, month, year } = medicalDatePicker;
-
-    const formatted = buildDateValue(day, month, year);
-
-    updateMedicalItem(index, 'diagnosed_date', formatted);
-
-    setMedicalDatePicker({
-      visible: false,
-      index: null,
-      day: '',
-      month: '',
-      year: '',
-    });
-  };
-
-  const addMedicalItem = () => {
-    setMedicalList((current) => ([...current, { condition_id: null, condition_name: '', customCondition: '', severity_level: '', medication_required: '', diagnosed_date: '' }]));
-  };
-  const updateMedicalItem = (index, key, value) => {
-    setMedicalList((current) => {
-      const next = [...current];
-      next[index] = { ...(next[index] || {}), [key]: value };
-      return next;
-    });
-  };
-
-  const addEmergencyItem = () => {
-    setEmergencyList((current) => ([...current, { full_name: '', relationship_to_senior: '', phone_number: '', email: '' }]));
-  };
-  const updateEmergencyItem = (index, key, value) => {
-    setEmergencyList((current) => {
-      const next = [...current];
-      next[index] = { ...(next[index] || {}), [key]: value };
-      return next;
-    });
-  };
-
-  const refreshSavedProfile = async () => {
-    if (!apiBase || !details.seniorId) return;
+  const refreshSavedProfile = async (overrideSeniorId = null) => {
+    const targetSeniorId = overrideSeniorId || details.seniorId;
+    if (!apiBase || !targetSeniorId) return;
 
     try {
       const [profileResponse, conditionsResponse, nokResponse] = await Promise.all([
-        fetch(`${apiBase}/seniors/${details.seniorId}`),
-        fetch(`${apiBase}/seniors/${details.seniorId}/medical-conditions`),
-        fetch(`${apiBase}/seniors/${details.seniorId}/nok`),
+        fetch(`${apiBase}/seniors/${targetSeniorId}`),
+        fetch(`${apiBase}/seniors/${targetSeniorId}/medical-conditions`),
+        fetch(`${apiBase}/seniors/${targetSeniorId}/nok`),
       ]);
 
       if (!profileResponse.ok) {
@@ -411,12 +562,40 @@ export default function SeniorEditProfileScreen({
       const profileData = await profileResponse.json();
       const conditionsData = await conditionsResponse.json();
       const nokData = await nokResponse.json();
+      const conditionArray = Array.isArray(conditionsData)
+        ? conditionsData
+        : conditionsData
+        ? [conditionsData]
+        : [];
+      const nokArray = Array.isArray(nokData)
+        ? nokData
+        : nokData
+        ? [nokData]
+        : [];
       const savedCondition = Array.isArray(conditionsData) ? conditionsData[0] : conditionsData;
+      const savedCondition2 = Array.isArray(conditionsData) ? conditionsData[1] : null;
       const diagnosedParts = parseDateParts(formatDate(savedCondition?.diagnosed_date));
+      const diagnosedParts2 = parseDateParts(formatDate(savedCondition2?.diagnosed_date));
       const relationship = nokData?.[0]?.relationship_to_senior || '';
+      const relationship2 = nokData?.[1]?.relationship_to_senior || '';
       const isRelationshipStandard = RELATIONSHIPS.includes(relationship);
+      const isRelationship2Standard = RELATIONSHIPS.includes(relationship2);
       const conditionMatchesList = medicalConditionsList.some(
         (item) => item.condition_id === savedCondition?.condition_id
+      );
+      const condition2MatchesList = medicalConditionsList.some(
+        (item) => item.condition_id === savedCondition2?.condition_id
+      );
+
+      setMedicalEntries(
+        conditionArray.length
+          ? conditionArray.map((item) => buildMedicalEntry(item))
+          : [buildMedicalEntry({})]
+      );
+      setEmergencyEntries(
+        nokArray.length
+          ? nokArray.map((item) => buildEmergencyEntry(item))
+          : [buildEmergencyEntry({})]
       );
 
       setDetails((current) => ({
@@ -456,6 +635,27 @@ export default function SeniorEditProfileScreen({
         diagnosedDay: diagnosedParts.day,
         diagnosedMonth: diagnosedParts.month,
         diagnosedYear: diagnosedParts.year,
+        condition2: savedCondition2
+          ? condition2MatchesList
+            ? savedCondition2.condition_name
+            : CONDITION_OTHER
+          : '',
+        conditionId2: savedCondition2?.condition_id || null,
+        customCondition2:
+          savedCondition2 && !condition2MatchesList
+            ? savedCondition2.condition_name || ''
+            : '',
+        severity2: savedCondition2?.severity_level || '',
+        medicationRequired2: savedCondition2?.medication_required || '',
+        diagnosedDate2: buildDateValue(diagnosedParts2.day, diagnosedParts2.month, diagnosedParts2.year),
+        diagnosedDay2: diagnosedParts2.day,
+        diagnosedMonth2: diagnosedParts2.month,
+        diagnosedYear2: diagnosedParts2.year,
+        hasSecondCondition:
+          Boolean(savedCondition2?.condition_name) ||
+          Boolean(savedCondition2?.severity_level) ||
+          Boolean(savedCondition2?.medication_required) ||
+          Boolean(savedCondition2?.diagnosed_date),
         emergencyName: nokData?.[0]?.full_name || current.emergencyName,
         emergencyRelationship: isRelationshipStandard
           ? relationship
@@ -468,6 +668,22 @@ export default function SeniorEditProfileScreen({
         emergencyPhone: nokData?.[0]?.phone_number || current.emergencyPhone,
         emergencyEmail: nokData?.[0]?.email || current.emergencyEmail,
         nokId: nokData?.[0]?.nok_id || current.nokId,
+        emergencyName2: nokData?.[1]?.full_name || '',
+        emergencyRelationship2: isRelationship2Standard
+          ? relationship2
+          : relationship2
+          ? CONDITION_OTHER
+          : '',
+        emergencyRelationshipCustom2: isRelationship2Standard
+          ? ''
+          : relationship2 || '',
+        emergencyPhone2: nokData?.[1]?.phone_number || '',
+        emergencyEmail2: nokData?.[1]?.email || '',
+        nokId2: nokData?.[1]?.nok_id || null,
+        hasSecondEmergency:
+          Boolean(nokData?.[1]?.full_name) ||
+          Boolean(nokData?.[1]?.phone_number) ||
+          Boolean(nokData?.[1]?.email),
       }));
     } catch (err) {
       console.log('Failed to refresh profile:', err);
@@ -486,7 +702,6 @@ export default function SeniorEditProfileScreen({
     updateDetail(`${type}Year`, year);
     setDatePicker((current) => ({ ...current, visible: false }));
   };
-
   const getMissingRequiredFields = () => {
     const requiredFields = [
       ['Full Name', details.fullName],
@@ -585,81 +800,103 @@ export default function SeniorEditProfileScreen({
         updateDetail('seniorId', seniorId);
       }
 
-      // Sync medical conditions (multiple)
       if (seniorId) {
-        const toSync = medicalList.map((c) => ({
-          condition_id: c.condition_id || undefined,
-          customCondition: (!c.condition_id && c.customCondition) ? c.customCondition : undefined,
-          diagnosed_date: formatDateForDB(c.diagnosed_date) || undefined,
-          severity_level: c.severity_level || undefined,
-          medication_required: c.medication_required || undefined,
-        })).filter((item) => item.condition_id || item.customCondition);
-
-        if (toSync.length) {
-          const syncResp = await fetch(`${apiBase}/seniors/${seniorId}/medical-conditions/sync`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ conditions: toSync }),
-          });
-
-          if (!syncResp.ok) {
-            const txt = await syncResp.text().catch(() => null);
-            let errObj;
-            try { errObj = JSON.parse(txt); } catch (e) { errObj = { error: txt }; }
-            throw new Error(errObj?.error || 'Failed to sync medical conditions');
-          }
-        }
-      }
-
-      // Save emergency contacts (multiple)
-      if (seniorId) {
-        for (const contact of emergencyList) {
-          const relationship = contact.relationship_to_senior === CONDITION_OTHER
-            ? (contact.relationship_to_senior_custom || CONDITION_OTHER)
-            : contact.relationship_to_senior;
+        // Sync all emergency contacts (create/update/delete) based on current form rows.
+        const nextEmergencyEntries = [];
+        for (const entry of emergencyEntries) {
+          const relationship =
+            entry.relationship === CONDITION_OTHER ? entry.relationshipCustom : entry.relationship;
 
           const payload = {
-            full_name: contact.full_name,
+            full_name: entry.name,
             relationship_to_senior: relationship,
-            phone_number: contact.phone_number,
-            email: contact.email,
+            phone_number: entry.phone,
+            email: entry.email,
           };
 
-          const hasDetails = Object.values(payload).some((v) => `${v ?? ''}`.trim().length > 0);
-          if (!hasDetails) continue;
+          const hasDetails = Object.values(payload).some((value) => `${value ?? ''}`.trim().length > 0);
 
-          if (contact.nok_id) {
-            const resp = await fetch(`${apiBase}/nok/${contact.nok_id}`, {
+          if (entry.nokId && hasDetails) {
+            const response = await fetch(`${apiBase}/nok/${entry.nokId}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             });
 
-            if (!resp.ok) {
-              const txt = await resp.text().catch(() => null);
-              let errObj;
-              try { errObj = JSON.parse(txt); } catch (e) { errObj = { error: txt }; }
-              throw new Error(errObj?.error || 'Failed to update emergency contact');
+            const result = await response.json().catch(() => null);
+            if (!response.ok) {
+              throw new Error(result?.error || 'Failed to update emergency contact');
             }
-          } else {
-            const resp = await fetch(`${apiBase}/seniors/${seniorId}/nok`, {
+
+            nextEmergencyEntries.push(entry);
+            continue;
+          }
+
+          if (entry.nokId && !hasDetails) {
+            const response = await fetch(`${apiBase}/nok/${entry.nokId}`, {
+              method: 'DELETE',
+            });
+
+            const result = await response.json().catch(() => null);
+            if (!response.ok) {
+              throw new Error(result?.error || 'Failed to remove emergency contact');
+            }
+
+            continue;
+          }
+
+          if (!entry.nokId && hasDetails) {
+            const response = await fetch(`${apiBase}/seniors/${seniorId}/nok`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             });
 
-            const txt = await resp.text().catch(() => null);
-            let result;
-            try { result = JSON.parse(txt); } catch (e) { result = { nok_id: null, error: txt }; }
-            if (!resp.ok) {
+            const result = await response.json().catch(() => null);
+            if (!response.ok) {
               throw new Error(result?.error || 'Failed to create emergency contact');
             }
+
+            nextEmergencyEntries.push({ ...entry, nokId: result?.nok_id || null });
+            continue;
           }
+        }
+
+        setEmergencyEntries(nextEmergencyEntries.length ? nextEmergencyEntries : [buildEmergencyEntry({})]);
+
+        // Sync all medical conditions in one request.
+        const conditionsToSync = medicalEntries
+          .map((entry) => {
+            const payload = {
+              condition_id: entry.conditionId,
+              customCondition: entry.condition === CONDITION_OTHER ? entry.customCondition : undefined,
+              diagnosed_date: formatDateForDB(entry.diagnosedDate),
+              severity_level: entry.severity,
+              medication_required: entry.medicationRequired,
+            };
+
+            return Object.fromEntries(
+              Object.entries(payload).filter(
+                ([, value]) => value !== undefined && value !== null && value !== ''
+              )
+            );
+          })
+          .filter((item) => item.condition_id || item.customCondition);
+
+        const conditionResponse = await fetch(`${apiBase}/seniors/${seniorId}/medical-conditions/sync`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conditions: conditionsToSync }),
+        });
+
+        const conditionResult = await conditionResponse.json().catch(() => null);
+        if (!conditionResponse.ok) {
+          throw new Error(conditionResult?.error || conditionResult?.message || 'Failed to save medical conditions');
         }
       }
 
       if (seniorId) {
-        await refreshSavedProfile();
+        await refreshSavedProfile(seniorId);
       }
 
       // let parent refresh global data (users/seniors) so other screens see updates
@@ -762,44 +999,63 @@ export default function SeniorEditProfileScreen({
         </View>
 
         <View style={styles.card}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={styles.sectionHeaderRow}>
             <Text style={styles.cardTitle}>Medical Conditions</Text>
-            <TouchableOpacity onPress={addMedicalItem} style={{ padding: 6 }}>
-              <Ionicons name="add-circle-outline" size={28} color="#2563EB" />
+            <TouchableOpacity
+              style={styles.plusIconButton}
+              activeOpacity={0.86}
+              onPress={addMedicalEntry}
+            >
+              <Ionicons name="add" size={24} color="#2563EB" />
             </TouchableOpacity>
           </View>
+          {medicalEntries.map((entry, index) => (
+            <View key={`medical-${index}`} style={styles.dynamicItemBlock}>
+              <View style={styles.inlineTitleRow}>
+                <Text style={styles.contactSubTitle}>Medical Condition {index + 1}</Text>
+                {medicalEntries.length > 1 ? (
+                  <TouchableOpacity
+                    style={styles.removeLinkButton}
+                    onPress={() => removeMedicalEntry(index)}
+                    activeOpacity={0.86}
+                  >
+                    <Text style={styles.removeLinkText}>Remove</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
 
-          {medicalList.length === 0 ? (
-            <Text style={styles.helperText}>No medical conditions added.</Text>
-          ) : null}
-
-          {medicalList.map((cond, idx) => (
-            <View key={`med-${idx}`} style={styles.groupBlock}>
-  
               <TouchableOpacity
                 style={styles.inputRow}
-                onPress={() => openDropdown(`medical:${idx}:condition`, 'Condition', [...medicalConditionsList.map((c) => c.condition_name), CONDITION_OTHER])}
+                onPress={() =>
+                  openDropdown(
+                    `medical:${index}:condition`,
+                    'Condition',
+                    [...medicalConditionsList.map((condition) => condition.condition_name), CONDITION_OTHER]
+                  )
+                }
                 activeOpacity={0.86}
               >
                 <Ionicons name="fitness-outline" size={19} color="#6B7280" />
                 <View style={styles.inputCopy}>
                   <Text style={styles.inputLabel}>Condition</Text>
                   <View style={styles.selectInput}>
-                    <Text style={styles.selectValue}>{cond.condition_name || 'Select condition'}</Text>
+                    <Text style={styles.selectValue}>
+                      {entry.condition || (loadingConditions ? 'Loading conditions...' : 'Select condition')}
+                    </Text>
                     <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
                   </View>
                 </View>
               </TouchableOpacity>
 
-              {(!cond.condition_id && cond.condition_name === CONDITION_OTHER) || cond.customCondition ? (
+              {(entry.condition === CONDITION_OTHER || entry.customCondition) ? (
                 <View style={styles.inputRow}>
                   <Ionicons name="warning-outline" size={19} color="#6B7280" />
                   <View style={styles.inputCopy}>
                     <Text style={styles.inputLabel}>Condition (Others)</Text>
                     <TextInput
                       style={styles.input}
-                      value={cond.customCondition}
-                      onChangeText={(v) => updateMedicalItem(idx, 'customCondition', v)}
+                      value={entry.customCondition}
+                      onChangeText={(value) => updateMedicalEntry(index, 'customCondition', value)}
                       placeholder="Enter condition name"
                       placeholderTextColor="#9CA3AF"
                     />
@@ -809,14 +1065,14 @@ export default function SeniorEditProfileScreen({
 
               <TouchableOpacity
                 style={styles.inputRow}
-                onPress={() => openDropdown(`medical:${idx}:severity`, 'Severity', SEVERITY_OPTIONS)}
+                onPress={() => openDropdown(`medical:${index}:severity`, 'Severity', SEVERITY_OPTIONS)}
                 activeOpacity={0.86}
               >
                 <Ionicons name="warning-outline" size={19} color="#6B7280" />
                 <View style={styles.inputCopy}>
                   <Text style={styles.inputLabel}>Severity</Text>
                   <View style={styles.selectInput}>
-                    <Text style={styles.selectValue}>{cond.severity_level || 'Select severity'}</Text>
+                    <Text style={styles.selectValue}>{entry.severity || 'Select severity'}</Text>
                     <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
                   </View>
                 </View>
@@ -824,65 +1080,70 @@ export default function SeniorEditProfileScreen({
 
               <TouchableOpacity
                 style={styles.inputRow}
-                onPress={() => openDropdown(`medical:${idx}:medication`, 'Medication Required', MEDICATION_OPTIONS)}
+                onPress={() => openDropdown(`medical:${index}:medicationRequired`, 'Medication Required', MEDICATION_OPTIONS)}
                 activeOpacity={0.86}
               >
                 <Ionicons name="medical-outline" size={19} color="#6B7280" />
                 <View style={styles.inputCopy}>
                   <Text style={styles.inputLabel}>Medication Required</Text>
                   <View style={styles.selectInput}>
-                    <Text style={styles.selectValue}>{cond.medication_required || 'Select option'}</Text>
+                    <Text style={styles.selectValue}>{entry.medicationRequired || 'Select option'}</Text>
                     <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
                   </View>
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.inputRow}
-                onPress={() => openMedicalDatePicker(idx, cond.diagnosed_date)}
-                activeOpacity={0.86}
-              >
+              <View style={styles.inputRow}>
                 <Ionicons name="calendar-outline" size={19} color="#6B7280" />
                 <View style={styles.inputCopy}>
                   <Text style={styles.inputLabel}>Diagnosed</Text>
-                  <View style={styles.selectInput}>
-                    <Text style={styles.selectValue}>
-                      {cond.diagnosed_date || 'DD/MM/YYYY'}
-                    </Text>
-                    <Ionicons
-                      name="chevron-down-outline"
-                      size={18}
-                      color="#6B7280"
-                    />
-                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={entry.diagnosedDate}
+                    onChangeText={(value) => updateMedicalEntry(index, 'diagnosedDate', normalizeDisplayDateInput(value))}
+                    placeholder="DD/MM/YYYY"
+                    placeholderTextColor="#9CA3AF"
+                  />
                 </View>
-              </TouchableOpacity>
+              </View>
             </View>
           ))}
         </View>
 
         <View style={styles.card}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={styles.cardTitle}>Emergency Contact</Text>
-            <TouchableOpacity onPress={addEmergencyItem} style={{ padding: 6 }}>
-              <Ionicons name="add-circle-outline" size={28} color="#2563EB" />
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.cardTitle}>Emergency Contacts</Text>
+            <TouchableOpacity
+              style={styles.plusIconButton}
+              activeOpacity={0.86}
+              onPress={addEmergencyEntry}
+            >
+              <Ionicons name="add" size={24} color="#2563EB" />
             </TouchableOpacity>
           </View>
+          {emergencyEntries.map((entry, index) => (
+            <View key={`emergency-${index}`} style={styles.dynamicItemBlock}>
+              <View style={styles.inlineTitleRow}>
+                <Text style={styles.contactSubTitle}>Emergency Contact {index + 1}</Text>
+                {emergencyEntries.length > 1 ? (
+                  <TouchableOpacity
+                    style={styles.removeLinkButton}
+                    onPress={() => removeEmergencyEntry(index)}
+                    activeOpacity={0.86}
+                  >
+                    <Text style={styles.removeLinkText}>Remove</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
 
-          {emergencyList.length === 0 ? (
-            <Text style={styles.helperText}>No emergency contacts added.</Text>
-          ) : null}
-
-          {emergencyList.map((c, idx) => (
-            <View key={`nok-${idx}`} style={styles.groupBlock}>
               <View style={styles.inputRow}>
                 <Ionicons name="person-outline" size={19} color="#6B7280" />
                 <View style={styles.inputCopy}>
                   <Text style={styles.inputLabel}>Name</Text>
                   <TextInput
                     style={styles.input}
-                    value={c.full_name}
-                    onChangeText={(v) => updateEmergencyItem(idx, 'full_name', v)}
+                    value={entry.name}
+                    onChangeText={(value) => updateEmergencyEntry(index, 'name', value)}
                     placeholder="Enter contact name"
                     placeholderTextColor="#9CA3AF"
                   />
@@ -891,28 +1152,28 @@ export default function SeniorEditProfileScreen({
 
               <TouchableOpacity
                 style={styles.inputRow}
-                onPress={() => openDropdown(`emergency:${idx}:relationship`, 'Relationship', RELATIONSHIPS)}
+                onPress={() => openDropdown(`emergency:${index}:relationship`, 'Relationship', RELATIONSHIPS)}
                 activeOpacity={0.86}
               >
                 <Ionicons name="people-outline" size={19} color="#6B7280" />
                 <View style={styles.inputCopy}>
                   <Text style={styles.inputLabel}>Relationship</Text>
                   <View style={styles.selectInput}>
-                    <Text style={styles.selectValue}>{c.relationship_to_senior || 'Select relationship'}</Text>
+                    <Text style={styles.selectValue}>{entry.relationship || 'Select relationship'}</Text>
                     <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
                   </View>
                 </View>
               </TouchableOpacity>
 
-              {(c.relationship_to_senior === CONDITION_OTHER) ? (
+              {(entry.relationship === CONDITION_OTHER || entry.relationshipCustom) ? (
                 <View style={styles.inputRow}>
                   <Ionicons name="person-outline" size={19} color="#6B7280" />
                   <View style={styles.inputCopy}>
                     <Text style={styles.inputLabel}>Relationship (Others)</Text>
                     <TextInput
                       style={styles.input}
-                      value={c.relationship_to_senior === CONDITION_OTHER ? c.relationship_to_senior_custom || '' : ''}
-                      onChangeText={(v) => updateEmergencyItem(idx, 'relationship_to_senior_custom', v)}
+                      value={entry.relationshipCustom}
+                      onChangeText={(value) => updateEmergencyEntry(index, 'relationshipCustom', value)}
                       placeholder="Enter relationship"
                       placeholderTextColor="#9CA3AF"
                     />
@@ -926,8 +1187,8 @@ export default function SeniorEditProfileScreen({
                   <Text style={styles.inputLabel}>Phone</Text>
                   <TextInput
                     style={styles.input}
-                    value={c.phone_number}
-                    onChangeText={(v) => updateEmergencyItem(idx, 'phone_number', v)}
+                    value={entry.phone}
+                    onChangeText={(value) => updateEmergencyEntry(index, 'phone', value)}
                     placeholder="Enter phone number"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="phone-pad"
@@ -941,8 +1202,8 @@ export default function SeniorEditProfileScreen({
                   <Text style={styles.inputLabel}>Email</Text>
                   <TextInput
                     style={styles.input}
-                    value={c.email}
-                    onChangeText={(v) => updateEmergencyItem(idx, 'email', v)}
+                    value={entry.email}
+                    onChangeText={(value) => updateEmergencyEntry(index, 'email', value)}
                     placeholder="Enter email address"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="email-address"
@@ -984,116 +1245,60 @@ export default function SeniorEditProfileScreen({
         </View>
       </Modal>
 
-      <Modal visible={medicalDatePicker.visible} transparent animationType="fade">
+      <Modal visible={datePicker.visible} transparent animationType="fade">
         <View style={styles.modalContainer}>
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() =>
-              setMedicalDatePicker({
-                visible: false,
-                index: null,
-                day: '',
-                month: '',
-                year: '',
-              })
-            }
-          />
-
+          <Pressable style={styles.modalBackdrop} onPress={() => setDatePicker((current) => ({ ...current, visible: false }))} />
           <View style={styles.dropdownModal}>
-            <Text style={styles.modalTitle}>
-              Select Diagnosed Date
-            </Text>
-
+            <Text style={styles.modalTitle}>Select {datePicker.type === 'dob' ? 'Date of Birth' : 'Diagnosed Date'}</Text>
             <View style={styles.datePickerRow}>
               <View style={styles.datePickerColumn}>
                 <Text style={styles.datePickerLabel}>Day</Text>
-
                 <ScrollView style={styles.datePickerList}>
                   {DAYS.map((option) => (
                     <TouchableOpacity
                       key={option.value}
-                      style={[
-                        styles.datePickerItem,
-                        medicalDatePicker.day === option.value &&
-                        styles.datePickerItemActive,
-                      ]}
-                      onPress={() =>
-                        setMedicalDatePicker((current) => ({
-                          ...current,
-                          day: option.value,
-                        }))
-                      }
+                      style={[styles.datePickerItem, datePicker.day === option.value && styles.datePickerItemActive]}
+                      onPress={() => updateDatePickerValue('day', option.value)}
+                      activeOpacity={0.86}
                     >
-                      <Text style={styles.datePickerText}>
-                        {option.label}
-                      </Text>
+                      <Text style={styles.datePickerText}>{option.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
-
               <View style={styles.datePickerColumn}>
                 <Text style={styles.datePickerLabel}>Month</Text>
-
                 <ScrollView style={styles.datePickerList}>
                   {MONTHS.map((option) => (
                     <TouchableOpacity
                       key={option.value}
-                      style={[
-                        styles.datePickerItem,
-                        medicalDatePicker.month === option.value &&
-                        styles.datePickerItemActive,
-                      ]}
-                      onPress={() =>
-                        setMedicalDatePicker((current) => ({
-                          ...current,
-                          month: option.value,
-                        }))
-                      }
+                      style={[styles.datePickerItem, datePicker.month === option.value && styles.datePickerItemActive]}
+                      onPress={() => updateDatePickerValue('month', option.value)}
+                      activeOpacity={0.86}
                     >
-                      <Text style={styles.datePickerText}>
-                        {option.label}
-                      </Text>
+                      <Text style={styles.datePickerText}>{option.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
-
               <View style={styles.datePickerColumn}>
                 <Text style={styles.datePickerLabel}>Year</Text>
-
                 <ScrollView style={styles.datePickerList}>
                   {YEARS.map((value) => (
                     <TouchableOpacity
                       key={value}
-                      style={[
-                        styles.datePickerItem,
-                        medicalDatePicker.year === value &&
-                        styles.datePickerItemActive,
-                      ]}
-                      onPress={() =>
-                        setMedicalDatePicker((current) => ({
-                          ...current,
-                          year: value,
-                        }))
-                      }
+                      style={[styles.datePickerItem, datePicker.year === value && styles.datePickerItemActive]}
+                      onPress={() => updateDatePickerValue('year', value)}
+                      activeOpacity={0.86}
                     >
-                      <Text style={styles.datePickerText}>
-                        {value}
-                      </Text>
+                      <Text style={styles.datePickerText}>{value}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
             </View>
-
-            <TouchableOpacity
-              style={styles.dropdownActionButton}
-              onPress={confirmMedicalDateSelection}
-            >
-              <Text style={styles.dropdownActionText}>
-                Confirm
-              </Text>
+            <TouchableOpacity style={styles.dropdownActionButton} onPress={confirmDateSelection} activeOpacity={0.86}>
+              <Text style={styles.dropdownActionText}>Confirm</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1267,7 +1472,52 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
   },
-  cardTitle: { color: '#111827', fontSize: 19, fontWeight: '900', marginBottom: 12 },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  cardTitle: { color: '#111827', fontSize: 19, fontWeight: '900' },
+  plusIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  removeLinkButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+  },
+  removeLinkText: {
+    color: '#B91C1C',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  contactSubTitle: {
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  dynamicItemBlock: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 10,
+    marginTop: 10,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1323,12 +1573,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
     lineHeight: 20,
-  },
-  groupBlock: {
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 12,
-    marginTop: 12,
   },
   saveButton: {
     minHeight: 62,
