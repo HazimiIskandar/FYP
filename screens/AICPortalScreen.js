@@ -1,15 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 
-const STAFF_POOL = [
-  { id: 'aic-1', name: 'AIC Staff Amanda' },
-  { id: 'aic-2', name: 'AIC Staff Kumar' },
-  { id: 'aic-3', name: 'AIC Staff Nurul' },
-];
-
 const getSeniorId = (senior, fallback) => senior?.senior_id || senior?.id || fallback + 1;
+
+const findSeniorById = (seniors, seniorId) =>
+  seniors.find((senior, index) => `${getSeniorId(senior, index)}` === `${seniorId}`) || null;
 
 const getSeniorName = (senior) =>
   senior?.full_name ||
@@ -74,49 +71,79 @@ export default function AICPortalScreen({
   checkIns = [],
   emergencyEvents = [],
   authenticatedUser = {},
+  apiBase,
   onLogout,
 }) {
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [assignedCaseRows, setAssignedCaseRows] = useState([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
   const currentStaffName =
     authenticatedUser?.full_name ||
     authenticatedUser?.name ||
     authenticatedUser?.email ||
     'AIC Staff';
-  const currentStaff =
-    STAFF_POOL.find((staff) =>
-      `${currentStaffName}`.toLowerCase().includes(staff.name.replace('AIC Staff ', '').toLowerCase())
-    ) || { ...STAFF_POOL[0], name: currentStaffName };
+
+  useEffect(() => {
+    if (!apiBase || !authenticatedUser?.user_id) {
+      setAssignedCaseRows([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setLoadingAssignments(true);
+
+    fetch(`${apiBase}/staff/assigned-cases/by-user/${authenticatedUser.user_id}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load assigned cases (${response.status})`);
+        }
+        return response.json();
+      })
+      .then((payload) => {
+        if (isCancelled) return;
+        const nextCases = Array.isArray(payload?.cases) ? payload.cases : [];
+        setAssignedCaseRows(nextCases);
+      })
+      .catch((err) => {
+        console.log('Failed to load assigned AIC cases:', err);
+        if (!isCancelled) setAssignedCaseRows([]);
+      })
+      .finally(() => {
+        if (!isCancelled) setLoadingAssignments(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [apiBase, authenticatedUser?.user_id]);
 
   const cases = useMemo(() => {
-    return seniors.map((senior, index) => {
-      const seniorId = getSeniorId(senior, index);
+    return assignedCaseRows.map((assignedCase, index) => {
+      const seniorId = assignedCase?.senior_id;
+      const senior = findSeniorById(seniors, seniorId) || {};
+      const eventId = assignedCase?.event_id;
       const seniorCheckIns = checkIns
         .filter((item) => `${item?.senior_id}` === `${seniorId}`)
         .sort((a, b) => new Date(b?.checkin_timestamp || 0) - new Date(a?.checkin_timestamp || 0));
-      const seniorEvents = emergencyEvents.filter((event) => `${event?.senior_id}` === `${seniorId}`);
-      const latestEvent = seniorEvents[0] || null;
+      const matchedEvent = emergencyEvents.find((event) => `${event?.event_id}` === `${eventId}`) || null;
+      const latestEvent = matchedEvent || assignedCase;
       const missedCount = seniorCheckIns.filter((item) =>
         `${item?.checkin_status || ''}`.toLowerCase().includes('missed')
       ).length;
-      const sourceStatus = getRawStatus(senior, missedCount, seniorEvents.length > 0);
+      const sourceStatus = getRawStatus(senior, missedCount, Boolean(latestEvent));
       const riskLevel = getRiskLevel(sourceStatus, missedCount);
       const currentStatus = getCaseStatus(sourceStatus);
-      const primaryStaff = STAFF_POOL[index % STAFF_POOL.length];
-      const assignedStaff = {
-        ...primaryStaff,
-        name: primaryStaff.id === currentStaff.id ? currentStaff.name : primaryStaff.name,
-      };
       const createdAt =
+        assignedCase?.assigned_at ||
         latestEvent?.created_at ||
-        latestEvent?.event_timestamp ||
         seniorCheckIns[0]?.checkin_timestamp ||
         null;
 
       return {
-        id: latestEvent?.event_id || seniorId,
-        caseId: latestEvent?.event_id ? `CASE-${latestEvent.event_id}` : `CASE-${String(index + 1).padStart(3, '0')}`,
-        title: `Case ${index + 1}`,
+        id: eventId || `assigned-${index}`,
+        caseId: eventId ? `CASE-${eventId}` : `CASE-${String(index + 1).padStart(3, '0')}`,
+        title: eventId ? `Case ${eventId}` : `Case ${index + 1}`,
         senior,
         seniorId,
         seniorName: getSeniorName(senior),
@@ -125,13 +152,13 @@ export default function AICPortalScreen({
         sourceStatus,
         reason: getReason(sourceStatus, latestEvent),
         createdAt,
-        assignedStaff,
+        assignedStaff: { name: currentStaffName },
         missedCount,
       };
     });
-  }, [seniors, checkIns, emergencyEvents, currentStaff.id, currentStaff.name]);
+  }, [assignedCaseRows, seniors, checkIns, emergencyEvents, currentStaffName]);
 
-  const assignedCases = cases.filter((item) => item.assignedStaff.id === currentStaff.id);
+  const assignedCases = cases;
   const selectedCase = assignedCases.find((item) => item.id === selectedCaseId) || null;
   const filterOptions = [
     { key: 'All', label: `All (${assignedCases.length})` },
@@ -215,8 +242,8 @@ export default function AICPortalScreen({
 
         {visibleCases.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No cases found</Text>
-            <Text style={styles.mutedText}>Try another filter above.</Text>
+            <Text style={styles.emptyTitle}>{loadingAssignments ? 'Loading assigned cases...' : 'No assigned cases'}</Text>
+            <Text style={styles.mutedText}>Assigned cases will appear after they are linked in the database.</Text>
           </View>
         ) : null}
       </ScrollView>

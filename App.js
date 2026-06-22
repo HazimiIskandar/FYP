@@ -838,6 +838,7 @@ export default function App() {
           checkIns={checkIns}
           emergencyEvents={emergencyEvents}
           authenticatedUser={authenticatedUser}
+          apiBase={apiBase}
           onLogout={handleLogout}
         />
       );

@@ -113,7 +113,22 @@ router.post("/register", (req, res) => {
                     if (err) {
                         return res.status(500).json({ error: err.message || err });
                     }
-                    res.status(201).json({ message: 'User registered successfully', userId: result.insertId });
+
+                    const createdUserId = result.insertId;
+                    const isAicStaff = roleId === 3 || `${role || ''}`.toLowerCase() === 'aic staff';
+
+                    if (!isAicStaff) {
+                        return res.status(201).json({ message: 'User registered successfully', userId: createdUserId });
+                    }
+
+                    const createStaffSql = `INSERT INTO AIC_Staff (user_id) VALUES (?)`;
+                    db.query(createStaffSql, [createdUserId], (staffErr) => {
+                        if (staffErr) {
+                            return res.status(500).json({ error: staffErr.message || staffErr });
+                        }
+
+                        res.status(201).json({ message: 'User registered successfully', userId: createdUserId });
+                    });
                 });
             });
         });
