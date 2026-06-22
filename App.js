@@ -51,7 +51,8 @@ export default function App() {
     Platform.OS === 'android' ? 'http://10.0.2.2:10000' : 'http://localhost:10000',
     expoHost && expoHost !== 'localhost' ? `http://${expoHost}:10000` : null,
   ].filter(Boolean);
-  const [apiBase, setApiBase] = useState(null);
+  // Default to remote backend so login is never blocked by a null base URL.
+  const [apiBase, setApiBase] = useState(REMOTE_API_BASE);
   const [backendError, setBackendError] = useState(null);
 
   const [seniors, setSeniors] = useState([]);
@@ -168,11 +169,6 @@ export default function App() {
       setLoginError('Please enter your email address and password.');
       return;
     }
-    if (!apiBase) {
-      setLoginError('Backend server is not available yet.');
-      return;
-    }
-
     try {
       const response = await fetch(`${apiBase}/users/login`, {
         method: 'POST',
@@ -218,11 +214,6 @@ export default function App() {
   const handleRegister = async ({ name, email, password, role }) => {
     if (!name || !email) {
       setRegisterError('Please enter both name and email.');
-      return;
-    }
-
-    if (!apiBase) {
-      setRegisterError('Backend server is not available yet.');
       return;
     }
 
@@ -353,10 +344,12 @@ export default function App() {
         }
       }
 
+      // Keep remote as default even if health checks fail at startup.
+      setApiBase(REMOTE_API_BASE);
       setBackendError(
-        `Unable to reach backend on ${REMOTE_API_BASE} or ${LOCAL_API_BASES.join(
+        `Unable to verify backend health on ${REMOTE_API_BASE} or ${LOCAL_API_BASES.join(
           ', '
-        )}. Please start your backend server.`
+        )}. Using remote backend by default.`
       );
     };
 
