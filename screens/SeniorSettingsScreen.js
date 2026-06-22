@@ -239,12 +239,12 @@ export default function SeniorSettingsScreen({
         </Modal>
       ) : null}
 
-      {activeModal === 'Nortification' ? (
+      {activeModal === 'Notification' ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Nortification</Text>
+                <Text style={styles.modalTitle}>Notification</Text>
                 <Text style={styles.modalSubtitle}>Daily check-in reminders</Text>
               </View>
               <TouchableOpacity style={styles.closeButton} onPress={() => setActiveModal(null)}>
