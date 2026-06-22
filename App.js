@@ -57,7 +57,6 @@ export default function App() {
   const [seniors, setSeniors] = useState([]);
   const [users, setUsers] = useState([]);
   const [checkIns, setCheckIns] = useState([]);
-  const [communityActivities, setCommunityActivities] = useState([]);
   const [emergencyEvents, setEmergencyEvents] = useState([]);
   const [rewardStreaks, setRewardStreaks] = useState([]);
 
@@ -390,27 +389,14 @@ export default function App() {
   const calculateCheckInStreak = (seniorId) => {
     if (!seniorId) return 0;
 
-    // Collect dates from completed check-ins
-    const checkInDates = checkIns
+    const orderedDates = checkIns
       .filter((checkIn) => String(checkIn?.senior_id) === String(seniorId))
       .filter((checkIn) => (checkIn?.checkin_status || '').toLowerCase().includes('completed'))
       .map((checkIn) => getDateKey(checkIn?.checkin_timestamp))
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((left, right) => right.localeCompare(left));
 
-    // Collect dates from completed community activities (games)
-    const communityDates = communityActivities
-      .filter((activity) => String(activity?.senior_id) === String(seniorId))
-      .filter((activity) => (activity?.participation_status || '').toLowerCase() === 'completed')
-      .map((activity) => getDateKey(activity?.activity_date))
-      .filter(Boolean);
-
-    // Combine all engagement dates and remove duplicates
-    const allEngagementDates = Array.from(new Set([...checkInDates, ...communityDates]));
-
-    if (!allEngagementDates.length) return 0;
-
-    // Sort dates in descending order (most recent first)
-    const orderedDates = allEngagementDates.sort((left, right) => right.localeCompare(left));
+    if (!orderedDates.length) return 0;
 
     let streak = 1;
     let previousDate = new Date(`${orderedDates[0]}T00:00:00`);
@@ -499,14 +485,13 @@ export default function App() {
 
     const fetchAllData = async () => {
       try {
-        const [seniorsData, usersData, checkInsData, emergencyData, rewardsData, communitiesData] =
+        const [seniorsData, usersData, checkInsData, emergencyData, rewardsData] =
           await Promise.all([
             fetchJson(`${apiBase}/seniors`),
             fetchJson(`${apiBase}/users`),
             fetchJson(`${apiBase}/checkins`),
             fetchJson(`${apiBase}/emergency-events`),
             fetchJson(`${apiBase}/rewards`),
-            fetchJson(`${apiBase}/community/activities/all`).catch(() => []),
           ]);
 
         console.log('=== FETCHED SENIORS DATA ===');
@@ -527,7 +512,6 @@ export default function App() {
         );
 
         setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
-        setCommunityActivities(Array.isArray(communitiesData) ? communitiesData : []);
         setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
         setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
       } catch (err) {
@@ -536,7 +520,6 @@ export default function App() {
         setSeniors([]);
         setUsers([]);
         setCheckIns([]);
-        setCommunityActivities([]);
         setEmergencyEvents([]);
         setRewardStreaks([]);
       }
@@ -553,19 +536,17 @@ export default function App() {
   const refreshAll = async (userOverride = null) => {
     if (!apiBase) return;
     try {
-      const [seniorsRes, usersRes, checkinsRes, rewardsRes, communityRes] = await Promise.all([
+      const [seniorsRes, usersRes, checkinsRes, rewardsRes] = await Promise.all([
         fetch(`${apiBase}/seniors`),
         fetch(`${apiBase}/users`),
         fetch(`${apiBase}/checkins`),
         fetch(`${apiBase}/rewards`),
-        fetch(`${apiBase}/community/activities/all`),
       ]);
       if (!seniorsRes.ok || !usersRes.ok || !checkinsRes.ok || !rewardsRes.ok) return;
       const seniorsData = await seniorsRes.json();
       const usersData = await usersRes.json();
       const checkinsData = await checkinsRes.json();
       const rewardsData = await rewardsRes.json();
-      const communityData = communityRes.ok ? await communityRes.json() : [];
       const userMap = new Map(
         (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
       );
@@ -577,7 +558,6 @@ export default function App() {
       setUsers(Array.isArray(usersData) ? usersData : []);
       setSeniors(normalizedSeniors);
       setCheckIns(Array.isArray(checkinsData) ? checkinsData : []);
-      setCommunityActivities(Array.isArray(communityData) ? communityData : []);
       setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
       // if someone is authenticated, update their cached user object too
       let updatedSeniorWithExtras = null;
