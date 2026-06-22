@@ -651,6 +651,7 @@ export default function App() {
           onProfile={() => setCurrentScreen('SeniorProfile')}
           onEditProfile={() => setCurrentScreen('SeniorEditProfile')}
           onLogout={handleLogout}
+          onRefresh={refreshAll}
         />
       );
     }
