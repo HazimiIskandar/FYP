@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   },
   groupTitle: {
     color: '#111827',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '900',
     marginBottom: 8,
   },

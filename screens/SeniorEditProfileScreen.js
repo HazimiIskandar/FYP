@@ -137,12 +137,17 @@ export default function SeniorEditProfileScreen({
   const [dropdownState, setDropdownState] = useState({ visible: false, title: '', key: '', options: [] });
   const [datePicker, setDatePicker] = useState({ visible: false, type: '', day: '', month: '', year: '' });
   const [medicalConditionsList, setMedicalConditionsList] = useState([]);
+  const [medicalDatePicker, setMedicalDatePicker] = useState({ visible: false, index: null, day: '', month: '', year: ''});
   const [loadingConditions, setLoadingConditions] = useState(false);
   const [conditionLoadError, setConditionLoadError] = useState('');
 
   useEffect(() => {
     setDetails(initialDetails);
   }, [initialDetails]);
+
+  // Lists to support multiple entries
+  const [emergencyList, setEmergencyList] = useState([]);
+  const [medicalList, setMedicalList] = useState([]);
 
   useEffect(() => {
     if (!apiBase) return;
@@ -166,6 +171,33 @@ export default function SeniorEditProfileScreen({
       })
       .finally(() => setLoadingConditions(false));
   }, [apiBase]);
+
+  // initialize lists from senior prop
+  useEffect(() => {
+    const initialNoks = Array.isArray(senior?.nokContacts) && senior.nokContacts.length
+      ? senior.nokContacts.map((n) => ({
+          nok_id: n.nok_id,
+          full_name: n.full_name || '',
+          relationship_to_senior: n.relationship_to_senior || '',
+          phone_number: n.phone_number || '',
+          email: n.email || '',
+        }))
+      : [{ full_name: '', relationship_to_senior: '', phone_number: '', email: '' }];
+
+    const initialConditions = Array.isArray(senior?.medicalConditions) && senior.medicalConditions.length
+      ? senior.medicalConditions.map((c) => ({
+          condition_id: c.condition_id || null,
+          condition_name: c.condition_name || '',
+          customCondition: c.condition_name || '',
+          severity_level: c.severity_level || '',
+          medication_required: c.medication_required || '',
+          diagnosed_date: c.diagnosed_date || '',
+        }))
+      : [];
+
+    setEmergencyList(initialNoks);
+    setMedicalList(initialConditions.length ? initialConditions : []);
+  }, [senior]);
 
   useEffect(() => {
     if (!medicalConditionsList.length || !details.condition) return;
@@ -212,6 +244,52 @@ export default function SeniorEditProfileScreen({
   };
 
   const selectDropdownValue = (value) => {
+    // support keys targeting list items: e.g. medical:0:condition or emergency:1:relationship
+    if (dropdownState.key && dropdownState.key.startsWith('medical:')) {
+      const parts = dropdownState.key.split(':');
+      const index = Number(parts[1]);
+      const field = parts[2];
+
+      setMedicalList((current) => {
+        const next = [...current];
+        if (!next[index]) next[index] = {};
+        if (field === 'condition') {
+          next[index].condition_name = value;
+          // resolve condition id if available
+          const item = medicalConditionsList.find((m) => m.condition_name === value);
+          next[index].condition_id = item?.condition_id || null;
+          if (item) {
+            next[index].severity_level = next[index].severity_level || item.severity_level || '';
+            next[index].medication_required = next[index].medication_required || item.medication_required || '';
+          }
+        } else if (field === 'severity') {
+          next[index].severity_level = value;
+        } else if (field === 'medication') {
+          next[index].medication_required = value;
+        }
+        return next;
+      });
+      closeDropdown();
+      return;
+    }
+
+    if (dropdownState.key && dropdownState.key.startsWith('emergency:')) {
+      const parts = dropdownState.key.split(':');
+      const index = Number(parts[1]);
+      const field = parts[2];
+
+      setEmergencyList((current) => {
+        const next = [...current];
+        if (!next[index]) next[index] = {};
+        if (field === 'relationship') {
+          next[index].relationship_to_senior = value;
+        }
+        return next;
+      });
+      closeDropdown();
+      return;
+    }
+
     if (dropdownState.key === 'condition') {
       const nextDetails = { condition: value };
 
@@ -257,6 +335,57 @@ export default function SeniorEditProfileScreen({
 
   const updateDatePickerValue = (key, value) => {
     setDatePicker((current) => ({ ...current, [key]: value }));
+  };
+
+  // Helpers for lists
+  const openMedicalDatePicker = (index, currentDate = '') => {
+  const parts = parseDateParts(currentDate);
+
+    setMedicalDatePicker({
+      visible: true,
+      index,
+      day: parts.day,
+      month: parts.month,
+      year: parts.year,
+    });
+  };
+
+  const confirmMedicalDateSelection = () => {
+    const { index, day, month, year } = medicalDatePicker;
+
+    const formatted = buildDateValue(day, month, year);
+
+    updateMedicalItem(index, 'diagnosed_date', formatted);
+
+    setMedicalDatePicker({
+      visible: false,
+      index: null,
+      day: '',
+      month: '',
+      year: '',
+    });
+  };
+
+  const addMedicalItem = () => {
+    setMedicalList((current) => ([...current, { condition_id: null, condition_name: '', customCondition: '', severity_level: '', medication_required: '', diagnosed_date: '' }]));
+  };
+  const updateMedicalItem = (index, key, value) => {
+    setMedicalList((current) => {
+      const next = [...current];
+      next[index] = { ...(next[index] || {}), [key]: value };
+      return next;
+    });
+  };
+
+  const addEmergencyItem = () => {
+    setEmergencyList((current) => ([...current, { full_name: '', relationship_to_senior: '', phone_number: '', email: '' }]));
+  };
+  const updateEmergencyItem = (index, key, value) => {
+    setEmergencyList((current) => {
+      const next = [...current];
+      next[index] = { ...(next[index] || {}), [key]: value };
+      return next;
+    });
   };
 
   const refreshSavedProfile = async () => {
@@ -435,21 +564,6 @@ export default function SeniorEditProfileScreen({
         }
       }
 
-      const emergencyRelationship =
-        details.emergencyRelationship === CONDITION_OTHER
-          ? details.emergencyRelationshipCustom
-          : details.emergencyRelationship;
-
-      const nokPayload = {
-        full_name: details.emergencyName,
-        relationship_to_senior: emergencyRelationship,
-        phone_number: details.emergencyPhone,
-        email: details.emergencyEmail,
-      };
-      const hasEmergencyContactDetails = Object.values(nokPayload).some(
-        (value) => `${value ?? ''}`.trim().length > 0
-      );
-
       let seniorId = details.seniorId;
       if (!seniorId && details.userId) {
         const createSeniorResponse = await fetch(`${apiBase}/seniors`, {
@@ -471,93 +585,80 @@ export default function SeniorEditProfileScreen({
         updateDetail('seniorId', seniorId);
       }
 
-      if (details.nokId && hasEmergencyContactDetails) {
-        const response = await fetch(
-          `${apiBase}/nok/${details.nokId}`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(nokPayload),
-          }
-        );
+      // Sync medical conditions (multiple)
+      if (seniorId) {
+        const toSync = medicalList.map((c) => ({
+          condition_id: c.condition_id || undefined,
+          customCondition: (!c.condition_id && c.customCondition) ? c.customCondition : undefined,
+          diagnosed_date: formatDateForDB(c.diagnosed_date) || undefined,
+          severity_level: c.severity_level || undefined,
+          medication_required: c.medication_required || undefined,
+        })).filter((item) => item.condition_id || item.customCondition);
 
-        const text = await response.text();
-        let result;
-        try {
-          result = JSON.parse(text);
-        } catch (parseErr) {
-          result = { error: text };
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            result?.error ||
-            'Failed to update emergency contact'
-          );
-        }
-      }
-      else if (seniorId && hasEmergencyContactDetails) {
-        const response = await fetch(
-          `${apiBase}/seniors/${details.seniorId}/nok`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(nokPayload),
-          }
-        );
-
-        const text = await response.text();
-        let result;
-        try {
-          result = JSON.parse(text);
-        } catch (parseErr) {
-          result = { error: text };
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            result?.error ||
-            'Failed to create emergency contact'
-          );
-        }
-
-        updateDetail('nokId', result.nok_id);
-      }
-
-      if (details.seniorId) {
-        const conditionPayload = {
-          condition_id: details.conditionId,
-          customCondition: details.condition === CONDITION_OTHER ? details.customCondition : undefined,
-          diagnosed_date: formatDateForDB(details.diagnosedDate),
-          severity_level: details.severity,
-          medication_required: details.medicationRequired,
-        };
-
-        const filteredConditionPayload = Object.fromEntries(
-          Object.entries(conditionPayload).filter(
-            ([, value]) => value !== undefined && value !== null && value !== ''
-          )
-        );
-
-        if (filteredConditionPayload.condition_id || filteredConditionPayload.customCondition) {
-          const conditionResponse = await fetch(`${apiBase}/seniors/${details.seniorId}/medical-condition`, {
+        if (toSync.length) {
+          const syncResp = await fetch(`${apiBase}/seniors/${seniorId}/medical-conditions/sync`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(filteredConditionPayload),
+            body: JSON.stringify({ conditions: toSync }),
           });
 
-          const conditionResult = await conditionResponse.json().catch(() => null);
-          if (!conditionResponse.ok) {
-            throw new Error(conditionResult?.error || conditionResult?.message || 'Failed to save medical condition');
+          if (!syncResp.ok) {
+            const txt = await syncResp.text().catch(() => null);
+            let errObj;
+            try { errObj = JSON.parse(txt); } catch (e) { errObj = { error: txt }; }
+            throw new Error(errObj?.error || 'Failed to sync medical conditions');
           }
         }
       }
 
-      if (details.seniorId) {
+      // Save emergency contacts (multiple)
+      if (seniorId) {
+        for (const contact of emergencyList) {
+          const relationship = contact.relationship_to_senior === CONDITION_OTHER
+            ? (contact.relationship_to_senior_custom || CONDITION_OTHER)
+            : contact.relationship_to_senior;
+
+          const payload = {
+            full_name: contact.full_name,
+            relationship_to_senior: relationship,
+            phone_number: contact.phone_number,
+            email: contact.email,
+          };
+
+          const hasDetails = Object.values(payload).some((v) => `${v ?? ''}`.trim().length > 0);
+          if (!hasDetails) continue;
+
+          if (contact.nok_id) {
+            const resp = await fetch(`${apiBase}/nok/${contact.nok_id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            if (!resp.ok) {
+              const txt = await resp.text().catch(() => null);
+              let errObj;
+              try { errObj = JSON.parse(txt); } catch (e) { errObj = { error: txt }; }
+              throw new Error(errObj?.error || 'Failed to update emergency contact');
+            }
+          } else {
+            const resp = await fetch(`${apiBase}/seniors/${seniorId}/nok`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            const txt = await resp.text().catch(() => null);
+            let result;
+            try { result = JSON.parse(txt); } catch (e) { result = { nok_id: null, error: txt }; }
+            if (!resp.ok) {
+              throw new Error(result?.error || 'Failed to create emergency contact');
+            }
+          }
+        }
+      }
+
+      if (seniorId) {
         await refreshSavedProfile();
       }
 
@@ -661,31 +762,195 @@ export default function SeniorEditProfileScreen({
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Medical Conditions</Text>
-          {renderSelect(
-            'fitness-outline',
-            'Condition',
-            'condition',
-            loadingConditions ? 'Loading conditions...' : 'Select condition',
-            [...medicalConditionsList.map((condition) => condition.condition_name), CONDITION_OTHER]
-          )}
-          {(details.condition === CONDITION_OTHER || details.customCondition) ? (
-            renderInput('warning-outline', 'Condition (Others)', 'customCondition', 'Enter condition name')
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.cardTitle}>Medical Conditions</Text>
+            <TouchableOpacity onPress={addMedicalItem} style={{ padding: 6 }}>
+              <Ionicons name="add-circle-outline" size={28} color="#2563EB" />
+            </TouchableOpacity>
+          </View>
+
+          {medicalList.length === 0 ? (
+            <Text style={styles.helperText}>No medical conditions added.</Text>
           ) : null}
-          {renderSelect('warning-outline', 'Severity', 'severity', 'Select severity', SEVERITY_OPTIONS)}
-          {renderSelect('medical-outline', 'Medication Required', 'medicationRequired', 'Select option', MEDICATION_OPTIONS)}
-          {renderDateField('calendar-outline', 'Diagnosed', 'diagnosed', 'DD/MM/YYYY')}
+
+          {medicalList.map((cond, idx) => (
+            <View key={`med-${idx}`} style={styles.groupBlock}>
+  
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => openDropdown(`medical:${idx}:condition`, 'Condition', [...medicalConditionsList.map((c) => c.condition_name), CONDITION_OTHER])}
+                activeOpacity={0.86}
+              >
+                <Ionicons name="fitness-outline" size={19} color="#6B7280" />
+                <View style={styles.inputCopy}>
+                  <Text style={styles.inputLabel}>Condition</Text>
+                  <View style={styles.selectInput}>
+                    <Text style={styles.selectValue}>{cond.condition_name || 'Select condition'}</Text>
+                    <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {(!cond.condition_id && cond.condition_name === CONDITION_OTHER) || cond.customCondition ? (
+                <View style={styles.inputRow}>
+                  <Ionicons name="warning-outline" size={19} color="#6B7280" />
+                  <View style={styles.inputCopy}>
+                    <Text style={styles.inputLabel}>Condition (Others)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={cond.customCondition}
+                      onChangeText={(v) => updateMedicalItem(idx, 'customCondition', v)}
+                      placeholder="Enter condition name"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </View>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => openDropdown(`medical:${idx}:severity`, 'Severity', SEVERITY_OPTIONS)}
+                activeOpacity={0.86}
+              >
+                <Ionicons name="warning-outline" size={19} color="#6B7280" />
+                <View style={styles.inputCopy}>
+                  <Text style={styles.inputLabel}>Severity</Text>
+                  <View style={styles.selectInput}>
+                    <Text style={styles.selectValue}>{cond.severity_level || 'Select severity'}</Text>
+                    <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => openDropdown(`medical:${idx}:medication`, 'Medication Required', MEDICATION_OPTIONS)}
+                activeOpacity={0.86}
+              >
+                <Ionicons name="medical-outline" size={19} color="#6B7280" />
+                <View style={styles.inputCopy}>
+                  <Text style={styles.inputLabel}>Medication Required</Text>
+                  <View style={styles.selectInput}>
+                    <Text style={styles.selectValue}>{cond.medication_required || 'Select option'}</Text>
+                    <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => openMedicalDatePicker(idx, cond.diagnosed_date)}
+                activeOpacity={0.86}
+              >
+                <Ionicons name="calendar-outline" size={19} color="#6B7280" />
+                <View style={styles.inputCopy}>
+                  <Text style={styles.inputLabel}>Diagnosed</Text>
+                  <View style={styles.selectInput}>
+                    <Text style={styles.selectValue}>
+                      {cond.diagnosed_date || 'DD/MM/YYYY'}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down-outline"
+                      size={18}
+                      color="#6B7280"
+                    />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          ))}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Emergency Contact</Text>
-          {renderInput('person-outline', 'Name', 'emergencyName', 'Enter contact name')}
-          {renderSelect('people-outline', 'Relationship', 'emergencyRelationship', 'Select relationship', RELATIONSHIPS)}
-          {(details.emergencyRelationship === CONDITION_OTHER || details.emergencyRelationshipCustom) ? (
-            renderInput('person-outline', 'Relationship (Others)', 'emergencyRelationshipCustom', 'Enter relationship')
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.cardTitle}>Emergency Contact</Text>
+            <TouchableOpacity onPress={addEmergencyItem} style={{ padding: 6 }}>
+              <Ionicons name="add-circle-outline" size={28} color="#2563EB" />
+            </TouchableOpacity>
+          </View>
+
+          {emergencyList.length === 0 ? (
+            <Text style={styles.helperText}>No emergency contacts added.</Text>
           ) : null}
-          {renderInput('call-outline', 'Phone', 'emergencyPhone', 'Enter phone number', 'phone-pad')}
-          {renderInput('mail-outline', 'Email', 'emergencyEmail', 'Enter email address', 'email-address')}
+
+          {emergencyList.map((c, idx) => (
+            <View key={`nok-${idx}`} style={styles.groupBlock}>
+              <View style={styles.inputRow}>
+                <Ionicons name="person-outline" size={19} color="#6B7280" />
+                <View style={styles.inputCopy}>
+                  <Text style={styles.inputLabel}>Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={c.full_name}
+                    onChangeText={(v) => updateEmergencyItem(idx, 'full_name', v)}
+                    placeholder="Enter contact name"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => openDropdown(`emergency:${idx}:relationship`, 'Relationship', RELATIONSHIPS)}
+                activeOpacity={0.86}
+              >
+                <Ionicons name="people-outline" size={19} color="#6B7280" />
+                <View style={styles.inputCopy}>
+                  <Text style={styles.inputLabel}>Relationship</Text>
+                  <View style={styles.selectInput}>
+                    <Text style={styles.selectValue}>{c.relationship_to_senior || 'Select relationship'}</Text>
+                    <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {(c.relationship_to_senior === CONDITION_OTHER) ? (
+                <View style={styles.inputRow}>
+                  <Ionicons name="person-outline" size={19} color="#6B7280" />
+                  <View style={styles.inputCopy}>
+                    <Text style={styles.inputLabel}>Relationship (Others)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={c.relationship_to_senior === CONDITION_OTHER ? c.relationship_to_senior_custom || '' : ''}
+                      onChangeText={(v) => updateEmergencyItem(idx, 'relationship_to_senior_custom', v)}
+                      placeholder="Enter relationship"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={styles.inputRow}>
+                <Ionicons name="call-outline" size={19} color="#6B7280" />
+                <View style={styles.inputCopy}>
+                  <Text style={styles.inputLabel}>Phone</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={c.phone_number}
+                    onChangeText={(v) => updateEmergencyItem(idx, 'phone_number', v)}
+                    placeholder="Enter phone number"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputRow}>
+                <Ionicons name="mail-outline" size={19} color="#6B7280" />
+                <View style={styles.inputCopy}>
+                  <Text style={styles.inputLabel}>Email</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={c.email}
+                    onChangeText={(v) => updateEmergencyItem(idx, 'email', v)}
+                    placeholder="Enter email address"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                  />
+                </View>
+              </View>
+            </View>
+          ))}
         </View>
 
         {savedMessage ? <Text style={styles.savedText}>{savedMessage}</Text> : null}
@@ -719,60 +984,116 @@ export default function SeniorEditProfileScreen({
         </View>
       </Modal>
 
-      <Modal visible={datePicker.visible} transparent animationType="fade">
+      <Modal visible={medicalDatePicker.visible} transparent animationType="fade">
         <View style={styles.modalContainer}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setDatePicker((current) => ({ ...current, visible: false }))} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() =>
+              setMedicalDatePicker({
+                visible: false,
+                index: null,
+                day: '',
+                month: '',
+                year: '',
+              })
+            }
+          />
+
           <View style={styles.dropdownModal}>
-            <Text style={styles.modalTitle}>Select {datePicker.type === 'dob' ? 'Date of Birth' : 'Diagnosed Date'}</Text>
+            <Text style={styles.modalTitle}>
+              Select Diagnosed Date
+            </Text>
+
             <View style={styles.datePickerRow}>
               <View style={styles.datePickerColumn}>
                 <Text style={styles.datePickerLabel}>Day</Text>
+
                 <ScrollView style={styles.datePickerList}>
                   {DAYS.map((option) => (
                     <TouchableOpacity
                       key={option.value}
-                      style={[styles.datePickerItem, datePicker.day === option.value && styles.datePickerItemActive]}
-                      onPress={() => updateDatePickerValue('day', option.value)}
-                      activeOpacity={0.86}
+                      style={[
+                        styles.datePickerItem,
+                        medicalDatePicker.day === option.value &&
+                        styles.datePickerItemActive,
+                      ]}
+                      onPress={() =>
+                        setMedicalDatePicker((current) => ({
+                          ...current,
+                          day: option.value,
+                        }))
+                      }
                     >
-                      <Text style={styles.datePickerText}>{option.label}</Text>
+                      <Text style={styles.datePickerText}>
+                        {option.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
+
               <View style={styles.datePickerColumn}>
                 <Text style={styles.datePickerLabel}>Month</Text>
+
                 <ScrollView style={styles.datePickerList}>
                   {MONTHS.map((option) => (
                     <TouchableOpacity
                       key={option.value}
-                      style={[styles.datePickerItem, datePicker.month === option.value && styles.datePickerItemActive]}
-                      onPress={() => updateDatePickerValue('month', option.value)}
-                      activeOpacity={0.86}
+                      style={[
+                        styles.datePickerItem,
+                        medicalDatePicker.month === option.value &&
+                        styles.datePickerItemActive,
+                      ]}
+                      onPress={() =>
+                        setMedicalDatePicker((current) => ({
+                          ...current,
+                          month: option.value,
+                        }))
+                      }
                     >
-                      <Text style={styles.datePickerText}>{option.label}</Text>
+                      <Text style={styles.datePickerText}>
+                        {option.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
+
               <View style={styles.datePickerColumn}>
                 <Text style={styles.datePickerLabel}>Year</Text>
+
                 <ScrollView style={styles.datePickerList}>
                   {YEARS.map((value) => (
                     <TouchableOpacity
                       key={value}
-                      style={[styles.datePickerItem, datePicker.year === value && styles.datePickerItemActive]}
-                      onPress={() => updateDatePickerValue('year', value)}
-                      activeOpacity={0.86}
+                      style={[
+                        styles.datePickerItem,
+                        medicalDatePicker.year === value &&
+                        styles.datePickerItemActive,
+                      ]}
+                      onPress={() =>
+                        setMedicalDatePicker((current) => ({
+                          ...current,
+                          year: value,
+                        }))
+                      }
                     >
-                      <Text style={styles.datePickerText}>{value}</Text>
+                      <Text style={styles.datePickerText}>
+                        {value}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
             </View>
-            <TouchableOpacity style={styles.dropdownActionButton} onPress={confirmDateSelection} activeOpacity={0.86}>
-              <Text style={styles.dropdownActionText}>Confirm</Text>
+
+            <TouchableOpacity
+              style={styles.dropdownActionButton}
+              onPress={confirmMedicalDateSelection}
+            >
+              <Text style={styles.dropdownActionText}>
+                Confirm
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1002,6 +1323,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
     lineHeight: 20,
+  },
+  groupBlock: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 12,
+    marginTop: 12,
   },
   saveButton: {
     minHeight: 62,
