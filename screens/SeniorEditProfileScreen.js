@@ -429,7 +429,13 @@ export default function SeniorEditProfileScreen({
           }
         );
 
-        const result = await response.json();
+        const text = await response.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (parseErr) {
+          result = { error: text };
+        }
 
         if (!response.ok) {
           throw new Error(
@@ -450,7 +456,13 @@ export default function SeniorEditProfileScreen({
           }
         );
 
-        const result = await response.json();
+        const text = await response.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch (parseErr) {
+          result = { error: text };
+        }
 
         if (!response.ok) {
           throw new Error(
