@@ -79,6 +79,8 @@ export default function App() {
 
     return {
       ...combined,
+      medicalConditions: combined?.medicalConditions || [],
+      nokContacts: combined?.nokContacts || [],
 
       full_name:
         combined?.full_name ||
@@ -411,20 +413,58 @@ export default function App() {
       const userMap = new Map(
         (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
       );
+      const normalizedSeniors = Array.isArray(seniorsData)
+        ? seniorsData
+            .map((senior) => normalizeSenior(senior, userMap))
+            .filter((normalizedSenior) => normalizedSenior.full_name !== 'Unknown Senior')
+        : [];
       setUsers(Array.isArray(usersData) ? usersData : []);
-      setSeniors(
-        Array.isArray(seniorsData)
-          ? seniorsData
-              .map((senior) => normalizeSenior(senior, userMap))
-              .filter((normalizedSenior) => normalizedSenior.full_name !== 'Unknown Senior')
-          : []
-      );
+      setSeniors(normalizedSeniors);
       // if someone is authenticated, update their cached user object too
+      let updatedSeniorWithExtras = null;
       if (authenticatedUser && authenticatedUser.user_id) {
         const updated = (Array.isArray(usersData) ? usersData : []).find(
           (u) => String(u.user_id) === String(authenticatedUser.user_id)
         );
         if (updated) setAuthenticatedUser(updated);
+
+        const matchingSenior = normalizedSeniors.find(
+          (s) => String(s.user_id) === String(authenticatedUser.user_id)
+        );
+
+        if (matchingSenior?.senior_id && apiBase) {
+          try {
+            const [conditionResponse, nokResponse] = await Promise.all([
+              fetch(`${apiBase}/seniors/${matchingSenior.senior_id}/medical-conditions`),
+              fetch(`${apiBase}/seniors/${matchingSenior.senior_id}/nok`),
+            ]);
+
+            if (conditionResponse.ok && nokResponse.ok) {
+              const [conditionData, nokData] = await Promise.all([
+                conditionResponse.json(),
+                nokResponse.json(),
+              ]);
+
+              updatedSeniorWithExtras = {
+                ...matchingSenior,
+                medicalConditions: Array.isArray(conditionData) ? conditionData : [conditionData],
+                nokContacts: Array.isArray(nokData) ? nokData : [nokData],
+              };
+            }
+          } catch (err) {
+            console.log('Failed to load senior extras during refresh:', err);
+          }
+        }
+      }
+
+      if (updatedSeniorWithExtras) {
+        setSeniors((current) =>
+          current.map((senior) =>
+            String(senior.senior_id) === String(updatedSeniorWithExtras.senior_id)
+              ? updatedSeniorWithExtras
+              : senior
+          )
+        );
       }
     } catch (err) {
       console.log('refreshAll error:', err);
