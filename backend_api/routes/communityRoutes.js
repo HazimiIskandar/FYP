@@ -4,10 +4,10 @@ const db = require("../config/db");
 const router = express.Router();
 
 /**
- * GET /community/all
+ * GET /community/activities/all
  * Fetch all community hub activities for all seniors
  */
-router.get("/all", (req, res) => {
+router.get("/activities/all", (req, res) => {
   const query = `
     SELECT 
       activity_id,
@@ -30,11 +30,16 @@ router.get("/all", (req, res) => {
 });
 
 /**
- * GET /community/senior/:senior_id
+ * GET /community/activities/:senior_id
  * Fetch all community hub activities for a senior
  */
-router.get("/senior/:senior_id", (req, res) => {
+router.get("/activities/:senior_id", (req, res) => {
   const { senior_id } = req.params;
+
+  // Skip if trying to fetch 'all'
+  if (senior_id === 'all') {
+    return res.next?.();
+  }
 
   const query = `
     SELECT 

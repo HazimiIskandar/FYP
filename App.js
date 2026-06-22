@@ -506,7 +506,7 @@ export default function App() {
             fetchJson(`${apiBase}/checkins`),
             fetchJson(`${apiBase}/emergency-events`),
             fetchJson(`${apiBase}/rewards`),
-            fetchJson(`${apiBase}/community/all`).catch(() => []),
+            fetchJson(`${apiBase}/community/activities/all`).catch(() => []),
           ]);
 
         console.log('=== FETCHED SENIORS DATA ===');
@@ -558,7 +558,7 @@ export default function App() {
         fetch(`${apiBase}/users`),
         fetch(`${apiBase}/checkins`),
         fetch(`${apiBase}/rewards`),
-        fetch(`${apiBase}/community/all`),
+        fetch(`${apiBase}/community/activities/all`),
       ]);
       if (!seniorsRes.ok || !usersRes.ok || !checkinsRes.ok || !rewardsRes.ok) return;
       const seniorsData = await seniorsRes.json();
@@ -911,7 +911,6 @@ export default function App() {
           onHome={() => setCurrentScreen('Home')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
-          onRefreshData={refreshAll}
         />
       );
     }
