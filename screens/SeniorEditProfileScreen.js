@@ -118,13 +118,14 @@ const formatDateForDB = (value) => {
 
 const buildMedicalEntry = (condition = {}) => {
   const conditionName = condition?.condition_name || '';
-  const isStandardCondition = !conditionName || conditionName === CONDITION_OTHER;
+  const hasKnownConditionId = Number.isInteger(Number(condition?.condition_id));
+  const isCustomCondition = Boolean(conditionName) && !hasKnownConditionId;
   const diagnosedParts = parseDateParts(formatDate(condition?.diagnosed_date));
 
   return {
-    condition: isStandardCondition ? conditionName : CONDITION_OTHER,
+    condition: isCustomCondition ? CONDITION_OTHER : conditionName,
     conditionId: condition?.condition_id || null,
-    customCondition: isStandardCondition ? '' : conditionName,
+    customCondition: isCustomCondition ? conditionName : '',
     severity: condition?.severity_level || '',
     medicationRequired: condition?.medication_required || '',
     diagnosedDate: buildDateValue(diagnosedParts.day, diagnosedParts.month, diagnosedParts.year),
