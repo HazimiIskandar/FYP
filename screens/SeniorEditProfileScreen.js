@@ -88,6 +88,7 @@ export default function SeniorEditProfileScreen({
   onCommunity,
   onSettings,
   onBack,
+  onRefresh,
 }) {
   const seniorCondition = senior?.medicalConditions?.[0] || {};
   const initialRelationship = senior?.nokContacts?.[0]?.relationship_to_senior || '';
@@ -417,16 +418,48 @@ export default function SeniorEditProfileScreen({
       };
 
       if (details.nokId) {
-        const response = await fetch(`${apiBase}/nok/${details.nokId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(nokPayload),
-        });
+        const response = await fetch(
+          `${apiBase}/nok/${details.nokId}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(nokPayload),
+          }
+        );
 
-        const result = await response.json().catch(() => null);
+        const result = await response.json();
+
         if (!response.ok) {
-          throw new Error(result?.error || result?.message || 'Failed to update emergency contact');
+          throw new Error(
+            result?.error ||
+            'Failed to update emergency contact'
+          );
         }
+      }
+      else if (details.seniorId) {
+        const response = await fetch(
+          `${apiBase}/seniors/${details.seniorId}/nok`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(nokPayload),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result?.error ||
+            'Failed to create emergency contact'
+          );
+        }
+
+        updateDetail('nokId', result.nok_id);
       }
 
       if (details.seniorId) {
@@ -460,6 +493,15 @@ export default function SeniorEditProfileScreen({
 
       if (details.seniorId) {
         await refreshSavedProfile();
+      }
+
+      // let parent refresh global data (users/seniors) so other screens see updates
+      if (typeof onRefresh === 'function') {
+        try {
+          await onRefresh();
+        } catch (err) {
+          console.log('onRefresh error:', err);
+        }
       }
 
       setSavedMessage('Profile details saved.');

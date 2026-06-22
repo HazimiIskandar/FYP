@@ -128,6 +128,103 @@ router.get("/:senior_id/nok", (req, res) => {
   });
 });
 
+router.put("/:senior_id/nok", (req, res) => {
+  const seniorId = req.params.senior_id;
+
+  const {
+    full_name,
+    phone_number,
+    email,
+    relationship_to_senior,
+  } = req.body;
+
+  const checkSql = `
+    SELECT nok_id
+    FROM Senior_has_NOK
+    WHERE senior_id = ?
+  `;
+
+  db.query(checkSql, [seniorId], (err, results) => {
+    if (err) return res.status(500).json(err);
+
+    // Senior already has NOK
+    if (results.length > 0) {
+      const nokId = results[0].nok_id;
+
+      const updateSql = `
+        UPDATE NOK
+        SET
+          full_name = ?,
+          phone_number = ?,
+          email = ?,
+          relationship_to_senior = ?
+        WHERE nok_id = ?
+      `;
+
+      db.query(
+        updateSql,
+        [
+          full_name,
+          phone_number,
+          email,
+          relationship_to_senior,
+          nokId,
+        ],
+        (err) => {
+          if (err) return res.status(500).json(err);
+
+          res.json({
+            message: "Emergency contact updated.",
+          });
+        }
+      );
+    }
+    // Senior doesn't have NOK
+    else {
+      const insertSql = `
+        INSERT INTO NOK
+        (full_name, phone_number, email, relationship_to_senior)
+        VALUES (?, ?, ?, ?)
+      `;
+
+      db.query(
+        insertSql,
+        [
+          full_name,
+          phone_number,
+          email,
+          relationship_to_senior,
+        ],
+        (err, result) => {
+          if (err) return res.status(500).json(err);
+
+          const nokId = result.insertId;
+
+          const linkSql = `
+            INSERT INTO Senior_has_NOK
+            (senior_id, nok_id)
+            VALUES (?, ?)
+          `;
+
+          db.query(
+            linkSql,
+            [seniorId, nokId],
+            (err) => {
+              if (err)
+                return res.status(500).json(err);
+
+              res.json({
+                message:
+                  "Emergency contact created and linked.",
+              });
+            }
+          );
+        }
+      );
+    }
+  });
+});
+
 router.put('/:senior_id/medical-condition', (req, res) => {
   const seniorId = req.params.senior_id;
   const {

@@ -348,7 +348,7 @@ export default function App() {
       return response.json();
     };
 
-    const fetchData = async () => {
+    const fetchAllData = async () => {
       try {
         const [seniorsData, usersData, checkInsData, emergencyData, rewardsData] =
           await Promise.all([
@@ -390,8 +390,46 @@ export default function App() {
       }
     };
 
-    fetchData();
+    // expose fetchAllData on component scope so child screens can trigger a refresh
+    fetchAllData();
+
+    // attach to state so it can be passed as prop later (memoized inline function)
+    // Note: we don't store the function in state; we'll pass a wrapper below when needed.
   }, [apiBase]);
+
+  // helper to refresh users + seniors on demand
+  const refreshAll = async () => {
+    if (!apiBase) return;
+    try {
+      const [seniorsRes, usersRes] = await Promise.all([
+        fetch(`${apiBase}/seniors`),
+        fetch(`${apiBase}/users`),
+      ]);
+      if (!seniorsRes.ok || !usersRes.ok) return;
+      const seniorsData = await seniorsRes.json();
+      const usersData = await usersRes.json();
+      const userMap = new Map(
+        (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
+      );
+      setUsers(Array.isArray(usersData) ? usersData : []);
+      setSeniors(
+        Array.isArray(seniorsData)
+          ? seniorsData
+              .map((senior) => normalizeSenior(senior, userMap))
+              .filter((normalizedSenior) => normalizedSenior.full_name !== 'Unknown Senior')
+          : []
+      );
+      // if someone is authenticated, update their cached user object too
+      if (authenticatedUser && authenticatedUser.user_id) {
+        const updated = (Array.isArray(usersData) ? usersData : []).find(
+          (u) => String(u.user_id) === String(authenticatedUser.user_id)
+        );
+        if (updated) setAuthenticatedUser(updated);
+      }
+    } catch (err) {
+      console.log('refreshAll error:', err);
+    }
+  };
 
   // -------------------------
   // CHECK-IN
@@ -516,6 +554,7 @@ export default function App() {
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
           onBack={() => setCurrentScreen('SeniorSettings')}
+          onRefresh={refreshAll}
         />
       );
     }
