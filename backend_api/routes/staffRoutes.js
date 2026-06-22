@@ -44,19 +44,46 @@ router.get('/assigned-cases/by-user/:user_id', (req, res) => {
         LIMIT 1
     `;
 
-    db.query(staffSql, [userId], (staffErr, staffRows) => {
-        if (staffErr) return res.status(500).json({ error: staffErr.message || staffErr });
-
-        if (!Array.isArray(staffRows) || !staffRows.length) {
-            return res.json({ staff_id: null, cases: [] });
-        }
-
-        const staffId = staffRows[0].staff_id;
-
+    const respondWithCases = (staffId) => {
         db.query(ASSIGNED_CASES_SQL, [staffId], (casesErr, casesRows) => {
             if (casesErr) return res.status(500).json({ error: casesErr.message || casesErr });
             res.json({ staff_id: staffId, cases: Array.isArray(casesRows) ? casesRows : [] });
         });
+    };
+
+    const ensureStaffRowForAicUser = () => {
+        const userSql = `
+            SELECT role_id
+            FROM User_Account
+            WHERE user_id = ?
+            LIMIT 1
+        `;
+
+        db.query(userSql, [userId], (userErr, userRows) => {
+            if (userErr) return res.status(500).json({ error: userErr.message || userErr });
+
+            const roleId = Number(userRows?.[0]?.role_id);
+            if (roleId !== 3) {
+                return res.json({ staff_id: null, cases: [] });
+            }
+
+            const createStaffSql = `INSERT INTO AIC_Staff (user_id) VALUES (?)`;
+            db.query(createStaffSql, [userId], (createErr, createResult) => {
+                if (createErr) return res.status(500).json({ error: createErr.message || createErr });
+                respondWithCases(createResult.insertId);
+            });
+        });
+    };
+
+    db.query(staffSql, [userId], (staffErr, staffRows) => {
+        if (staffErr) return res.status(500).json({ error: staffErr.message || staffErr });
+
+        if (!Array.isArray(staffRows) || !staffRows.length) {
+            return ensureStaffRowForAicUser();
+        }
+
+        const staffId = staffRows[0].staff_id;
+        respondWithCases(staffId);
     });
 });
 
