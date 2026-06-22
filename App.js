@@ -100,6 +100,29 @@ export default function App() {
     return null;
   };
 
+  const ensureSeniorRecord = async (userId, baseOverride = null) => {
+    const targetBase = baseOverride || apiBase;
+    if (!targetBase || !userId) return null;
+
+    try {
+      const response = await fetchWithTimeout(`${targetBase}/seniors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+      }, 12000);
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error || body?.message || 'Failed to create senior record.');
+      }
+
+      return body?.senior_id || null;
+    } catch (err) {
+      console.log('ensureSeniorRecord error:', err);
+      return null;
+    }
+  };
+
   // -------------------------
   // DB NORMALIZER (IMPORTANT FIX)
   // -------------------------
@@ -230,10 +253,18 @@ export default function App() {
 
       setAuthenticatedUser(body);
       setLoginError(null);
-      const refreshed = await refreshAll(body);
-      
+      let refreshed = await refreshAll(body);
+
+      // If a senior user has no Senior row yet, create it and refresh mappings.
       const roleName = `${body?.role || body?.role_name || body?.roleName || ''}`.toLowerCase();
       const roleId = Number(body?.role_id);
+      const isSeniorRole = !roleName || roleName.includes('senior') || roleId === 1;
+
+      if (isSeniorRole && !refreshed?.senior?.senior_id && body?.user_id) {
+        await ensureSeniorRecord(body.user_id, activeBase);
+        refreshed = await refreshAll(body);
+      }
+      
       const loggedInSenior = refreshed?.senior || {
         ...body,
         senior_id: null,
@@ -587,13 +618,25 @@ export default function App() {
   // -------------------------
   const handleCheckIn = async () => {
     try {
-      if (!currentSenior?.senior_id || !apiBase) return;
+      if (!apiBase) return;
+
+      let seniorId = currentSenior?.senior_id;
+
+      if (!seniorId && authenticatedUser?.user_id) {
+        const createdSeniorId = await ensureSeniorRecord(authenticatedUser.user_id);
+        if (createdSeniorId) {
+          await refreshAll(authenticatedUser);
+          seniorId = createdSeniorId;
+        }
+      }
+
+      if (!seniorId) return;
 
       await fetch(`${apiBase}/checkin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          senior_id: currentSenior.senior_id
+          senior_id: seniorId
         })
       });
 

@@ -3,6 +3,37 @@ const router = express.Router();
 const db = require("../config/db");
 
 /**
+ * CREATE SENIOR RECORD IF MISSING
+ */
+router.post("/", (req, res) => {
+  const { user_id } = req.body || {};
+
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id is required." });
+  }
+
+  const findSql = `SELECT senior_id FROM Senior WHERE user_id = ? LIMIT 1`;
+
+  db.query(findSql, [user_id], (findErr, findRows) => {
+    if (findErr) return res.status(500).json({ error: findErr.message || findErr });
+
+    if (Array.isArray(findRows) && findRows.length > 0) {
+      return res.json({ senior_id: findRows[0].senior_id, message: "Senior record already exists." });
+    }
+
+    const insertSql = `INSERT INTO Senior (user_id, preferred_checkin_time) VALUES (?, '9:00 AM')`;
+    db.query(insertSql, [user_id], (insertErr, insertResult) => {
+      if (insertErr) return res.status(500).json({ error: insertErr.message || insertErr });
+
+      res.status(201).json({
+        senior_id: insertResult.insertId,
+        message: "Senior record created successfully.",
+      });
+    });
+  });
+});
+
+/**
  * GET ALL SENIORS (roster)
  */
 router.get("/", (req, res) => {
