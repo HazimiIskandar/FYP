@@ -10,6 +10,7 @@ router.get("/", (req, res) => {
     SELECT 
       s.senior_id,
       s.user_id,
+      s.preferred_checkin_time,
       YEAR(CURDATE()) - YEAR(u.dob) - (DATE_FORMAT(u.dob, '%m%d') > DATE_FORMAT(CURDATE(), '%m%d')) AS age,
       u.full_name,
       u.phone_number,
