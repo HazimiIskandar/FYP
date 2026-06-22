@@ -57,28 +57,6 @@ router.get("/:senior_id", (req, res) => {
   });
 });
 
-router.post('/', (req, res) => {
-  const { user_id } = req.body;
-
-  if (!user_id) {
-    return res.status(400).json({ error: 'user_id is required to create a senior record.' });
-  }
-
-  const findSql = `SELECT senior_id FROM Senior WHERE user_id = ?`;
-  db.query(findSql, [user_id], (findErr, findRes) => {
-    if (findErr) return res.status(500).json(findErr);
-    if (findRes.length) {
-      return res.json({ senior_id: findRes[0].senior_id, message: 'Senior record already exists.' });
-    }
-
-    const insertSql = `INSERT INTO Senior (user_id) VALUES (?)`;
-    db.query(insertSql, [user_id], (insertErr, result) => {
-      if (insertErr) return res.status(500).json(insertErr);
-      res.status(201).json({ senior_id: result.insertId, message: 'Senior record created.' });
-    });
-  });
-});
-
 router.post("/:senior_id/link-code", (req, res) => {
   const { link_code } = req.body;
   const { senior_id } = req.params;

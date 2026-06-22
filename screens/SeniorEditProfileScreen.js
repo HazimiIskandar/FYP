@@ -259,15 +259,14 @@ export default function SeniorEditProfileScreen({
     setDatePicker((current) => ({ ...current, [key]: value }));
   };
 
-  const refreshSavedProfile = async (overrideSeniorId = null) => {
-    const seniorId = overrideSeniorId || details.seniorId;
-    if (!apiBase || !seniorId) return;
+  const refreshSavedProfile = async () => {
+    if (!apiBase || !details.seniorId) return;
 
     try {
       const [profileResponse, conditionsResponse, nokResponse] = await Promise.all([
-        fetch(`${apiBase}/seniors/${seniorId}`),
-        fetch(`${apiBase}/seniors/${seniorId}/medical-conditions`),
-        fetch(`${apiBase}/seniors/${seniorId}/nok`),
+        fetch(`${apiBase}/seniors/${details.seniorId}`),
+        fetch(`${apiBase}/seniors/${details.seniorId}/medical-conditions`),
+        fetch(`${apiBase}/seniors/${details.seniorId}/nok`),
       ]);
 
       if (!profileResponse.ok) {
@@ -419,27 +418,6 @@ export default function SeniorEditProfileScreen({
         email: details.emergencyEmail,
       };
 
-      let seniorId = details.seniorId;
-      if (!seniorId && details.userId) {
-        const createSeniorResponse = await fetch(`${apiBase}/seniors`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: details.userId }),
-        });
-
-        const createSeniorResult = await createSeniorResponse.json().catch(() => null);
-        if (!createSeniorResponse.ok) {
-          throw new Error(createSeniorResult?.error || createSeniorResult?.message || 'Failed to create senior record');
-        }
-
-        seniorId = createSeniorResult?.senior_id;
-        if (!seniorId) {
-          throw new Error('Senior record was not created successfully.');
-        }
-
-        updateDetail('seniorId', seniorId);
-      }
-
       if (details.nokId) {
         const response = await fetch(
           `${apiBase}/nok/${details.nokId}`,
@@ -467,9 +445,9 @@ export default function SeniorEditProfileScreen({
           );
         }
       }
-      else if (seniorId) {
+      else if (details.seniorId) {
         const response = await fetch(
-          `${apiBase}/seniors/${seniorId}/nok`,
+          `${apiBase}/seniors/${details.seniorId}/nok`,
           {
             method: 'POST',
             headers: {
@@ -497,7 +475,7 @@ export default function SeniorEditProfileScreen({
         updateDetail('nokId', result.nok_id);
       }
 
-      if (seniorId) {
+      if (details.seniorId) {
         const conditionPayload = {
           condition_id: details.conditionId,
           customCondition: details.condition === CONDITION_OTHER ? details.customCondition : undefined,
@@ -513,7 +491,7 @@ export default function SeniorEditProfileScreen({
         );
 
         if (filteredConditionPayload.condition_id || filteredConditionPayload.customCondition) {
-          const conditionResponse = await fetch(`${apiBase}/seniors/${seniorId}/medical-condition`, {
+          const conditionResponse = await fetch(`${apiBase}/seniors/${details.seniorId}/medical-condition`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(filteredConditionPayload),
@@ -526,8 +504,8 @@ export default function SeniorEditProfileScreen({
         }
       }
 
-      if (seniorId) {
-        await refreshSavedProfile(seniorId);
+      if (details.seniorId) {
+        await refreshSavedProfile();
       }
 
       // let parent refresh global data (users/seniors) so other screens see updates
