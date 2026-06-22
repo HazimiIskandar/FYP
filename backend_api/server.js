@@ -25,6 +25,7 @@ app.use("/staff", require("./routes/staffRoutes"));
 app.use("/users", require("./routes/userAccountRoutes"));
 app.use("/sensors", require("./routes/sensorRoutes"));
 app.use("/caregiver", require("./routes/caregiverRoutes"));
+app.use("/community", require("./routes/communityRoutes"));
 
 const initializeSeniorRelationTables = () => {
   const createLinkCodeTable = `

@@ -189,6 +189,18 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
 
       if (apiBase && senior?.senior_id) {
         try {
+          // Record the game activity for streak counting
+          await fetch(`${apiBase}/community/record-activity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              senior_id: senior.senior_id,
+              activity_name: 'Memory Game',
+              activity_type: 'Game',
+              participation_status: 'Completed',
+            }),
+          }).catch((err) => console.log('Failed to record community activity:', err));
+
           const response = await fetch(`${apiBase}/rewards/senior/${senior.senior_id}/game-points`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
