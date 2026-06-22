@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -26,13 +26,59 @@ const RELATIONSHIPS = ['Son', 'Daughter', 'Spouse', 'Sibling', 'Friend', 'Neighb
 
 export default function SeniorProfileScreen({
   senior = {},
+  apiBase,
   onHome,
   onCommunity,
   onSettings,
 }) {
-  const seniorCondition = senior?.medicalConditions?.[0] || {};
-  const initialRelationship = senior?.nokContacts?.[0]?.relationship_to_senior || '';
+  const seniorConditionFromProp = senior?.medicalConditions?.[0] || {};
+  const nokContactFromProp = senior?.nokContacts?.[0] || {};
+  const [fetchedCondition, setFetchedCondition] = useState(seniorConditionFromProp);
+  const [fetchedNok, setFetchedNok] = useState(nokContactFromProp);
+
+  const seniorCondition = Object.keys(fetchedCondition || {}).length ? fetchedCondition : seniorConditionFromProp;
+  const nokContact = Object.keys(fetchedNok || {}).length ? fetchedNok : nokContactFromProp;
+  const initialRelationship = nokContact.relationship_to_senior || '';
   const isRelationshipStandard = RELATIONSHIPS.includes(initialRelationship);
+
+  useEffect(() => {
+    setFetchedCondition(seniorConditionFromProp);
+    setFetchedNok(nokContactFromProp);
+  }, [seniorConditionFromProp, nokContactFromProp]);
+
+  useEffect(() => {
+    if (!apiBase || !senior?.senior_id) return;
+    let isActive = true;
+
+    const fetchProfileExtras = async () => {
+      try {
+        const [conditionResponse, nokResponse] = await Promise.all([
+          fetch(`${apiBase}/seniors/${senior.senior_id}/medical-conditions`),
+          fetch(`${apiBase}/seniors/${senior.senior_id}/nok`),
+        ]);
+
+        if (!conditionResponse.ok || !nokResponse.ok) return;
+
+        const [conditionData, nokData] = await Promise.all([
+          conditionResponse.json(),
+          nokResponse.json(),
+        ]);
+
+        if (!isActive) return;
+
+        setFetchedCondition(Array.isArray(conditionData) ? conditionData[0] || {} : conditionData || {});
+        setFetchedNok(Array.isArray(nokData) ? nokData[0] || {} : nokData || {});
+      } catch (err) {
+        console.log('Failed to fetch senior profile details:', err);
+      }
+    };
+
+    fetchProfileExtras();
+
+    return () => {
+      isActive = false;
+    };
+  }, [apiBase, senior?.senior_id]);
 
   const details = useMemo(() => {
     return {
@@ -47,12 +93,12 @@ export default function SeniorProfileScreen({
       severity: seniorCondition?.severity_level || 'Not recorded',
       medicationRequired: seniorCondition?.medication_required || 'Not recorded',
       diagnosedDate: formatDate(seniorCondition?.diagnosed_date) || 'Not recorded',
-      emergencyName: senior?.nokContacts?.[0]?.full_name || 'Not recorded',
+      emergencyName: nokContact?.full_name || 'Not recorded',
       emergencyRelationship: isRelationshipStandard ? initialRelationship : (initialRelationship || 'Not recorded'),
-      emergencyPhone: senior?.nokContacts?.[0]?.phone_number || 'Not recorded',
-      emergencyEmail: senior?.nokContacts?.[0]?.email || 'Not recorded',
+      emergencyPhone: nokContact?.phone_number || 'Not recorded',
+      emergencyEmail: nokContact?.email || 'Not recorded',
     };
-  }, [senior, seniorCondition, isRelationshipStandard, initialRelationship]);
+  }, [senior, seniorCondition, nokContact, isRelationshipStandard, initialRelationship]);
 
   const renderInfoRow = (icon, label, value) => (
     <View style={styles.infoRow}>

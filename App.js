@@ -538,6 +538,7 @@ export default function App() {
       return (
         <SeniorProfileScreen
           senior={currentSenior}
+          apiBase={apiBase}
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
