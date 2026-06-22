@@ -116,18 +116,6 @@ const formatDateForDB = (value) => {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
 
-const normalizeDisplayDateInput = (value) => {
-  if (!value) return '';
-  const normalized = `${value}`.trim();
-  const shouldNormalize =
-    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.test(normalized) ||
-    /^(\d{4})\/(\d{2})\/(\d{2})$/.test(normalized) ||
-    /^(\d{2})-(\d{2})-(\d{4})$/.test(normalized);
-
-  if (!shouldNormalize) return value;
-  return formatDate(normalized);
-};
-
 const buildMedicalEntry = (condition = {}) => {
   const conditionName = condition?.condition_name || '';
   const isStandardCondition = !conditionName || conditionName === CONDITION_OTHER;
@@ -239,7 +227,7 @@ export default function SeniorEditProfileScreen({
   const [saveError, setSaveError] = useState('');
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [dropdownState, setDropdownState] = useState({ visible: false, title: '', key: '', options: [] });
-  const [datePicker, setDatePicker] = useState({ visible: false, type: '', day: '', month: '', year: '' });
+  const [datePicker, setDatePicker] = useState({ visible: false, type: '', day: '', month: '', year: '', medicalIndex: null });
   const [medicalConditionsList, setMedicalConditionsList] = useState([]);
   const [loadingConditions, setLoadingConditions] = useState(false);
   const [conditionLoadError, setConditionLoadError] = useState('');
@@ -524,13 +512,22 @@ export default function SeniorEditProfileScreen({
     closeDropdown();
   };
 
-  const openDatePicker = (type) => {
+  const openDatePicker = (type, medicalIndex = null) => {
+    const sourceDate =
+      type === 'dob'
+        ? details[`${type}Date`] || details.dob || ''
+        : medicalIndex !== null
+        ? medicalEntries[medicalIndex]?.diagnosedDate || ''
+        : '';
+    const dateParts = parseDateParts(sourceDate);
+
     setDatePicker({
       visible: true,
       type,
-      day: details[`${type}Day`] || '',
-      month: details[`${type}Month`] || '',
-      year: details[`${type}Year`] || '',
+      day: dateParts.day,
+      month: dateParts.month,
+      year: dateParts.year,
+      medicalIndex,
     });
   };
 
@@ -691,15 +688,19 @@ export default function SeniorEditProfileScreen({
   };
 
   const confirmDateSelection = () => {
-    const { type, day, month, year } = datePicker;
+    const { type, day, month, year, medicalIndex } = datePicker;
     const formatted = buildDateValue(day, month, year);
-    updateDetail(`${type}Date`, formatted);
+
     if (type === 'dob') {
+      updateDetail(`${type}Date`, formatted);
       updateDetail('dob', formatted);
+      updateDetail(`${type}Day`, day);
+      updateDetail(`${type}Month`, month);
+      updateDetail(`${type}Year`, year);
+    } else if (type === 'medicalDiagnosed' && medicalIndex !== null) {
+      updateMedicalEntry(medicalIndex, 'diagnosedDate', formatted);
     }
-    updateDetail(`${type}Day`, day);
-    updateDetail(`${type}Month`, month);
-    updateDetail(`${type}Year`, year);
+
     setDatePicker((current) => ({ ...current, visible: false }));
   };
   const getMissingRequiredFields = () => {
@@ -1093,19 +1094,20 @@ export default function SeniorEditProfileScreen({
                 </View>
               </TouchableOpacity>
 
-              <View style={styles.inputRow}>
+              <TouchableOpacity
+                style={styles.inputRow}
+                onPress={() => openDatePicker('medicalDiagnosed', index)}
+                activeOpacity={0.86}
+              >
                 <Ionicons name="calendar-outline" size={19} color="#6B7280" />
                 <View style={styles.inputCopy}>
                   <Text style={styles.inputLabel}>Diagnosed</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={entry.diagnosedDate}
-                    onChangeText={(value) => updateMedicalEntry(index, 'diagnosedDate', normalizeDisplayDateInput(value))}
-                    placeholder="DD/MM/YYYY"
-                    placeholderTextColor="#9CA3AF"
-                  />
+                  <View style={styles.selectInput}>
+                    <Text style={styles.selectValue}>{entry.diagnosedDate || 'DD/MM/YYYY'}</Text>
+                    <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
+                  </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             </View>
           ))}
         </View>
