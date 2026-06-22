@@ -60,6 +60,42 @@ export default function App() {
   const [emergencyEvents, setEmergencyEvents] = useState([]);
   const [rewardStreaks, setRewardStreaks] = useState([]);
 
+  const getBackendCandidates = () => [
+    REMOTE_API_BASE,
+    ...LOCAL_API_BASES,
+  ];
+
+  const testEndpoint = async (baseUrl) => {
+    try {
+      const response = await fetch(baseUrl);
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const resolveBackendBase = async () => {
+    if (apiBase && await testEndpoint(apiBase)) {
+      setBackendError(null);
+      return apiBase;
+    }
+
+    for (const candidate of getBackendCandidates()) {
+      if (await testEndpoint(candidate)) {
+        setApiBase(candidate);
+        setBackendError(null);
+        return candidate;
+      }
+    }
+
+    setBackendError(
+      `Unable to reach backend on ${getBackendCandidates().join(
+        ', '
+      )}. Please start your backend server.`
+    );
+    return null;
+  };
+
   // -------------------------
   // DB NORMALIZER (IMPORTANT FIX)
   // -------------------------
@@ -168,13 +204,15 @@ export default function App() {
       setLoginError('Please enter your email address and password.');
       return;
     }
-    if (!apiBase) {
+    const activeApiBase = apiBase || await resolveBackendBase();
+
+    if (!activeApiBase) {
       setLoginError('Backend server is not available yet.');
       return;
     }
 
     try {
-      const response = await fetch(`${apiBase}/users/login`, {
+      const response = await fetch(`${activeApiBase}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -188,7 +226,7 @@ export default function App() {
 
       setAuthenticatedUser(body);
       setLoginError(null);
-      const refreshed = await refreshAll(body);
+      const refreshed = await refreshAll(body, activeApiBase);
       
       const roleName = `${body?.role || body?.role_name || body?.roleName || ''}`.toLowerCase();
       const roleId = Number(body?.role_id);
@@ -221,13 +259,15 @@ export default function App() {
       return;
     }
 
-    if (!apiBase) {
+    const activeApiBase = apiBase || await resolveBackendBase();
+
+    if (!activeApiBase) {
       setRegisterError('Backend server is not available yet.');
       return;
     }
 
     try {
-      const response = await fetch(`${apiBase}/users/register`, {
+      const response = await fetch(`${activeApiBase}/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -262,10 +302,11 @@ export default function App() {
     setSelectedSeniorOrigin(origin);
 
     try {
-      if (!apiBase) throw new Error('Backend not configured');
+      const activeApiBase = apiBase || await resolveBackendBase();
+      if (!activeApiBase) throw new Error('Backend not configured');
       const [conditionsRes, nokRes] = await Promise.all([
-        fetch(`${apiBase}/seniors/${senior.senior_id}/medical-conditions`),
-        fetch(`${apiBase}/seniors/${senior.senior_id}/nok`)
+        fetch(`${activeApiBase}/seniors/${senior.senior_id}/medical-conditions`),
+        fetch(`${activeApiBase}/seniors/${senior.senior_id}/nok`)
       ]);
 
       const conditionsData = await conditionsRes.json();
@@ -331,35 +372,6 @@ export default function App() {
   // FETCH DATA (FIXED NORMALIZATION)
   // -------------------------
   useEffect(() => {
-    const testEndpoint = async (baseUrl) => {
-      try {
-        const response = await fetch(`${baseUrl}/test`);
-        return response.ok;
-      } catch (error) {
-        return false;
-      }
-    };
-
-    const resolveBackendBase = async () => {
-      if (await testEndpoint(REMOTE_API_BASE)) {
-        setApiBase(REMOTE_API_BASE);
-        return;
-      }
-
-      for (const localBase of LOCAL_API_BASES) {
-        if (await testEndpoint(localBase)) {
-          setApiBase(localBase);
-          return;
-        }
-      }
-
-      setBackendError(
-        `Unable to reach backend on ${REMOTE_API_BASE} or ${LOCAL_API_BASES.join(
-          ', '
-        )}. Please start your backend server.`
-      );
-    };
-
     resolveBackendBase();
   }, []);
 
@@ -424,12 +436,13 @@ export default function App() {
   }, [apiBase]);
 
   // helper to refresh users + seniors on demand
-  const refreshAll = async (userOverride = null) => {
-    if (!apiBase) return;
+  const refreshAll = async (userOverride = null, apiBaseOverride = null) => {
+    const activeApiBase = apiBaseOverride || apiBase;
+    if (!activeApiBase) return;
     try {
       const [seniorsRes, usersRes] = await Promise.all([
-        fetch(`${apiBase}/seniors`),
-        fetch(`${apiBase}/users`),
+        fetch(`${activeApiBase}/seniors`),
+        fetch(`${activeApiBase}/users`),
       ]);
       if (!seniorsRes.ok || !usersRes.ok) return;
       const seniorsData = await seniorsRes.json();
@@ -458,11 +471,11 @@ export default function App() {
         );
         updatedSeniorWithExtras = matchingSenior || null;
 
-        if (matchingSenior?.senior_id && apiBase) {
+        if (matchingSenior?.senior_id && activeApiBase) {
           try {
             const [conditionResponse, nokResponse] = await Promise.all([
-              fetch(`${apiBase}/seniors/${matchingSenior.senior_id}/medical-conditions`),
-              fetch(`${apiBase}/seniors/${matchingSenior.senior_id}/nok`),
+              fetch(`${activeApiBase}/seniors/${matchingSenior.senior_id}/medical-conditions`),
+              fetch(`${activeApiBase}/seniors/${matchingSenior.senior_id}/nok`),
             ]);
 
             if (conditionResponse.ok && nokResponse.ok) {
@@ -509,9 +522,10 @@ export default function App() {
   // -------------------------
   const handleCheckIn = async () => {
     try {
-      if (!currentSenior?.senior_id || !apiBase) return;
+      const activeApiBase = apiBase || await resolveBackendBase();
+      if (!currentSenior?.senior_id || !activeApiBase) return;
 
-      await fetch(`${apiBase}/checkin`, {
+      await fetch(`${activeApiBase}/checkin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
