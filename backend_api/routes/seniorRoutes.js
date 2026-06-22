@@ -37,6 +37,7 @@ router.get("/:senior_id", (req, res) => {
     SELECT 
       s.senior_id,
       s.user_id,
+      s.preferred_checkin_time,
       YEAR(CURDATE()) - YEAR(u.dob) - (DATE_FORMAT(u.dob, '%m%d') > DATE_FORMAT(CURDATE(), '%m%d')) AS age,
       u.full_name,
       u.phone_number,
@@ -54,6 +55,28 @@ router.get("/:senior_id", (req, res) => {
   db.query(sql, [req.params.senior_id], (err, results) => {
     if (err) return res.status(500).json(err);
     res.json(results[0] || null);
+  });
+});
+
+/**
+ * PUT UPDATE PREFERRED CHECK-IN TIME
+ */
+router.put("/:senior_id/checkin-time", (req, res) => {
+  const { preferred_checkin_time } = req.body;
+  const { senior_id } = req.params;
+
+  if (!preferred_checkin_time) {
+    return res.status(400).json({ error: 'preferred_checkin_time is required.' });
+  }
+
+  const sql = `UPDATE Senior SET preferred_checkin_time = ? WHERE senior_id = ?`;
+
+  db.query(sql, [preferred_checkin_time, senior_id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message || err });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Senior not found.' });
+    }
+    res.json({ message: 'Check-in time saved.', preferred_checkin_time });
   });
 });
 
