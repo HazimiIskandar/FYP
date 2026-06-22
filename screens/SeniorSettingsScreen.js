@@ -36,6 +36,7 @@ const formatCheckInTime = (value) => {
 };
 
 const generateLinkCode = () => String(Math.floor(100000 + Math.random() * 900000));
+const CHECKIN_TIMES = ['5:00 AM', '6:00 AM', '7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM'];
 
 export default function SeniorSettingsScreen({
   senior = {},
@@ -208,18 +209,35 @@ export default function SeniorSettingsScreen({
             </View>
 
             <Text style={styles.inputLabel}>Preferred Check-In Time</Text>
-            <TextInput
-              style={styles.input}
-              value={checkInTime}
-              onChangeText={(value) => {
-                setCheckInTime(value);
-                setSettingsMessage('');
-                setSettingsError('');
-              }}
-              placeholder="Example: 9:00 AM"
-              placeholderTextColor="#9CA3AF"
-            />
-            <Text style={styles.helperText}>Use 12-hour format with AM or PM.</Text>
+            <View style={styles.selectBox}>
+              <Text style={styles.selectBoxText}>{checkInTime}</Text>
+            </View>
+            <View style={styles.timeList}>
+              {CHECKIN_TIMES.map((time) => (
+                <TouchableOpacity
+                  key={time}
+                  style={[
+                    styles.timeOption,
+                    checkInTime === time && styles.timeOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setCheckInTime(time);
+                    setSettingsMessage('');
+                    setSettingsError('');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.timeOptionText,
+                      checkInTime === time && styles.timeOptionTextSelected,
+                    ]}
+                  >
+                    {time}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {settingsError ? <Text style={styles.errorText}>{settingsError}</Text> : null}
             {settingsMessage ? <Text style={styles.savedText}>{settingsMessage}</Text> : null}
@@ -388,6 +406,47 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 17,
     fontWeight: '800',
+  },
+  selectBox: {
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  selectBoxText: {
+    color: '#111827',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  timeList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  timeOption: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginRight: 10,
+    marginBottom: 10,
+  },
+  timeOptionSelected: {
+    borderColor: '#2563EB',
+    backgroundColor: '#DBEAFE',
+  },
+  timeOptionText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  timeOptionTextSelected: {
+    color: '#1D4ED8',
   },
   helperText: { color: '#6B7280', fontSize: 13, fontWeight: '700', marginTop: 8, lineHeight: 18 },
   savedText: { color: '#15803D', fontSize: 14, fontWeight: '800', textAlign: 'center', marginTop: 12 },
