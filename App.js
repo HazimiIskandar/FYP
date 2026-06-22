@@ -9,7 +9,7 @@ import LoginScreen from './screens/LoginScreen';
 import CaregiverLoginScreen from './screens/CaregiverLoginScreen';
 import BiometricFaceScreen from './screens/BiometricFaceScreen';
 import CreateAccountScreen from './screens/CreateAccountScreen';
-import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
+// import ForgotPasswordScreen from './screens/ForgotPasswordScreen'; // Uncomment to re-enable Forgot Password
 import SeniorHomeScreen from './screens/SeniorHomeScreen';
 import SeniorProfileScreen from './screens/SeniorProfileScreen';
 import SeniorEditProfileScreen from './screens/SeniorEditProfileScreen';
@@ -561,17 +561,17 @@ export default function App() {
           onLogin={handleLogin}
           onCaregiverLogin={() => setCurrentScreen('CaregiverLogin')}
           loginError={loginError}
-          onForgot={() => setCurrentScreen('ForgotPassword')}
+          // onForgot={() => setCurrentScreen('ForgotPassword')} // Uncomment to re-enable Forgot Password
           onSignUp={() => setCurrentScreen('CreateAccount')}
         />
       );
     }
 
-    if (currentScreen === 'ForgotPassword') {
-      return (
-        <ForgotPasswordScreen onBack={() => setCurrentScreen('Login')} />
-      );
-    }
+    // if (currentScreen === 'ForgotPassword') { // Uncomment to re-enable Forgot Password
+    //   return (
+    //     <ForgotPasswordScreen onBack={() => setCurrentScreen('Login')} />
+    //   );
+    // }
 
     if (currentScreen === 'CaregiverLogin') {
       return (

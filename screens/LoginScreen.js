@@ -12,7 +12,7 @@ import Header from '../components/Header';
 export default function LoginScreen({
   onLogin,
   loginError,
-  onForgot,
+  // onForgot, // Uncomment to re-enable Forgot Password
   onSignUp,
 }) {
   const [email, setEmail] = useState('');
@@ -53,9 +53,11 @@ export default function LoginScreen({
           secureTextEntry
         />
 
+        {/* Forgot Password link — uncomment to re-enable
         <TouchableOpacity onPress={onForgot} style={styles.forgotLink}>
           <Text style={styles.forgotText}>Forgot password?</Text>
         </TouchableOpacity>
+        */}
 
         {loginError ? (
           <Text style={styles.errorText}>{loginError}</Text>
@@ -125,16 +127,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  forgotLink: {
-    alignSelf: 'flex-end',
-    marginBottom: 14,
-  },
+  // forgotLink: { // Uncomment to re-enable Forgot Password
+  //   alignSelf: 'flex-end',
+  //   marginBottom: 14,
+  // },
 
-  forgotText: {
-    color: '#2563EB',
-    fontWeight: '700',
-    fontSize: 22,
-  },
+  // forgotText: {
+  //   color: '#2563EB',
+  //   fontWeight: '700',
+  //   fontSize: 22,
+  // },
 
   errorText: {
     color: '#DC2626',
