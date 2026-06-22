@@ -1,12 +1,128 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
-const {
-  applyDailyPointsAward,
-  calculateCurrentStreak,
-  getDailyPoints,
-  toDateKey,
-} = require("../services/rewardService");
+const { calculateCurrentStreak, toDateKey } = require("../services/rewardService");
+
+// GET /rewards — all reward streaks (used by App.js initial load)
+router.get("/", (req, res) => {
+  db.query("SELECT * FROM Reward_Streak", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// GET /rewards/senior/:senior_id — live summary for logged-in senior
+router.get("/senior/:senior_id", (req, res) => {
+  const seniorId = req.params.senior_id;
+
+  const rewardSql = `SELECT * FROM Reward_Streak WHERE senior_id = ? LIMIT 1`;
+  const checkinSql = `SELECT checkin_timestamp FROM Daily_CheckIn WHERE senior_id = ? ORDER BY checkin_timestamp DESC`;
+
+  db.query(rewardSql, [seniorId], (rewardErr, rewardRows) => {
+    if (rewardErr) return res.status(500).json({ error: rewardErr.message });
+
+    db.query(checkinSql, [seniorId], (checkinErr, checkinRows) => {
+      if (checkinErr) return res.status(500).json({ error: checkinErr.message });
+
+      const rewardRow = rewardRows[0] || null;
+      const actualStreak = calculateCurrentStreak(checkinRows);
+
+      if (rewardRow && Number(rewardRow.current_streak) !== actualStreak) {
+        db.query(
+          `UPDATE Reward_Streak SET current_streak = ? WHERE senior_id = ?`,
+          [actualStreak, seniorId],
+          () => {}
+        );
+      }
+
+      res.json({
+        ...(rewardRow || { senior_id: Number(seniorId), current_streak: 0, total_points: 0 }),
+        current_streak: actualStreak,
+        today: toDateKey(new Date()),
+      });
+    });
+  });
+});
+
+// POST /rewards/senior/:senior_id/game-points — add kopi points from game
+// Daily cap (50 pts/day) is enforced on the client side via AsyncStorage.
+// The server just adds whatever points the client says were earned.
+router.post("/senior/:senior_id/game-points", (req, res) => {
+  const seniorId = req.params.senior_id;
+  const pointsToAdd = Number(req.body?.points || 0);
+
+  if (!seniorId) return res.status(400).json({ error: "senior_id is required" });
+  if (pointsToAdd <= 0) return res.json({ message: "No points to add." });
+
+  const findSql = `SELECT reward_id, total_points FROM Reward_Streak WHERE senior_id = ? LIMIT 1`;
+
+  db.query(findSql, [seniorId], (findErr, findRows) => {
+    if (findErr) return res.status(500).json({ error: findErr.message });
+
+    if (findRows.length > 0) {
+      const newTotal = Number(findRows[0].total_points || 0) + pointsToAdd;
+
+      db.query(
+        `UPDATE Reward_Streak SET total_points = ? WHERE senior_id = ?`,
+        [newTotal, seniorId],
+        (updateErr) => {
+          if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+          res.json({
+            message: "Kopi points added.",
+            awarded_points: pointsToAdd,
+            total_points: newTotal,
+          });
+        }
+      );
+    } else {
+      // No reward row yet — create one
+      db.query(
+        `INSERT INTO Reward_Streak (senior_id, current_streak, total_points) VALUES (?, 0, ?)`,
+        [seniorId, pointsToAdd],
+        (insertErr, result) => {
+          if (insertErr) return res.status(500).json({ error: insertErr.message });
+
+          res.json({
+            message: "Kopi points added.",
+            awarded_points: pointsToAdd,
+            total_points: pointsToAdd,
+          });
+        }
+      );
+    }
+  });
+});
+
+// POST /rewards/redeem — insert into Reward_Redemption
+router.post("/redeem", (req, res) => {
+  const { senior_id, reward_name } = req.body;
+  if (!senior_id || !reward_name) {
+    return res.status(400).json({ error: "senior_id and reward_name are required" });
+  }
+
+  const findSql = `SELECT reward_id FROM Reward_Streak WHERE senior_id = ? LIMIT 1`;
+
+  db.query(findSql, [senior_id], (findErr, findRows) => {
+    if (findErr) return res.status(500).json({ error: findErr.message });
+    if (!findRows.length) return res.status(404).json({ error: "Reward record not found." });
+
+    const rewardId = findRows[0].reward_id;
+
+    const insertSql = `
+      INSERT INTO Reward_Redemption (reward_id, reward_redeemed, redemption_date)
+      VALUES (?, ?, NOW())
+    `;
+
+    db.query(insertSql, [rewardId, reward_name], (insertErr) => {
+      if (insertErr) return res.status(500).json({ error: insertErr.message });
+      res.json({ message: "Reward redeemed successfully." });
+    });
+  });
+});
+
+module.exports = router;
+
 
 const DAILY_GAME_POINT_CAP = 50;
 

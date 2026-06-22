@@ -14,11 +14,6 @@ const toDateKey = (value) => {
   return `${year}-${month}-${day}`;
 };
 
-const normalizeTimestamp = (value) => {
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
 const calculateCurrentStreak = (checkins = []) => {
   const orderedDates = checkins
     .map((entry) => toDateKey(entry?.checkin_timestamp || entry?.date || entry?.created_at))
@@ -29,8 +24,19 @@ const calculateCurrentStreak = (checkins = []) => {
     return 0;
   }
 
+  const todayKey = toDateKey(new Date());
+  const mostRecentKey = orderedDates[0];
+  const mostRecentDate = new Date(`${mostRecentKey}T00:00:00`);
+  const today = new Date(`${todayKey}T00:00:00`);
+  const daysSinceLast = Math.round((today - mostRecentDate) / DAY_MS);
+
+  // Streak is broken if last check-in was more than 1 day ago
+  if (daysSinceLast > 1) {
+    return 0;
+  }
+
   let streak = 1;
-  let previousDate = new Date(`${orderedDates[0]}T00:00:00`);
+  let previousDate = mostRecentDate;
 
   for (let index = 1; index < orderedDates.length; index += 1) {
     const currentDate = new Date(`${orderedDates[index]}T00:00:00`);
@@ -52,35 +58,7 @@ const calculateCurrentStreak = (checkins = []) => {
   return streak;
 };
 
-const getDailyPoints = (rewardRow, todayKey) => {
-  if (!rewardRow || rewardRow.daily_points_date !== todayKey) {
-    return 0;
-  }
-
-  return Number(rewardRow.daily_points || 0);
-};
-
-const getRemainingDailyPoints = (rewardRow, todayKey, dailyCap = 50) => {
-  return Math.max(0, dailyCap - getDailyPoints(rewardRow, todayKey));
-};
-
-const applyDailyPointsAward = (rewardRow, todayKey, requestedPoints, dailyCap = 50) => {
-  const currentDailyPoints = getDailyPoints(rewardRow, todayKey);
-  const remaining = Math.max(0, dailyCap - currentDailyPoints);
-  const awardedPoints = Math.max(0, Math.min(Number(requestedPoints || 0), remaining));
-
-  return {
-    awardedPoints,
-    nextDailyPoints: currentDailyPoints + awardedPoints,
-    nextDailyPointsDate: todayKey,
-  };
-};
-
 module.exports = {
-  applyDailyPointsAward,
   calculateCurrentStreak,
-  getDailyPoints,
-  getRemainingDailyPoints,
-  normalizeTimestamp,
   toDateKey,
 };

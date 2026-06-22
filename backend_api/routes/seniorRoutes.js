@@ -21,13 +21,27 @@ router.post("/", (req, res) => {
       return res.json({ senior_id: findRows[0].senior_id, message: "Senior record already exists." });
     }
 
-    const insertSql = `INSERT INTO Senior (user_id, preferred_checkin_time) VALUES (?, '9:00 AM')`;
-    db.query(insertSql, [user_id], (insertErr, insertResult) => {
+    const insertSeniorSql = `INSERT INTO Senior (user_id, preferred_checkin_time) VALUES (?, '9:00 AM')`;
+
+    db.query(insertSeniorSql, [user_id], (insertErr, insertResult) => {
       if (insertErr) return res.status(500).json({ error: insertErr.message || insertErr });
 
-      res.status(201).json({
-        senior_id: insertResult.insertId,
-        message: "Senior record created successfully.",
+      const seniorId = insertResult.insertId;
+
+      // Auto-create Reward_Streak so Daily_CheckIn FK is always satisfiable
+      const insertRewardSql = `
+        INSERT INTO Reward_Streak (senior_id, current_streak, total_points) VALUES (?, 0, 0)
+      `;
+
+      db.query(insertRewardSql, [seniorId], (rewardErr) => {
+        if (rewardErr) {
+          console.log("Warning: could not create Reward_Streak:", rewardErr.message);
+        }
+
+        res.status(201).json({
+          senior_id: seniorId,
+          message: "Senior record created successfully.",
+        });
       });
     });
   });

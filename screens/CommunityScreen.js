@@ -130,18 +130,19 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     let mounted = true;
 
     const loadRewards = async () => {
+      // Always load from backend when we have a senior_id
       if (apiBase && senior?.senior_id) {
         try {
           const response = await fetch(`${apiBase}/rewards/senior/${senior.senior_id}`);
-          if (!response.ok) {
-            throw new Error(`Request failed: ${response.status}`);
-          }
+          if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 
           const rewardData = await response.json();
 
           if (mounted) {
             setTotalRewardPoints(Number(rewardData?.total_points || 0));
-            setDailyRewardPoints(Number(rewardData?.daily_points || 0));
+            // Daily earned comes from local storage (cap enforced client-side)
+            const stored = readStoredRewards();
+            setDailyRewardPoints(stored.dailyEarned);
             setRewardsLoaded(true);
           }
           return;
@@ -151,7 +152,6 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
       }
 
       const storedRewards = readStoredRewards();
-
       if (mounted) {
         setTotalRewardPoints(storedRewards.totalPoints);
         setDailyRewardPoints(storedRewards.dailyEarned);
@@ -160,10 +160,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     };
 
     loadRewards();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [apiBase, senior?.senior_id]);
 
   useEffect(() => {
@@ -204,13 +201,11 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
             throw new Error(rewardData?.error || 'Unable to save kopi points.');
           }
 
-          setDailyRewardPoints(Number(rewardData?.daily_points || 0));
+          // Backend returns updated total; daily tracking stays client-side
           setTotalRewardPoints(Number(rewardData?.total_points || 0));
-          setMessage(
-            rewardData?.awarded_points > 0
-              ? `Well done. You earned ${rewardData.awarded_points} kopi points today.`
-              : 'Daily reward cap reached. Come back tomorrow for more kopi points.'
-          );
+          setDailyRewardPoints((d) => d + pointsToAdd);
+          saveStoredRewards(Number(rewardData?.total_points || 0), dailyRewardPoints + pointsToAdd);
+          setMessage(`Well done. You earned ${pointsToAdd} kopi points today.`);
           return;
         } catch (error) {
           console.log('Failed to save backend kopi points:', error);
