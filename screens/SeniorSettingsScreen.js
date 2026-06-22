@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-// import * as Notifications from 'expo-notifications'; // kept for future use
+import * as Notifications from 'expo-notifications';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
-// import {
-//   isValidCheckInTime,
-//   scheduleCheckInReminders,
-// } from '../services/checkInNotifications'; // kept for future use
+import {
+  isValidCheckInTime,
+  scheduleCheckInReminders,
+} from '../services/checkInNotifications';
 
 const getSeniorName = (senior) =>
   senior?.full_name ||
@@ -56,7 +56,6 @@ export default function SeniorSettingsScreen({
   onProfile,
   onEditProfile,
   onLogout,
-  onRefresh,
 }) {
   const seniorName = getSeniorName(senior);
   const initialCheckInTime = useMemo(
@@ -73,69 +72,58 @@ export default function SeniorSettingsScreen({
   const [linkStatusError, setLinkStatusError] = useState('');
   const [linkSaving, setLinkSaving] = useState(false);
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
-  const [timeSaving, setTimeSaving] = useState(false);
 
-  // --- Notification permission helpers (kept for future use) ---
-  // const requestNotificationPermission = async () => {
-  //   try {
-  //     const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  //     let finalStatus = existingStatus;
-  //     if (existingStatus !== 'granted') {
-  //       const { status } = await Notifications.requestPermissionsAsync();
-  //       finalStatus = status;
-  //     }
-  //     return finalStatus === 'granted';
-  //   } catch (error) {
-  //     console.log('Error requesting notification permission:', error);
-  //     return false;
-  //   }
-  // };
-
-  // --- Schedule local notifications (kept for future use) ---
-  // const scheduleLocalReminders = async () => {
-  //   if (!isValidCheckInTime(checkInTime)) return;
-  //   const hasPermission = await requestNotificationPermission();
-  //   if (!hasPermission) return;
-  //   await scheduleCheckInReminders(seniorName, checkInTime);
-  // };
-
-  const saveCheckInTime = async () => {
-    if (!checkInTime) {
-      setSettingsError('Please select a check-in time.');
-      setSettingsMessage('');
-      return;
-    }
-
-    if (!apiBase || !senior?.senior_id) {
-      setSettingsError('Unable to save — no connection to server.');
-      setSettingsMessage('');
-      return;
-    }
-
-    setTimeSaving(true);
-    setSettingsError('');
-    setSettingsMessage('');
-
+  const requestNotificationPermission = async () => {
     try {
-      const response = await fetch(`${apiBase}/seniors/${senior.senior_id}/checkin-time`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preferred_checkin_time: checkInTime }),
-      });
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error || 'Failed to save check-in time.');
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
       }
 
-      setSettingsMessage(`Check-in time saved: ${checkInTime}`);
-      if (onRefresh) onRefresh();
-    } catch (err) {
-      setSettingsError(err?.message || 'Failed to save. Please try again.');
-    } finally {
-      setTimeSaving(false);
+      return finalStatus === 'granted';
+    } catch (error) {
+      console.log('Error requesting notification permission:', error);
+      return false;
     }
+  };
+
+  const saveCheckInTime = async () => {
+    if (!isValidCheckInTime(checkInTime)) {
+      setSettingsError('Please enter a time like 9:00 AM or 8:30 PM.');
+      setSettingsMessage('');
+      return;
+    }
+
+    const hasPermission = await requestNotificationPermission();
+
+    if (!hasPermission) {
+      setSettingsError('Notification permission is required to set reminders. Please enable it in your device settings.');
+      setSettingsMessage('');
+      return;
+    }
+
+    let scheduled = false;
+
+    try {
+      scheduled = await scheduleCheckInReminders(seniorName, checkInTime);
+    } catch (error) {
+      console.log('Failed to schedule check-in reminders:', error);
+    }
+
+    setSettingsError('');
+    setSettingsMessage(
+      scheduled
+        ? `Reminders set for ${checkInTime}.`
+        : 'Failed to set reminders. Please try again.'
+    );
+  };
+
+  const openNotificationModal = async () => {
+    await requestNotificationPermission();
+    setActiveModal('Notification');
   };
 
   const openCaregiverModal = () => {
@@ -201,7 +189,7 @@ export default function SeniorSettingsScreen({
 
         <TouchableOpacity
           style={styles.settingRow}
-          onPress={() => setActiveModal('Notification')}
+          onPress={openNotificationModal}
           activeOpacity={0.86}
         >
           <View style={styles.settingIcon}>
@@ -315,13 +303,8 @@ export default function SeniorSettingsScreen({
             {settingsError ? <Text style={styles.errorText}>{settingsError}</Text> : null}
             {settingsMessage ? <Text style={styles.savedText}>{settingsMessage}</Text> : null}
 
-            <TouchableOpacity
-              style={[styles.primaryButton, timeSaving && { opacity: 0.6 }]}
-              onPress={saveCheckInTime}
-              activeOpacity={0.86}
-              disabled={timeSaving}
-            >
-              <Text style={styles.primaryButtonText}>{timeSaving ? 'Saving…' : 'Save Check-In Time'}</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={saveCheckInTime} activeOpacity={0.86}>
+              <Text style={styles.primaryButtonText}>Save Reminder Time</Text>
             </TouchableOpacity>
           </View>
         </View>
