@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 import {
@@ -72,9 +73,34 @@ export default function SeniorSettingsScreen({
   const [linkSaving, setLinkSaving] = useState(false);
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
 
+  const requestNotificationPermission = async () => {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      return finalStatus === 'granted';
+    } catch (error) {
+      console.log('Error requesting notification permission:', error);
+      return false;
+    }
+  };
+
   const saveCheckInTime = async () => {
     if (!isValidCheckInTime(checkInTime)) {
       setSettingsError('Please enter a time like 9:00 AM or 8:30 PM.');
+      setSettingsMessage('');
+      return;
+    }
+
+    const hasPermission = await requestNotificationPermission();
+
+    if (!hasPermission) {
+      setSettingsError('Notification permission is required to set reminders. Please enable it in your device settings.');
       setSettingsMessage('');
       return;
     }
@@ -91,8 +117,13 @@ export default function SeniorSettingsScreen({
     setSettingsMessage(
       scheduled
         ? `Reminders set for ${checkInTime}.`
-        : 'Notification permission was not granted.'
+        : 'Failed to set reminders. Please try again.'
     );
+  };
+
+  const openNotificationModal = async () => {
+    await requestNotificationPermission();
+    setActiveModal('Notification');
   };
 
   const openCaregiverModal = () => {
@@ -158,7 +189,7 @@ export default function SeniorSettingsScreen({
 
         <TouchableOpacity
           style={styles.settingRow}
-          onPress={() => setActiveModal('Notification')}
+          onPress={openNotificationModal}
           activeOpacity={0.86}
         >
           <View style={styles.settingIcon}>
@@ -239,12 +270,12 @@ export default function SeniorSettingsScreen({
         </Modal>
       ) : null}
 
-      {activeModal === 'Nortification' ? (
+      {activeModal === 'Notification' ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Nortification</Text>
+                <Text style={styles.modalTitle}>Notification</Text>
                 <Text style={styles.modalSubtitle}>Daily check-in reminders</Text>
               </View>
               <TouchableOpacity style={styles.closeButton} onPress={() => setActiveModal(null)}>
