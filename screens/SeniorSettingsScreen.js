@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
@@ -36,7 +36,16 @@ const formatCheckInTime = (value) => {
 };
 
 const generateLinkCode = () => String(Math.floor(100000 + Math.random() * 900000));
-const CHECKIN_TIMES = ['5:00 AM', '6:00 AM', '7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM'];
+const CHECKIN_TIMES = [
+  '5:00 AM', '5:30 AM',
+  '6:00 AM', '6:30 AM',
+  '7:00 AM', '7:30 AM',
+  '8:00 AM', '8:30 AM',
+  '9:00 AM', '9:30 AM',
+  '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM',
+  '12:00 PM',
+];
 
 export default function SeniorSettingsScreen({
   senior = {},
@@ -54,6 +63,7 @@ export default function SeniorSettingsScreen({
   );
   const [activeModal, setActiveModal] = useState(null);
   const [checkInTime, setCheckInTime] = useState(initialCheckInTime);
+  const [timeDropdownVisible, setTimeDropdownVisible] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [linkCode, setLinkCode] = useState('');
@@ -188,6 +198,47 @@ export default function SeniorSettingsScreen({
         onSettings={() => {}}
       />
 
+      {timeDropdownVisible ? (
+        <Modal visible={timeDropdownVisible} transparent animationType="fade">
+          <View style={styles.dropdownOverlay}>
+            <Pressable
+              style={styles.dropdownBackdrop}
+              onPress={() => setTimeDropdownVisible(false)}
+            />
+            <View style={styles.dropdownModal}>
+              <Text style={styles.dropdownTitle}>Select Check-In Time</Text>
+              <ScrollView style={styles.dropdownList}>
+                {CHECKIN_TIMES.map((time) => (
+                  <TouchableOpacity
+                    key={time}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setCheckInTime(time);
+                      setTimeDropdownVisible(false);
+                      setSettingsMessage('');
+                      setSettingsError('');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        checkInTime === time && styles.dropdownItemTextSelected,
+                      ]}
+                    >
+                      {time}
+                    </Text>
+                    {checkInTime === time && (
+                      <Ionicons name="checkmark" size={20} color="#2563EB" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+
       {activeModal === 'Nortification' ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -209,35 +260,14 @@ export default function SeniorSettingsScreen({
             </View>
 
             <Text style={styles.inputLabel}>Preferred Check-In Time</Text>
-            <View style={styles.selectBox}>
+            <TouchableOpacity
+              style={styles.selectBox}
+              onPress={() => setTimeDropdownVisible(true)}
+              activeOpacity={0.8}
+            >
               <Text style={styles.selectBoxText}>{checkInTime}</Text>
-            </View>
-            <View style={styles.timeList}>
-              {CHECKIN_TIMES.map((time) => (
-                <TouchableOpacity
-                  key={time}
-                  style={[
-                    styles.timeOption,
-                    checkInTime === time && styles.timeOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setCheckInTime(time);
-                    setSettingsMessage('');
-                    setSettingsError('');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.timeOptionText,
-                      checkInTime === time && styles.timeOptionTextSelected,
-                    ]}
-                  >
-                    {time}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+              <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
+            </TouchableOpacity>
 
             {settingsError ? <Text style={styles.errorText}>{settingsError}</Text> : null}
             {settingsMessage ? <Text style={styles.savedText}>{settingsMessage}</Text> : null}
@@ -414,13 +444,66 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     backgroundColor: '#F8FAFC',
     paddingHorizontal: 14,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   selectBoxText: {
     color: '#111827',
     fontSize: 17,
     fontWeight: '800',
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
+    backgroundColor: 'rgba(17, 24, 39, 0.55)',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  dropdownModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    maxHeight: 400,
+  },
+  dropdownTitle: {
+    color: '#111827',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 12,
+  },
+  dropdownList: {
+    maxHeight: 300,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownItemText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  dropdownItemTextSelected: {
+    color: '#2563EB',
+    fontWeight: '900',
   },
   timeList: {
     flexDirection: 'row',
