@@ -51,8 +51,7 @@ export default function App() {
     Platform.OS === 'android' ? 'http://10.0.2.2:10000' : 'http://localhost:10000',
     expoHost && expoHost !== 'localhost' ? `http://${expoHost}:10000` : null,
   ].filter(Boolean);
-  // Default to remote backend so login is never blocked by a null base URL.
-  const [apiBase, setApiBase] = useState(REMOTE_API_BASE);
+  const [apiBase, setApiBase] = useState(null);
   const [backendError, setBackendError] = useState(null);
 
   const [seniors, setSeniors] = useState([]);
@@ -60,45 +59,6 @@ export default function App() {
   const [checkIns, setCheckIns] = useState([]);
   const [emergencyEvents, setEmergencyEvents] = useState([]);
   const [rewardStreaks, setRewardStreaks] = useState([]);
-
-  const fetchWithTimeout = async (url, options = {}, timeoutMs = 12000) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      return await fetch(url, { ...options, signal: controller.signal });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  };
-
-  const testEndpoint = async (baseUrl, timeoutMs = 5000) => {
-    try {
-      const response = await fetchWithTimeout(`${baseUrl}/test`, {}, timeoutMs);
-      return response.ok;
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const resolveBackendBase = async () => {
-    const candidates = [
-      ...new Set([
-        ...LOCAL_API_BASES,
-        apiBase,
-        REMOTE_API_BASE,
-      ].filter(Boolean)),
-    ];
-
-    for (const baseUrl of candidates) {
-      if (await testEndpoint(baseUrl)) {
-        if (baseUrl !== apiBase) setApiBase(baseUrl);
-        setBackendError(null);
-        return baseUrl;
-      }
-    }
-
-    return null;
-  };
 
   // -------------------------
   // DB NORMALIZER (IMPORTANT FIX)
@@ -208,19 +168,17 @@ export default function App() {
       setLoginError('Please enter your email address and password.');
       return;
     }
-
-    const activeBase = await resolveBackendBase();
-    if (!activeBase) {
-      setLoginError('Unable to connect to backend. Please ensure backend_api is running on port 10000.');
+    if (!apiBase) {
+      setLoginError('Backend server is not available yet.');
       return;
     }
 
     try {
-      const response = await fetchWithTimeout(`${activeBase}/users/login`, {
+      const response = await fetch(`${apiBase}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
-      }, 12000);
+      });
 
       const body = await response.json().catch(() => null);
       if (!response.ok) {
@@ -263,14 +221,13 @@ export default function App() {
       return;
     }
 
-    const activeBase = await resolveBackendBase();
-    if (!activeBase) {
-      setRegisterError('Unable to connect to backend. Please ensure backend_api is running on port 10000.');
+    if (!apiBase) {
+      setRegisterError('Backend server is not available yet.');
       return;
     }
 
     try {
-      const response = await fetchWithTimeout(`${activeBase}/users/register`, {
+      const response = await fetch(`${apiBase}/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -280,7 +237,7 @@ export default function App() {
           phone_number: '',
           role: role || 'Senior',
         }),
-      }, 12000);
+      });
 
       const body = await response.json().catch(() => null);
       if (!response.ok) {
@@ -374,18 +331,36 @@ export default function App() {
   // FETCH DATA (FIXED NORMALIZATION)
   // -------------------------
   useEffect(() => {
-    const bootstrapBackendBase = async () => {
-      const baseUrl = await resolveBackendBase();
-      if (!baseUrl) {
-        setBackendError(
-          `Unable to verify backend health on ${REMOTE_API_BASE} or ${LOCAL_API_BASES.join(
-            ', '
-          )}. Please start your backend server.`
-        );
+    const testEndpoint = async (baseUrl) => {
+      try {
+        const response = await fetch(`${baseUrl}/test`);
+        return response.ok;
+      } catch (error) {
+        return false;
       }
     };
 
-    bootstrapBackendBase();
+    const resolveBackendBase = async () => {
+      if (await testEndpoint(REMOTE_API_BASE)) {
+        setApiBase(REMOTE_API_BASE);
+        return;
+      }
+
+      for (const localBase of LOCAL_API_BASES) {
+        if (await testEndpoint(localBase)) {
+          setApiBase(localBase);
+          return;
+        }
+      }
+
+      setBackendError(
+        `Unable to reach backend on ${REMOTE_API_BASE} or ${LOCAL_API_BASES.join(
+          ', '
+        )}. Please start your backend server.`
+      );
+    };
+
+    resolveBackendBase();
   }, []);
 
   useEffect(() => {
