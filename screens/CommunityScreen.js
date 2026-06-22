@@ -201,6 +201,11 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
             }),
           }).catch((err) => console.log('Failed to record community activity:', err));
 
+          // Trigger a refresh to update streak and other data
+          if (props.onRefreshData) {
+            await props.onRefreshData();
+          }
+
           const response = await fetch(`${apiBase}/rewards/senior/${senior.senior_id}/game-points`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
