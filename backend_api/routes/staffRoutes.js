@@ -4,27 +4,22 @@ const db = require("../config/db");
 
 const ASSIGNED_CASES_SQL = `
         SELECT
+            shas.senior_id,
             ee.event_id,
-            ee.senior_id,
             ee.event_type,
             ee.event_status,
             ee.escalation_level,
             ee.created_at,
-            MAX(eh.escalation_time) AS assigned_at
-        FROM Escalation_Assignment ea
-        JOIN Escalation_History eh
-            ON ea.escalation_id = eh.escalation_id
-        JOIN Emergency_Event ee
-            ON eh.event_id = ee.event_id
-        WHERE ea.staff_id = ?
-        GROUP BY
-            ee.event_id,
-            ee.senior_id,
-            ee.event_type,
-            ee.event_status,
-            ee.escalation_level,
-            ee.created_at
-        ORDER BY assigned_at DESC
+            ee.created_at AS assigned_at
+        FROM Senior_has_AIC_Staff shas
+        LEFT JOIN Emergency_Event ee
+            ON ee.event_id = (
+                SELECT MAX(ev.event_id)
+                FROM Emergency_Event ev
+                WHERE ev.senior_id = shas.senior_id
+            )
+        WHERE shas.staff_id = ?
+        ORDER BY COALESCE(ee.created_at, '1970-01-01') DESC, shas.senior_id ASC
 `;
 
 // GET all staff
