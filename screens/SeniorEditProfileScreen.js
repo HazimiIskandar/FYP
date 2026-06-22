@@ -358,7 +358,30 @@ export default function SeniorEditProfileScreen({
     setDatePicker((current) => ({ ...current, visible: false }));
   };
 
+  const getMissingRequiredFields = () => {
+    const requiredFields = [
+      ['Full Name', details.fullName],
+      ['Date of Birth', formatDateForDB(details.dob || details.dobDate)],
+      ['Gender', details.gender],
+      ['Address', details.address],
+      ['Postal Code', details.postalCode],
+      ['Unit Number', details.unitNumber],
+      ['Phone', details.phone],
+    ];
+
+    return requiredFields
+      .filter(([, value]) => !`${value ?? ''}`.trim())
+      .map(([label]) => label);
+  };
+
   const handleSave = () => {
+    const missingFields = getMissingRequiredFields();
+    if (missingFields.length) {
+      setSavedMessage('');
+      setSaveError(`Please fill in required fields: ${missingFields.join(', ')}.`);
+      return;
+    }
+
     setConfirmVisible(true);
   };
 
@@ -369,6 +392,12 @@ export default function SeniorEditProfileScreen({
 
     if (!apiBase) {
       setSaveError('Backend not configured.');
+      return;
+    }
+
+    const missingFields = getMissingRequiredFields();
+    if (missingFields.length) {
+      setSaveError(`Please fill in required fields: ${missingFields.join(', ')}.`);
       return;
     }
 
@@ -417,8 +446,36 @@ export default function SeniorEditProfileScreen({
         phone_number: details.emergencyPhone,
         email: details.emergencyEmail,
       };
+      const hasEmergencyContactDetails = Object.values(nokPayload).some(
+        (value) => `${value ?? ''}`.trim().length > 0
+      );
 
+<<<<<<< HEAD
       if (details.nokId) {
+=======
+      let seniorId = details.seniorId;
+      if (!seniorId && details.userId) {
+        const createSeniorResponse = await fetch(`${apiBase}/seniors`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: details.userId }),
+        });
+
+        const createSeniorResult = await createSeniorResponse.json().catch(() => null);
+        if (!createSeniorResponse.ok) {
+          throw new Error(createSeniorResult?.error || createSeniorResult?.message || 'Failed to create senior record');
+        }
+
+        seniorId = createSeniorResult?.senior_id;
+        if (!seniorId) {
+          throw new Error('Senior record was not created successfully.');
+        }
+
+        updateDetail('seniorId', seniorId);
+      }
+
+      if (details.nokId && hasEmergencyContactDetails) {
+>>>>>>> ea70cad5b0827394e3042aa401c5d97c52e7f03e
         const response = await fetch(
           `${apiBase}/nok/${details.nokId}`,
           {
@@ -445,7 +502,11 @@ export default function SeniorEditProfileScreen({
           );
         }
       }
+<<<<<<< HEAD
       else if (details.seniorId) {
+=======
+      else if (seniorId && hasEmergencyContactDetails) {
+>>>>>>> ea70cad5b0827394e3042aa401c5d97c52e7f03e
         const response = await fetch(
           `${apiBase}/seniors/${details.seniorId}/nok`,
           {
@@ -598,13 +659,13 @@ export default function SeniorEditProfileScreen({
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Personal Details</Text>
-          {renderInput('person-outline', 'Full Name', 'fullName', 'Enter full name')}
-          {renderDateField('calendar-outline', 'Date of Birth', 'dob', 'DD/MM/YYYY')}
-          {renderSelect('male-female-outline', 'Gender', 'gender', 'Select gender', GENDERS)}
-          {renderInput('home-outline', 'Address', 'address', 'Enter address')}
-          {renderInput('mail-outline', 'Postal Code', 'postalCode', 'Enter postal code', 'number-pad')}
-          {renderInput('business-outline', 'Unit Number', 'unitNumber', 'Enter unit number')}
-          {renderInput('call-outline', 'Phone', 'phone', 'Enter phone number', 'phone-pad')}
+          {renderInput('person-outline', 'Full Name *', 'fullName', 'Enter full name')}
+          {renderDateField('calendar-outline', 'Date of Birth *', 'dob', 'DD/MM/YYYY')}
+          {renderSelect('male-female-outline', 'Gender *', 'gender', 'Select gender', GENDERS)}
+          {renderInput('home-outline', 'Address *', 'address', 'Enter address')}
+          {renderInput('mail-outline', 'Postal Code *', 'postalCode', 'Enter postal code', 'number-pad')}
+          {renderInput('business-outline', 'Unit Number *', 'unitNumber', 'Enter unit number')}
+          {renderInput('call-outline', 'Phone *', 'phone', 'Enter phone number', 'phone-pad')}
         </View>
 
         <View style={styles.card}>

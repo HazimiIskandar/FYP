@@ -145,6 +145,21 @@ export default function App() {
 
   const seniorName = getSeniorDisplayName(currentSenior);
 
+  const isSeniorProfileComplete = (senior) => {
+    if (!senior) return false;
+    if (!senior.senior_id) return false;
+
+    return [
+      senior.full_name,
+      senior.dob,
+      senior.gender,
+      senior.address,
+      senior.postal_code,
+      senior.unit_number || senior.unit_no,
+      senior.phone_number || senior.contact,
+    ].every((value) => `${value ?? ''}`.trim().length > 0);
+  };
+
   const handleLogin = async (payload) => {
     const email = typeof payload === 'string' ? payload : payload?.email;
     const password = typeof payload === 'string' ? null : payload?.password;
@@ -173,16 +188,24 @@ export default function App() {
 
       setAuthenticatedUser(body);
       setLoginError(null);
-      await refreshAll(body);
+      const refreshed = await refreshAll(body);
       
       const roleName = `${body?.role || body?.role_name || body?.roleName || ''}`.toLowerCase();
       const roleId = Number(body?.role_id);
+      const loggedInSenior = refreshed?.senior || {
+        ...body,
+        senior_id: null,
+        medicalConditions: [],
+        nokContacts: [],
+      };
 
       // Route based on role_id or role name
       if (roleId === 3 || roleName.includes('aic')) {
         setCurrentScreen('AICPortal');
       } else if (roleId === 2 || roleName.includes('caregiver')) {
         setCurrentScreen('CaregiverHome');
+      } else if (!isSeniorProfileComplete(loggedInSenior)) {
+        setCurrentScreen('SeniorEditProfile');
       } else {
         setCurrentScreen('Home');
       }
@@ -433,6 +456,7 @@ export default function App() {
         const matchingSenior = normalizedSeniors.find(
           (s) => String(s.user_id) === String(effectiveUser.user_id)
         );
+        updatedSeniorWithExtras = matchingSenior || null;
 
         if (matchingSenior?.senior_id && apiBase) {
           try {
@@ -468,8 +492,15 @@ export default function App() {
           )
         );
       }
+
+      return {
+        users: Array.isArray(usersData) ? usersData : [],
+        seniors: normalizedSeniors,
+        senior: updatedSeniorWithExtras,
+      };
     } catch (err) {
       console.log('refreshAll error:', err);
+      return null;
     }
   };
 
@@ -494,6 +525,13 @@ export default function App() {
     } catch (err) {
       console.log("Check-in error:", err);
     }
+  };
+
+  const handleLogout = () => {
+    setAuthenticatedUser(null);
+    setSelectedSenior(null);
+    setLoginError(null);
+    setCurrentScreen('Login');
   };
 
   // -------------------------
@@ -597,7 +635,7 @@ export default function App() {
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
           onBack={() => setCurrentScreen('SeniorSettings')}
-          onProfile={() => setCurrentScreen('SeniorProfile')}
+          onProfile={() => setCurrentScreen('Home')}
           onRefresh={refreshAll}
         />
       );
@@ -612,7 +650,7 @@ export default function App() {
           onCommunity={() => setCurrentScreen('Community')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
           onEditProfile={() => setCurrentScreen('SeniorEditProfile')}
-          onLogout={() => setCurrentScreen('Login')}
+          onLogout={handleLogout}
         />
       );
     }
@@ -629,7 +667,7 @@ export default function App() {
           activeTicket={emergencyEvents?.[0]}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
-          onLogout={() => setCurrentScreen('Login')}
+          onLogout={handleLogout}
         />
       );
     }
@@ -642,7 +680,7 @@ export default function App() {
           authenticatedUser={authenticatedUser}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
-          onLogout={() => setCurrentScreen('Login')}
+          onLogout={handleLogout}
           onSelectSenior={(senior) => handleSelectSenior(senior, 'SeniorsList')}
           backendError={backendError}
         />
@@ -655,7 +693,7 @@ export default function App() {
           seniors={seniors}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
-          onLogout={() => setCurrentScreen('Login')}
+          onLogout={handleLogout}
           onSelectSenior={(senior) => handleSelectSenior(senior, 'Status')}
           backendError={backendError}
         />
@@ -669,7 +707,7 @@ export default function App() {
           checkIns={checkIns}
           emergencyEvents={emergencyEvents}
           authenticatedUser={authenticatedUser}
-          onLogout={() => setCurrentScreen('Login')}
+          onLogout={handleLogout}
         />
       );
     }
@@ -690,7 +728,7 @@ export default function App() {
                 : 'CaregiverRoster'
             )
           }
-          onLogout={() => setCurrentScreen('Login')}
+          onLogout={handleLogout}
         />
       );
     }
