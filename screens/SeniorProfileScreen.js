@@ -31,25 +31,23 @@ export default function SeniorProfileScreen({
   onCommunity,
   onSettings,
 }) {
-  const seniorConditionFromProp = useMemo(
-    () => senior?.medicalConditions?.[0] || null,
+  const medicalFromProp = useMemo(
+    () => (Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : []),
     [senior?.medicalConditions]
   );
-  const nokContactFromProp = useMemo(
-    () => senior?.nokContacts?.[0] || null,
+  const nokFromProp = useMemo(
+    () => (Array.isArray(senior?.nokContacts) ? senior.nokContacts : []),
     [senior?.nokContacts]
   );
-  const [fetchedCondition, setFetchedCondition] = useState(null);
-  const [fetchedNok, setFetchedNok] = useState(null);
+  const [fetchedConditions, setFetchedConditions] = useState([]);
+  const [fetchedNoks, setFetchedNoks] = useState([]);
 
-  const seniorCondition = fetchedCondition || seniorConditionFromProp || {};
-  const nokContact = fetchedNok || nokContactFromProp || {};
-  const initialRelationship = nokContact.relationship_to_senior || '';
-  const isRelationshipStandard = RELATIONSHIPS.includes(initialRelationship);
+  const medicalConditions = fetchedConditions.length ? fetchedConditions : medicalFromProp;
+  const emergencyContacts = fetchedNoks.length ? fetchedNoks : nokFromProp;
 
   useEffect(() => {
-    setFetchedCondition(null);
-    setFetchedNok(null);
+    setFetchedConditions([]);
+    setFetchedNoks([]);
   }, [senior?.senior_id]);
 
   useEffect(() => {
@@ -72,8 +70,8 @@ export default function SeniorProfileScreen({
 
         if (!isActive) return;
 
-        setFetchedCondition(Array.isArray(conditionData) ? conditionData[0] || null : conditionData || null);
-        setFetchedNok(Array.isArray(nokData) ? nokData[0] || null : nokData || null);
+        setFetchedConditions(Array.isArray(conditionData) ? conditionData : (conditionData ? [conditionData] : []));
+        setFetchedNoks(Array.isArray(nokData) ? nokData : (nokData ? [nokData] : []));
       } catch (err) {
         console.log('Failed to fetch senior profile details:', err);
       }
@@ -95,16 +93,8 @@ export default function SeniorProfileScreen({
       postalCode: senior?.postal_code || 'Not recorded',
       unitNumber: senior?.unit_number || senior?.unit_no || 'Not recorded',
       phone: senior?.phone_number || senior?.contact || 'Not recorded',
-      condition: seniorCondition?.condition_name || 'Not recorded',
-      severity: seniorCondition?.severity_level || 'Not recorded',
-      medicationRequired: seniorCondition?.medication_required || 'Not recorded',
-      diagnosedDate: formatDate(seniorCondition?.diagnosed_date) || 'Not recorded',
-      emergencyName: nokContact?.full_name || 'Not recorded',
-      emergencyRelationship: isRelationshipStandard ? initialRelationship : (initialRelationship || 'Not recorded'),
-      emergencyPhone: nokContact?.phone_number || 'Not recorded',
-      emergencyEmail: nokContact?.email || 'Not recorded',
     };
-  }, [senior, seniorCondition, nokContact, isRelationshipStandard, initialRelationship]);
+  }, [senior]);
 
   const renderInfoRow = (icon, label, value) => (
     <View style={styles.infoRow}>
@@ -134,18 +124,43 @@ export default function SeniorProfileScreen({
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Medical Conditions</Text>
-          {renderInfoRow('fitness-outline', 'Condition', details.condition)}
-          {renderInfoRow('warning-outline', 'Severity', details.severity)}
-          {renderInfoRow('medical-outline', 'Medication Required', details.medicationRequired)}
-          {renderInfoRow('calendar-outline', 'Diagnosed', details.diagnosedDate)}
+          {medicalConditions.length ? (
+            medicalConditions.map((condition, index) => (
+              <View key={`condition-${condition?.condition_id || index}`} style={styles.groupBlock}>
+                <Text style={styles.groupTitle}>Condition {index + 1}</Text>
+                {renderInfoRow('fitness-outline', 'Condition', condition?.condition_name || 'Not recorded')}
+                {renderInfoRow('warning-outline', 'Severity', condition?.severity_level || 'Not recorded')}
+                {renderInfoRow('medical-outline', 'Medication Required', condition?.medication_required || 'Not recorded')}
+                {renderInfoRow('calendar-outline', 'Diagnosed', formatDate(condition?.diagnosed_date) || 'Not recorded')}
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyText}>No medical conditions recorded.</Text>
+          )}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Emergency Contact</Text>
-          {renderInfoRow('person-outline', 'Name', details.emergencyName)}
-          {renderInfoRow('people-outline', 'Relationship', details.emergencyRelationship)}
-          {renderInfoRow('call-outline', 'Phone', details.emergencyPhone)}
-          {renderInfoRow('mail-outline', 'Email', details.emergencyEmail)}
+          <Text style={styles.cardTitle}>Emergency Contacts</Text>
+          {emergencyContacts.length ? (
+            emergencyContacts.map((contact, index) => {
+              const relationship = contact?.relationship_to_senior || '';
+              const displayRelationship = RELATIONSHIPS.includes(relationship)
+                ? relationship
+                : (relationship || 'Not recorded');
+
+              return (
+                <View key={`nok-${contact?.nok_id || index}`} style={styles.groupBlock}>
+                  <Text style={styles.groupTitle}>Contact {index + 1}</Text>
+                  {renderInfoRow('person-outline', 'Name', contact?.full_name || 'Not recorded')}
+                  {renderInfoRow('people-outline', 'Relationship', displayRelationship)}
+                  {renderInfoRow('call-outline', 'Phone', contact?.phone_number || 'Not recorded')}
+                  {renderInfoRow('mail-outline', 'Email', contact?.email || 'Not recorded')}
+                </View>
+              );
+            })
+          ) : (
+            <Text style={styles.emptyText}>No emergency contacts recorded.</Text>
+          )}
         </View>
       </ScrollView>
 
@@ -196,5 +211,22 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 16,
     fontWeight: '600',
+  },
+  groupBlock: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 10,
+    marginTop: 10,
+  },
+  groupTitle: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  emptyText: {
+    color: '#6B7280',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
