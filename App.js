@@ -301,8 +301,60 @@ export default function App() {
   const getStreakValue = (item) =>
     item?.current_streak ?? item?.streak ?? item?.days ?? 0;
 
+  const getDateKey = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const calculateCheckInStreak = (seniorId) => {
+    if (!seniorId) return 0;
+
+    const orderedDates = checkIns
+      .filter((checkIn) => String(checkIn?.senior_id) === String(seniorId))
+      .filter((checkIn) => (checkIn?.checkin_status || '').toLowerCase().includes('completed'))
+      .map((checkIn) => getDateKey(checkIn?.checkin_timestamp))
+      .filter(Boolean)
+      .sort((left, right) => right.localeCompare(left));
+
+    if (!orderedDates.length) return 0;
+
+    let streak = 1;
+    let previousDate = new Date(`${orderedDates[0]}T00:00:00`);
+
+    for (let index = 1; index < orderedDates.length; index += 1) {
+      const currentDate = new Date(`${orderedDates[index]}T00:00:00`);
+      const differenceInDays = Math.round((previousDate - currentDate) / (24 * 60 * 60 * 1000));
+
+      if (differenceInDays === 0) {
+        continue;
+      }
+
+      if (differenceInDays === 1) {
+        streak += 1;
+        previousDate = currentDate;
+        continue;
+      }
+
+      break;
+    }
+
+    return streak;
+  };
+
+  const currentRewardRow = currentSenior?.senior_id
+    ? rewardStreaks.find((reward) => String(reward?.senior_id) === String(currentSenior.senior_id))
+    : null;
+
   const currentStreak =
-    getStreakValue(rewardStreaks?.[0]) || getStreakValue(currentSenior);
+    calculateCheckInStreak(currentSenior?.senior_id) ||
+    getStreakValue(currentRewardRow) ||
+    getStreakValue(currentSenior);
 
   const todayString = new Date().toDateString();
 
@@ -755,6 +807,7 @@ export default function App() {
       return (
         <CommunityScreen
           senior={currentSenior}
+          apiBase={apiBase}
           medicalConditions={currentSenior?.medicalConditions ?? []}
           onHome={() => setCurrentScreen('Home')}
           onProfile={() => setCurrentScreen('SeniorProfile')}

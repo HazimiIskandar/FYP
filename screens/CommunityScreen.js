@@ -43,7 +43,14 @@ const createDeck = () => {
   return shuffle(pairedItems);
 };
 
-const getTodayKey = () => new Date().toISOString().slice(0, 10);
+const getTodayKey = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
 
 const getStorageItem = (key) => {
   if (typeof globalThis.localStorage !== 'undefined') {
@@ -92,7 +99,7 @@ const saveStoredRewards = (totalPoints, dailyEarned) => {
   );
 };
 
-export default function CommunityScreen({ onHome, onProfile, onSettings }) {
+export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfile, onSettings }) {
   const [cards, setCards] = useState(createDeck);
   const [flippedIds, setFlippedIds] = useState([]);
   const [matchedKeys, setMatchedKeys] = useState([]);
@@ -121,18 +128,43 @@ export default function CommunityScreen({ onHome, onProfile, onSettings }) {
 
   useEffect(() => {
     let mounted = true;
-    const storedRewards = readStoredRewards();
 
-    if (mounted) {
-      setTotalRewardPoints(storedRewards.totalPoints);
-      setDailyRewardPoints(storedRewards.dailyEarned);
-      setRewardsLoaded(true);
-    }
+    const loadRewards = async () => {
+      if (apiBase && senior?.senior_id) {
+        try {
+          const response = await fetch(`${apiBase}/rewards/senior/${senior.senior_id}`);
+          if (!response.ok) {
+            throw new Error(`Request failed: ${response.status}`);
+          }
+
+          const rewardData = await response.json();
+
+          if (mounted) {
+            setTotalRewardPoints(Number(rewardData?.total_points || 0));
+            setDailyRewardPoints(Number(rewardData?.daily_points || 0));
+            setRewardsLoaded(true);
+          }
+          return;
+        } catch (error) {
+          console.log('Failed to load backend reward summary:', error);
+        }
+      }
+
+      const storedRewards = readStoredRewards();
+
+      if (mounted) {
+        setTotalRewardPoints(storedRewards.totalPoints);
+        setDailyRewardPoints(storedRewards.dailyEarned);
+        setRewardsLoaded(true);
+      }
+    };
+
+    loadRewards();
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [apiBase, senior?.senior_id]);
 
   useEffect(() => {
     if (!rewardsLoaded) {
@@ -143,24 +175,55 @@ export default function CommunityScreen({ onHome, onProfile, onSettings }) {
   }, [dailyRewardPoints, rewardsLoaded, totalRewardPoints]);
 
   useEffect(() => {
-    if (!gameComplete || rewardGrantedThisGame) {
+    if (!gameComplete || rewardGrantedThisGame || !rewardsLoaded) {
       return;
     }
 
-    const remainingDailyPoints = Math.max(0, DAILY_REWARD_CAP - dailyRewardPoints);
-    const pointsToAdd = Math.min(GAME_COMPLETION_REWARD, remainingDailyPoints);
+    const awardGamePoints = async () => {
+      setRewardGrantedThisGame(true);
 
-    setRewardGrantedThisGame(true);
+      const remainingDailyPoints = Math.max(0, DAILY_REWARD_CAP - dailyRewardPoints);
+      const pointsToAdd = Math.min(GAME_COMPLETION_REWARD, remainingDailyPoints);
 
-    if (pointsToAdd <= 0) {
-      setMessage('Daily reward cap reached. Come back tomorrow for more kopi points.');
-      return;
-    }
+      if (pointsToAdd <= 0) {
+        setMessage('Daily reward cap reached. Come back tomorrow for more kopi points.');
+        return;
+      }
 
-    setDailyRewardPoints((currentPoints) => currentPoints + pointsToAdd);
-    setTotalRewardPoints((currentPoints) => currentPoints + pointsToAdd);
-    setMessage(`Well done. You earned ${pointsToAdd} kopi points today.`);
-  }, [dailyRewardPoints, gameComplete, rewardGrantedThisGame]);
+      if (apiBase && senior?.senior_id) {
+        try {
+          const response = await fetch(`${apiBase}/rewards/senior/${senior.senior_id}/game-points`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ points: pointsToAdd }),
+          });
+
+          const rewardData = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            throw new Error(rewardData?.error || 'Unable to save kopi points.');
+          }
+
+          setDailyRewardPoints(Number(rewardData?.daily_points || 0));
+          setTotalRewardPoints(Number(rewardData?.total_points || 0));
+          setMessage(
+            rewardData?.awarded_points > 0
+              ? `Well done. You earned ${rewardData.awarded_points} kopi points today.`
+              : 'Daily reward cap reached. Come back tomorrow for more kopi points.'
+          );
+          return;
+        } catch (error) {
+          console.log('Failed to save backend kopi points:', error);
+        }
+      }
+
+      setDailyRewardPoints((currentPoints) => currentPoints + pointsToAdd);
+      setTotalRewardPoints((currentPoints) => currentPoints + pointsToAdd);
+      setMessage(`Well done. You earned ${pointsToAdd} kopi points today.`);
+    };
+
+    awardGamePoints();
+  }, [apiBase, dailyRewardPoints, gameComplete, rewardGrantedThisGame, rewardsLoaded, senior?.senior_id]);
 
   const resetGame = () => {
     setCards(createDeck());
@@ -178,8 +241,28 @@ export default function CommunityScreen({ onHome, onProfile, onSettings }) {
       return;
     }
 
-    setTotalRewardPoints((currentPoints) => currentPoints - KOPI_COST);
-    setMessage('Kopi redeemed. Enjoy your treat!');
+    const redeemOnBackend = async () => {
+      if (apiBase && senior?.senior_id) {
+        try {
+          const response = await fetch(`${apiBase}/rewards/redeem`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ senior_id: senior.senior_id, reward_name: 'Kopi' }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Unable to redeem kopi right now.');
+          }
+        } catch (error) {
+          console.log('Failed to redeem kopi on backend:', error);
+        }
+      }
+
+      setTotalRewardPoints((currentPoints) => currentPoints - KOPI_COST);
+      setMessage('Kopi redeemed. Enjoy your treat!');
+    };
+
+    redeemOnBackend();
   };
 
   const handleCardPress = (card) => {
