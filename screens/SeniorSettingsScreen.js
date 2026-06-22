@@ -158,13 +158,13 @@ export default function SeniorSettingsScreen({
 
         <TouchableOpacity
           style={styles.settingRow}
-          onPress={() => setActiveModal('Nortification')}
+          onPress={() => setActiveModal('Notification')}
           activeOpacity={0.86}
         >
           <View style={styles.settingIcon}>
             <Ionicons name="notifications-outline" size={23} color="#2563EB" />
           </View>
-          <Text style={styles.settingText}>Nortification</Text>
+          <Text style={styles.settingText}>Notification</Text>
           <Ionicons name="chevron-forward" size={23} color="#6B7280" />
         </TouchableOpacity>
 
@@ -455,15 +455,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   dropdownOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 20,
-    backgroundColor: 'rgba(17, 24, 39, 0.55)',
+    flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 22,
+    alignItems: 'center',
   },
   dropdownBackdrop: {
     position: 'absolute',
@@ -471,30 +465,33 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
+    backgroundColor: 'rgba(17, 24, 39, 0.55)',
   },
   dropdownModal: {
+    width: '85%',
+    maxWidth: 320,
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 18,
-    maxHeight: 400,
+    borderRadius: 20,
+    padding: 14,
+    maxHeight: '50%',
+    elevation: 6,
   },
   dropdownTitle: {
     color: '#111827',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     marginBottom: 12,
   },
   dropdownList: {
-    maxHeight: 300,
+    maxHeight: 240,
   },
   dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: 12,
-    paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#E5E7EB',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   dropdownItemText: {
     color: '#111827',
