@@ -31,20 +31,26 @@ export default function SeniorProfileScreen({
   onCommunity,
   onSettings,
 }) {
-  const seniorConditionFromProp = senior?.medicalConditions?.[0] || {};
-  const nokContactFromProp = senior?.nokContacts?.[0] || {};
-  const [fetchedCondition, setFetchedCondition] = useState(seniorConditionFromProp);
-  const [fetchedNok, setFetchedNok] = useState(nokContactFromProp);
+  const seniorConditionFromProp = useMemo(
+    () => senior?.medicalConditions?.[0] || null,
+    [senior?.medicalConditions]
+  );
+  const nokContactFromProp = useMemo(
+    () => senior?.nokContacts?.[0] || null,
+    [senior?.nokContacts]
+  );
+  const [fetchedCondition, setFetchedCondition] = useState(null);
+  const [fetchedNok, setFetchedNok] = useState(null);
 
-  const seniorCondition = Object.keys(fetchedCondition || {}).length ? fetchedCondition : seniorConditionFromProp;
-  const nokContact = Object.keys(fetchedNok || {}).length ? fetchedNok : nokContactFromProp;
+  const seniorCondition = fetchedCondition || seniorConditionFromProp || {};
+  const nokContact = fetchedNok || nokContactFromProp || {};
   const initialRelationship = nokContact.relationship_to_senior || '';
   const isRelationshipStandard = RELATIONSHIPS.includes(initialRelationship);
 
   useEffect(() => {
-    setFetchedCondition(seniorConditionFromProp);
-    setFetchedNok(nokContactFromProp);
-  }, [seniorConditionFromProp, nokContactFromProp]);
+    setFetchedCondition(null);
+    setFetchedNok(null);
+  }, [senior?.senior_id]);
 
   useEffect(() => {
     if (!apiBase || !senior?.senior_id) return;
@@ -66,8 +72,8 @@ export default function SeniorProfileScreen({
 
         if (!isActive) return;
 
-        setFetchedCondition(Array.isArray(conditionData) ? conditionData[0] || {} : conditionData || {});
-        setFetchedNok(Array.isArray(nokData) ? nokData[0] || {} : nokData || {});
+        setFetchedCondition(Array.isArray(conditionData) ? conditionData[0] || null : conditionData || null);
+        setFetchedNok(Array.isArray(nokData) ? nokData[0] || null : nokData || null);
       } catch (err) {
         console.log('Failed to fetch senior profile details:', err);
       }
