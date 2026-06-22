@@ -174,6 +174,7 @@ router.put("/:senior_id/nok", (req, res) => {
           if (err) return res.status(500).json(err);
 
           res.json({
+            nok_id: nokId,
             message: "Emergency contact updated.",
           });
         }
@@ -214,6 +215,7 @@ router.put("/:senior_id/nok", (req, res) => {
                 return res.status(500).json(err);
 
               res.json({
+                nok_id: nokId,
                 message:
                   "Emergency contact created and linked.",
               });
@@ -275,6 +277,36 @@ router.put('/:senior_id/medical-condition', (req, res) => {
   } else {
     upsertCondition(condition_id);
   }
+});
+
+/**
+ * CREATE NOK and link to senior
+ */
+router.post('/:senior_id/nok', (req, res) => {
+  const seniorId = req.params.senior_id;
+  const { full_name, phone_number, email, relationship_to_senior } = req.body;
+
+  const insertSql = `
+    INSERT INTO NOK (full_name, phone_number, email, relationship_to_senior)
+    VALUES (?, ?, ?, ?)
+  `;
+
+  db.query(insertSql, [full_name, phone_number, email, relationship_to_senior], (err, result) => {
+    if (err) return res.status(500).json(err);
+
+    const nokId = result.insertId;
+
+    const linkSql = `
+      INSERT INTO Senior_has_NOK (senior_id, nok_id)
+      VALUES (?, ?)
+    `;
+
+    db.query(linkSql, [seniorId, nokId], (err) => {
+      if (err) return res.status(500).json(err);
+
+      res.json({ nok_id: nokId, message: 'Emergency contact created and linked.' });
+    });
+  });
 });
 
 module.exports = router;
