@@ -348,6 +348,93 @@ router.put('/:senior_id/medical-condition', (req, res) => {
   }
 });
 
+router.put('/:senior_id/medical-conditions/sync', async (req, res) => {
+  const seniorId = req.params.senior_id;
+  const conditions = Array.isArray(req.body?.conditions) ? req.body.conditions : [];
+
+  if (!seniorId) {
+    return res.status(400).json({ error: 'Senior ID is required.' });
+  }
+
+  const runQuery = (sql, params = []) =>
+    new Promise((resolve, reject) => {
+      db.query(sql, params, (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+
+  try {
+    const resolved = [];
+
+    for (const item of conditions) {
+      if (!item || typeof item !== 'object') continue;
+
+      const diagnosedDate = item.diagnosed_date || null;
+      const severityLevel = item.severity_level || null;
+      const medicationRequired = item.medication_required || null;
+
+      let conditionId = item.condition_id ? Number(item.condition_id) : null;
+
+      if (!conditionId && item.customCondition) {
+        const insertConditionSql = `
+          INSERT INTO Medical_Condition (condition_name, severity_level, medication_required)
+          VALUES (?, ?, ?)
+        `;
+
+        const insertResult = await runQuery(insertConditionSql, [
+          item.customCondition,
+          severityLevel,
+          medicationRequired,
+        ]);
+
+        conditionId = insertResult.insertId;
+      }
+
+      if (!conditionId) continue;
+
+      resolved.push({
+        condition_id: conditionId,
+        diagnosed_date: diagnosedDate,
+      });
+    }
+
+    await runQuery(`DELETE FROM Senior_Medical_Condition WHERE senior_id = ?`, [seniorId]);
+
+    for (const item of resolved) {
+      const linkSql = `
+        INSERT INTO Senior_Medical_Condition (senior_id, condition_id, diagnosed_date)
+        VALUES (?, ?, ?)
+      `;
+
+      await runQuery(linkSql, [seniorId, item.condition_id, item.diagnosed_date]);
+    }
+
+    const fetchSql = `
+      SELECT
+        mc.condition_id,
+        mc.condition_name,
+        mc.severity_level,
+        mc.medication_required,
+        smc.diagnosed_date
+      FROM Senior_Medical_Condition smc
+      JOIN Medical_Condition mc
+        ON smc.condition_id = mc.condition_id
+      WHERE smc.senior_id = ?
+      ORDER BY smc.diagnosed_date DESC
+    `;
+
+    const updatedConditions = await runQuery(fetchSql, [seniorId]);
+
+    res.json({
+      message: 'Medical conditions synced successfully.',
+      conditions: updatedConditions,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || err });
+  }
+});
+
 /**
  * CREATE NOK and link to senior
  */

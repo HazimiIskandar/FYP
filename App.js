@@ -536,13 +536,17 @@ export default function App() {
   const refreshAll = async (userOverride = null) => {
     if (!apiBase) return;
     try {
-      const [seniorsRes, usersRes] = await Promise.all([
+      const [seniorsRes, usersRes, checkinsRes, rewardsRes] = await Promise.all([
         fetch(`${apiBase}/seniors`),
         fetch(`${apiBase}/users`),
+        fetch(`${apiBase}/checkins`),
+        fetch(`${apiBase}/rewards`),
       ]);
-      if (!seniorsRes.ok || !usersRes.ok) return;
+      if (!seniorsRes.ok || !usersRes.ok || !checkinsRes.ok || !rewardsRes.ok) return;
       const seniorsData = await seniorsRes.json();
       const usersData = await usersRes.json();
+      const checkinsData = await checkinsRes.json();
+      const rewardsData = await rewardsRes.json();
       const userMap = new Map(
         (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
       );
@@ -553,6 +557,8 @@ export default function App() {
         : [];
       setUsers(Array.isArray(usersData) ? usersData : []);
       setSeniors(normalizedSeniors);
+      setCheckIns(Array.isArray(checkinsData) ? checkinsData : []);
+      setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
       // if someone is authenticated, update their cached user object too
       let updatedSeniorWithExtras = null;
       const effectiveUser = userOverride || authenticatedUser;
@@ -605,6 +611,8 @@ export default function App() {
       return {
         users: Array.isArray(usersData) ? usersData : [],
         seniors: normalizedSeniors,
+        checkins: Array.isArray(checkinsData) ? checkinsData : [],
+        rewards: Array.isArray(rewardsData) ? rewardsData : [],
         senior: updatedSeniorWithExtras,
       };
     } catch (err) {

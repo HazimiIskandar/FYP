@@ -115,4 +115,20 @@ router.put('/:nok_id', (req, res) => {
   });
 });
 
+router.delete('/:nok_id', (req, res) => {
+  const nokId = req.params.nok_id;
+
+  const unlinkSql = `DELETE FROM Senior_has_NOK WHERE nok_id = ?`;
+  const deleteSql = `DELETE FROM NOK WHERE nok_id = ?`;
+
+  db.query(unlinkSql, [nokId], (unlinkErr) => {
+    if (unlinkErr) return res.status(500).json({ error: unlinkErr.message || unlinkErr });
+
+    db.query(deleteSql, [nokId], (deleteErr) => {
+      if (deleteErr) return res.status(500).json({ error: deleteErr.message || deleteErr });
+      res.json({ message: 'NOK deleted successfully' });
+    });
+  });
+});
+
 module.exports = router;
