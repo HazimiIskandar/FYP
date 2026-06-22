@@ -359,7 +359,30 @@ export default function SeniorEditProfileScreen({
     setDatePicker((current) => ({ ...current, visible: false }));
   };
 
+  const getMissingRequiredFields = () => {
+    const requiredFields = [
+      ['Full Name', details.fullName],
+      ['Date of Birth', formatDateForDB(details.dob || details.dobDate)],
+      ['Gender', details.gender],
+      ['Address', details.address],
+      ['Postal Code', details.postalCode],
+      ['Unit Number', details.unitNumber],
+      ['Phone', details.phone],
+    ];
+
+    return requiredFields
+      .filter(([, value]) => !`${value ?? ''}`.trim())
+      .map(([label]) => label);
+  };
+
   const handleSave = () => {
+    const missingFields = getMissingRequiredFields();
+    if (missingFields.length) {
+      setSavedMessage('');
+      setSaveError(`Please fill in required fields: ${missingFields.join(', ')}.`);
+      return;
+    }
+
     setConfirmVisible(true);
   };
 
@@ -370,6 +393,12 @@ export default function SeniorEditProfileScreen({
 
     if (!apiBase) {
       setSaveError('Backend not configured.');
+      return;
+    }
+
+    const missingFields = getMissingRequiredFields();
+    if (missingFields.length) {
+      setSaveError(`Please fill in required fields: ${missingFields.join(', ')}.`);
       return;
     }
 
@@ -418,6 +447,9 @@ export default function SeniorEditProfileScreen({
         phone_number: details.emergencyPhone,
         email: details.emergencyEmail,
       };
+      const hasEmergencyContactDetails = Object.values(nokPayload).some(
+        (value) => `${value ?? ''}`.trim().length > 0
+      );
 
       let seniorId = details.seniorId;
       if (!seniorId && details.userId) {
@@ -440,7 +472,7 @@ export default function SeniorEditProfileScreen({
         updateDetail('seniorId', seniorId);
       }
 
-      if (details.nokId) {
+      if (details.nokId && hasEmergencyContactDetails) {
         const response = await fetch(
           `${apiBase}/nok/${details.nokId}`,
           {
@@ -467,7 +499,7 @@ export default function SeniorEditProfileScreen({
           );
         }
       }
-      else if (seniorId) {
+      else if (seniorId && hasEmergencyContactDetails) {
         const response = await fetch(
           `${apiBase}/seniors/${seniorId}/nok`,
           {
@@ -620,13 +652,13 @@ export default function SeniorEditProfileScreen({
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Personal Details</Text>
-          {renderInput('person-outline', 'Full Name', 'fullName', 'Enter full name')}
-          {renderDateField('calendar-outline', 'Date of Birth', 'dob', 'DD/MM/YYYY')}
-          {renderSelect('male-female-outline', 'Gender', 'gender', 'Select gender', GENDERS)}
-          {renderInput('home-outline', 'Address', 'address', 'Enter address')}
-          {renderInput('mail-outline', 'Postal Code', 'postalCode', 'Enter postal code', 'number-pad')}
-          {renderInput('business-outline', 'Unit Number', 'unitNumber', 'Enter unit number')}
-          {renderInput('call-outline', 'Phone', 'phone', 'Enter phone number', 'phone-pad')}
+          {renderInput('person-outline', 'Full Name *', 'fullName', 'Enter full name')}
+          {renderDateField('calendar-outline', 'Date of Birth *', 'dob', 'DD/MM/YYYY')}
+          {renderSelect('male-female-outline', 'Gender *', 'gender', 'Select gender', GENDERS)}
+          {renderInput('home-outline', 'Address *', 'address', 'Enter address')}
+          {renderInput('mail-outline', 'Postal Code *', 'postalCode', 'Enter postal code', 'number-pad')}
+          {renderInput('business-outline', 'Unit Number *', 'unitNumber', 'Enter unit number')}
+          {renderInput('call-outline', 'Phone *', 'phone', 'Enter phone number', 'phone-pad')}
         </View>
 
         <View style={styles.card}>
