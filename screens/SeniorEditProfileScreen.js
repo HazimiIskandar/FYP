@@ -37,7 +37,7 @@ const formatDate = (value) => {
 const CONDITION_OTHER = 'Others';
 
 const GENDERS = ['Male', 'Female'];
-const RELATIONSHIPS = ['Son', 'Daughter', 'Spouse', 'Sibling', 'Friend', 'Neighbor', CONDITION_OTHER];
+const RELATIONSHIPS = ['Spouse', 'Son', 'Daughter', 'Sibling', 'Friend', 'Neighbor', CONDITION_OTHER];
 const SEVERITY_OPTIONS = ['Low', 'Moderate', 'High'];
 const MEDICATION_OPTIONS = ['Yes', 'No'];
 const MONTHS = [
@@ -320,6 +320,7 @@ export default function SeniorEditProfileScreen({
       })
       .then((data) => {
         const conditions = Array.isArray(data) ? data : [];
+        conditions.sort((a, b) => a.condition_name.localeCompare(b.condition_name));
         setMedicalConditionsList(conditions);
       })
       .catch((err) => {
