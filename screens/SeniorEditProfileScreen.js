@@ -38,7 +38,7 @@ const CONDITION_OTHER = 'Others';
 
 const GENDERS = ['Male', 'Female'];
 const RELATIONSHIPS = ['Son', 'Daughter', 'Spouse', 'Sibling', 'Friend', 'Neighbor', CONDITION_OTHER];
-const SEVERITY_OPTIONS = ['Mild', 'Moderate', 'High'];
+const SEVERITY_OPTIONS = ['Low', 'Moderate', 'High'];
 const MEDICATION_OPTIONS = ['Yes', 'No'];
 const MONTHS = [
   { label: '01', value: '01' },
