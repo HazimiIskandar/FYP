@@ -568,8 +568,14 @@ export default function App() {
   const refreshAll = async (userOverride = null) => {
     if (!apiBase) return;
     try {
+      const effectiveUser = userOverride || authenticatedUser;
+      const effectiveRoleId = Number(effectiveUser?.role_id);
+      const seniorsUrl =
+        effectiveRoleId === 2 && effectiveUser?.user_id
+          ? `${apiBase}/caregiver/${effectiveUser.user_id}/seniors`
+          : `${apiBase}/seniors`;
       const [seniorsRes, usersRes, checkinsRes, rewardsRes, communityRes] = await Promise.all([
-        fetch(`${apiBase}/seniors`),
+        fetch(seniorsUrl),
         fetch(`${apiBase}/users`),
         fetch(`${apiBase}/checkins`),
         fetch(`${apiBase}/rewards`),
@@ -596,7 +602,6 @@ export default function App() {
       setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
       // if someone is authenticated, update their cached user object too
       let updatedSeniorWithExtras = null;
-      const effectiveUser = userOverride || authenticatedUser;
       if (effectiveUser && effectiveUser.user_id) {
         const updated = (Array.isArray(usersData) ? usersData : []).find(
           (u) => String(u.user_id) === String(effectiveUser.user_id)
@@ -829,7 +834,7 @@ export default function App() {
             checkedIn: checkedInCount,
             urgent: 0
           }}
-          prioritySenior={currentSenior}
+          prioritySenior={seniors[0]}
           activeTicket={emergencyEvents?.[0]}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
@@ -844,6 +849,7 @@ export default function App() {
           seniors={seniors}
           apiBase={apiBase}
           authenticatedUser={authenticatedUser}
+          onRefresh={refreshAll}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
           onLogout={handleLogout}

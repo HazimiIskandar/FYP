@@ -429,7 +429,7 @@ COLLATE = utf8mb4_0900_ai_ci;
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Senior_has_Caregiver` (
   `senior_id` INT NOT NULL,
   `caregiver_id` INT NOT NULL,
-  PRIMARY KEY (`senior_id`),
+  PRIMARY KEY (`senior_id`, `caregiver_id`),
   INDEX `fk_Senior_has_Caregiver_Caregiver_idx` (`caregiver_id` ASC) VISIBLE,
   CONSTRAINT `fk_Senior_has_Caregiver_Caregiver`
     FOREIGN KEY (`caregiver_id`)

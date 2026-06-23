@@ -39,8 +39,9 @@ const initializeSeniorRelationTables = () => {
 
   const createSeniorCaregiverTable = `
     CREATE TABLE IF NOT EXISTS Senior_has_Caregiver (
-      senior_id INT NOT NULL PRIMARY KEY,
+      senior_id INT NOT NULL,
       caregiver_id INT NOT NULL,
+      PRIMARY KEY (senior_id, caregiver_id),
       KEY fk_Senior_has_Caregiver_Caregiver_idx (caregiver_id),
       CONSTRAINT fk_Senior_has_Caregiver_Senior FOREIGN KEY (senior_id) REFERENCES Senior (senior_id) ON DELETE CASCADE ON UPDATE CASCADE,
       CONSTRAINT fk_Senior_has_Caregiver_Caregiver FOREIGN KEY (caregiver_id) REFERENCES User_Account (user_id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -53,6 +54,30 @@ const initializeSeniorRelationTables = () => {
 
   db.query(createSeniorCaregiverTable, (err) => {
     if (err) console.error('Failed to create Senior_has_Caregiver table:', err);
+  });
+
+  db.query("SHOW KEYS FROM Senior_has_Caregiver WHERE Key_name = 'PRIMARY'", (err, rows) => {
+    if (err) {
+      console.error('Failed to inspect Senior_has_Caregiver primary key:', err);
+      return;
+    }
+
+    const primaryColumns = Array.isArray(rows)
+      ? rows
+          .sort((a, b) => Number(a.Seq_in_index) - Number(b.Seq_in_index))
+          .map((row) => row.Column_name)
+      : [];
+
+    if (primaryColumns.join(',') === 'senior_id') {
+      db.query(
+        "ALTER TABLE Senior_has_Caregiver DROP PRIMARY KEY, ADD PRIMARY KEY (senior_id, caregiver_id)",
+        (alterErr) => {
+          if (alterErr) {
+            console.error('Failed to update Senior_has_Caregiver primary key:', alterErr);
+          }
+        }
+      );
+    }
   });
 };
 

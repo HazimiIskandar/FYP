@@ -2,11 +2,14 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 
-router.post('/link-senior', (req, res) => {
-  const { link_code, caregiver_id } = req.body;
+const normalizeLinkCode = (value) => String(value || '').trim().toUpperCase();
 
-  if (!link_code || !/^\d{6}$/.test(link_code)) {
-    return res.status(400).json({ error: 'A valid 6-digit link code is required.' });
+router.post('/link-senior', (req, res) => {
+  const link_code = normalizeLinkCode(req.body?.link_code);
+  const { caregiver_id } = req.body;
+
+  if (!/^[A-Z0-9]{6}$/.test(link_code)) {
+    return res.status(400).json({ error: 'A valid 6-character link code is required.' });
   }
 
   if (!caregiver_id || Number.isNaN(Number(caregiver_id))) {
@@ -29,29 +32,78 @@ router.post('/link-senior', (req, res) => {
     const senior_id = results[0].senior_id;
 
     const verifyCaregiverSql = `
-      SELECT user_id
+      SELECT role_id
       FROM User_Account
-      WHERE user_id = ? AND role_id = 2
+      WHERE user_id = ?
       LIMIT 1
     `;
 
     db.query(verifyCaregiverSql, [caregiver_id], (caregiverErr, caregiverRows) => {
       if (caregiverErr) return res.status(500).json({ error: caregiverErr.message || caregiverErr });
-      if (!caregiverRows.length) {
-        return res.status(403).json({ error: 'Invalid caregiver account.' });
+      if (!caregiverRows.length || Number(caregiverRows[0].role_id) !== 2) {
+        return res.status(403).json({ error: 'Only caregiver accounts can link to a senior.' });
       }
 
-      const linkSql = `
-        INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
-        VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE caregiver_id = VALUES(caregiver_id)
+      const duplicateSql = `
+        SELECT senior_id, caregiver_id
+        FROM Senior_has_Caregiver
+        WHERE senior_id = ? AND caregiver_id = ?
+        LIMIT 1
       `;
 
-      db.query(linkSql, [senior_id, caregiver_id], (linkErr) => {
-        if (linkErr) return res.status(500).json({ error: linkErr.message || linkErr });
-        res.json({ message: 'Senior linked to caregiver successfully.', senior_id });
+      db.query(duplicateSql, [senior_id, caregiver_id], (duplicateErr, duplicateRows) => {
+        if (duplicateErr) return res.status(500).json({ error: duplicateErr.message || duplicateErr });
+        if (duplicateRows.length) {
+          return res.status(409).json({ error: 'This senior is already linked to your caregiver account.' });
+        }
+
+        const linkSql = `
+          INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
+          VALUES (?, ?)
+        `;
+
+        db.query(linkSql, [senior_id, caregiver_id], (linkErr) => {
+          if (linkErr) return res.status(500).json({ error: linkErr.message || linkErr });
+          res.status(201).json({ message: 'Senior linked to caregiver successfully.', senior_id, caregiver_id });
+        });
       });
     });
+  });
+});
+
+router.get('/:caregiver_id/seniors', (req, res) => {
+  const { caregiver_id } = req.params;
+
+  if (!caregiver_id || Number.isNaN(Number(caregiver_id))) {
+    return res.status(400).json({ error: 'Caregiver user ID is required.' });
+  }
+
+  const sql = `
+    SELECT
+      s.senior_id,
+      s.user_id,
+      s.preferred_checkin_time,
+      YEAR(CURDATE()) - YEAR(ua.dob) - (DATE_FORMAT(ua.dob, '%m%d') > DATE_FORMAT(CURDATE(), '%m%d')) AS age,
+      ua.full_name,
+      ua.phone_number,
+      ua.email,
+      ua.dob,
+      ua.gender,
+      ua.address,
+      ua.postal_code,
+      ua.unit_number
+    FROM Senior s
+    JOIN Senior_has_Caregiver shc
+      ON s.senior_id = shc.senior_id
+    JOIN User_Account ua
+      ON s.user_id = ua.user_id
+    WHERE shc.caregiver_id = ?
+    ORDER BY ua.full_name ASC
+  `;
+
+  db.query(sql, [caregiver_id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message || err });
+    res.json(rows);
   });
 });
 

@@ -36,7 +36,6 @@ const formatCheckInTime = (value) => {
   return `${hour12}:${minute} ${period}`;
 };
 
-const generateLinkCode = () => String(Math.floor(100000 + Math.random() * 900000));
 const CHECKIN_TIMES = [
   '5:00 AM', '5:30 AM',
   '6:00 AM', '6:30 AM',
@@ -145,15 +144,15 @@ export default function SeniorSettingsScreen({
     setActiveModal('Caregiver');
   };
 
-  const saveSeniorLinkCode = async (code) => {
+  const generateSeniorLinkCode = async () => {
     if (!apiBase) {
       setLinkStatusError('Backend server is not available yet.');
       setLinkStatusMessage('');
       return;
     }
 
-    if (!code || !/^\d{6}$/.test(code)) {
-      setLinkStatusError('Please generate a valid 6-digit link code.');
+    if (!senior?.senior_id) {
+      setLinkStatusError('Senior profile is not ready yet.');
       setLinkStatusMessage('');
       return;
     }
@@ -166,17 +165,17 @@ export default function SeniorSettingsScreen({
       const response = await fetch(`${apiBase}/seniors/${senior?.senior_id}/link-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ link_code: code }),
       });
 
       const body = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(body?.error || body?.message || 'Unable to save link code.');
+        throw new Error(body?.error || body?.message || 'Unable to generate link code.');
       }
 
-      setLinkStatusMessage('Link code saved for your caregiver.');
+      setLinkCode(body?.link_code || '');
+      setLinkStatusMessage('Share this code with your caregiver.');
     } catch (err) {
-      setLinkStatusError(err?.message || 'Unable to save link code.');
+      setLinkStatusError(err?.message || 'Unable to generate link code.');
     } finally {
       setLinkSaving(false);
     }
@@ -349,20 +348,21 @@ export default function SeniorSettingsScreen({
                 {linkStatusMessage ? <Text style={styles.savedText}>{linkStatusMessage}</Text> : null}
                 <TouchableOpacity
                   style={[styles.primaryButton, linkSaving && styles.disabledButton]}
-                  onPress={() => saveSeniorLinkCode(linkCode)}
+                  onPress={generateSeniorLinkCode}
                   activeOpacity={0.86}
                   disabled={linkSaving}
                 >
-                  <Text style={styles.primaryButtonText}>{linkSaving ? 'Saving...' : 'Save Link Code'}</Text>
+                  <Text style={styles.primaryButtonText}>{linkSaving ? 'Generating...' : 'Generate New Code'}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.generateButton}
-                onPress={() => setLinkCode(generateLinkCode())}
+                style={[styles.generateButton, linkSaving && styles.disabledButton]}
+                onPress={generateSeniorLinkCode}
                 activeOpacity={0.86}
+                disabled={linkSaving}
               >
-                <Text style={styles.generateButtonText}>Generate Link Code</Text>
+                <Text style={styles.generateButtonText}>{linkSaving ? 'Generating...' : 'Generate Link Code'}</Text>
               </TouchableOpacity>
             )}
           </View>

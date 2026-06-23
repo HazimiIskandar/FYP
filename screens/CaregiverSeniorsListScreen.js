@@ -13,6 +13,7 @@ export default function CaregiverSeniorsListScreen({
   backendError,
   apiBase,
   authenticatedUser,
+  onRefresh,
 }) {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [linkCode, setLinkCode] = useState('');
@@ -66,10 +67,10 @@ export default function CaregiverSeniorsListScreen({
   });
 
   const submitLinkCode = async () => {
-    const cleanedCode = linkCode.trim();
+    const cleanedCode = linkCode.trim().toUpperCase();
 
-    if (!/^\d{6}$/.test(cleanedCode)) {
-      setSubmitError('Please enter a valid 6-digit link code.');
+    if (!/^[A-Z0-9]{6}$/.test(cleanedCode)) {
+      setSubmitError('Please enter a valid 6-character link code.');
       setSubmitMessage('');
       return;
     }
@@ -106,8 +107,9 @@ export default function CaregiverSeniorsListScreen({
         throw new Error(body?.error || body?.message || 'Unable to link senior.');
       }
 
-      setSubmitMessage('Senior link code submitted successfully.');
+      setSubmitMessage('Senior linked successfully.');
       setLinkCode('');
+      if (onRefresh) await onRefresh(authenticatedUser);
     } catch (error) {
       setSubmitError(error?.message || 'Unable to submit link code.');
     } finally {
@@ -216,13 +218,14 @@ export default function CaregiverSeniorsListScreen({
               style={styles.codeInput}
               value={linkCode}
               onChangeText={(value) => {
-                setLinkCode(value.replace(/\D/g, '').slice(0, 6));
+                setLinkCode(value.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 6));
                 setSubmitError('');
                 setSubmitMessage('');
               }}
-              placeholder="Enter 6-digit code"
+              placeholder="Enter 6-character code"
               placeholderTextColor="#9CA3AF"
-              keyboardType="number-pad"
+              autoCapitalize="characters"
+              autoCorrect={false}
               maxLength={6}
             />
 
@@ -235,7 +238,7 @@ export default function CaregiverSeniorsListScreen({
               activeOpacity={0.86}
               disabled={isSubmitting}
             >
-              <Text style={styles.submitButtonText}>{isSubmitting ? 'Submitting...' : 'Submit'}</Text>
+              <Text style={styles.submitButtonText}>{isSubmitting ? 'Linking...' : 'Link Senior'}</Text>
             </TouchableOpacity>
           </View>
         </View>

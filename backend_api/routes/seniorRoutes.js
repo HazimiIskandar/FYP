@@ -1,4 +1,5 @@
 const express = require("express");
+const crypto = require("crypto");
 const router = express.Router();
 const db = require("../config/db");
 
@@ -34,6 +35,58 @@ const ensureSeniorMedicalConditionColumns = async () => {
 };
 
 const seniorMedicalConditionColumnsReady = ensureSeniorMedicalConditionColumns();
+
+const LINK_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+const createLinkCode = () => {
+  let code = "";
+  for (let i = 0; i < 6; i += 1) {
+    code += LINK_CODE_ALPHABET[crypto.randomInt(0, LINK_CODE_ALPHABET.length)];
+  }
+  return code;
+};
+
+const saveUniqueLinkCode = (seniorId, attempts, callback) => {
+  if (attempts <= 0) {
+    callback(new Error("Unable to generate a unique link code. Please try again."));
+    return;
+  }
+
+  const linkCode = createLinkCode();
+
+  db.query(
+    "SELECT senior_id FROM Senior_Link_Code WHERE link_code = ? LIMIT 1",
+    [linkCode],
+    (checkErr, rows) => {
+      if (checkErr) {
+        callback(checkErr);
+        return;
+      }
+
+      if (rows.length && String(rows[0].senior_id) !== String(seniorId)) {
+        saveUniqueLinkCode(seniorId, attempts - 1, callback);
+        return;
+      }
+
+      const sql = `
+        INSERT INTO Senior_Link_Code (senior_id, link_code, created_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON DUPLICATE KEY UPDATE
+          link_code = VALUES(link_code),
+          created_at = CURRENT_TIMESTAMP
+      `;
+
+      db.query(sql, [seniorId, linkCode], (err) => {
+        if (err && err.code === "ER_DUP_ENTRY") {
+          saveUniqueLinkCode(seniorId, attempts - 1, callback);
+          return;
+        }
+
+        callback(err, linkCode);
+      });
+    }
+  );
+};
 
 /**
  * CREATE SENIOR RECORD IF MISSING
@@ -160,22 +213,46 @@ router.put("/:senior_id/checkin-time", (req, res) => {
 });
 
 router.post("/:senior_id/link-code", (req, res) => {
-  const { link_code } = req.body;
   const { senior_id } = req.params;
 
-  if (!link_code || !/^\d{6}$/.test(link_code)) {
-    return res.status(400).json({ error: "A valid 6-digit link code is required." });
+  if (!senior_id || Number.isNaN(Number(senior_id))) {
+    return res.status(400).json({ error: "A valid senior_id is required." });
+  }
+
+  db.query("SELECT senior_id FROM Senior WHERE senior_id = ? LIMIT 1", [senior_id], (findErr, rows) => {
+    if (findErr) return res.status(500).json({ error: findErr.message || findErr });
+    if (!rows.length) return res.status(404).json({ error: "Senior not found." });
+
+    saveUniqueLinkCode(senior_id, 8, (err, linkCode) => {
+      if (err) return res.status(500).json({ error: err.message || err });
+      res.json({
+        message: "Senior link code generated successfully.",
+        senior_id: Number(senior_id),
+        link_code: linkCode,
+      });
+    });
+  });
+});
+
+router.get("/:senior_id/caregivers", (req, res) => {
+  const { senior_id } = req.params;
+
+  if (!senior_id || Number.isNaN(Number(senior_id))) {
+    return res.status(400).json({ error: "A valid senior_id is required." });
   }
 
   const sql = `
-    INSERT INTO Senior_Link_Code (senior_id, link_code)
-    VALUES (?, ?)
-    ON DUPLICATE KEY UPDATE link_code = VALUES(link_code)
+    SELECT ua.*
+    FROM User_Account ua
+    JOIN Senior_has_Caregiver shc
+      ON ua.user_id = shc.caregiver_id
+    WHERE shc.senior_id = ?
+    ORDER BY ua.full_name ASC
   `;
 
-  db.query(sql, [senior_id, link_code], (err) => {
+  db.query(sql, [senior_id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message || err });
-    res.json({ message: "Senior link code saved successfully." });
+    res.json(rows);
   });
 });
 
