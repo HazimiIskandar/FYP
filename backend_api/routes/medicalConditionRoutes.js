@@ -5,7 +5,7 @@ const db = require("../config/db");
 // GET all medical conditions
 router.get("/", (req, res) => {
 
-    const sql = `SELECT * FROM Medical_Condition`;
+    const sql = `SELECT * FROM Medical_Condition ORDER BY condition_name`;
 
     db.query(sql, (err, result) => {
         if (err) return res.send(err);
@@ -28,6 +28,7 @@ router.get("/:senior_id", (req, res) => {
         JOIN Senior_Medical_Condition smc
           ON mc.condition_id = smc.condition_id
         WHERE smc.senior_id = ?
+        ORDER BY mc.condition_name
     `;
 
     db.query(sql, [req.params.senior_id], (err, result) => {

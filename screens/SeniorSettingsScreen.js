@@ -347,7 +347,6 @@ export default function SeniorSettingsScreen({
               <View style={styles.codeCard}>
                 <Text style={styles.codeLabel}>Your unique link code</Text>
                 <Text style={styles.linkCode}>{linkCode}</Text>
-                <Text style={styles.codeHelp}>Share this code with your caregiver.</Text>
                 {linkStatusError ? <Text style={styles.errorText}>{linkStatusError}</Text> : null}
                 {linkStatusMessage ? <Text style={styles.savedText}>{linkStatusMessage}</Text> : null}
                 <TouchableOpacity
