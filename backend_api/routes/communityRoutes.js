@@ -1,7 +1,66 @@
 const express = require("express");
 const db = require("../config/db");
+const { calculateCurrentStreak } = require("../services/rewardService");
 
 const router = express.Router();
+
+const runQuery = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) reject(err);
+      else resolve(results);
+    });
+  });
+
+const syncRewardStreak = async (seniorId) => {
+  const [rewardRows, checkInRows, communityRows] = await Promise.all([
+    runQuery(
+      `
+        SELECT reward_id
+        FROM Reward_Streak
+        WHERE senior_id = ?
+        ORDER BY reward_id ASC
+        LIMIT 1
+      `,
+      [seniorId]
+    ),
+    runQuery(
+      `
+        SELECT checkin_timestamp, checkin_status
+        FROM Daily_CheckIn
+        WHERE senior_id = ?
+        ORDER BY checkin_timestamp DESC
+      `,
+      [seniorId]
+    ),
+    runQuery(
+      `
+        SELECT activity_date, participation_status
+        FROM Community_Hub
+        WHERE senior_id = ?
+        ORDER BY activity_date DESC
+      `,
+      [seniorId]
+    ),
+  ]);
+
+  const currentStreak = calculateCurrentStreak([...checkInRows, ...communityRows]);
+  const rewardRow = rewardRows[0] || null;
+
+  if (rewardRow) {
+    await runQuery("UPDATE Reward_Streak SET current_streak = ? WHERE reward_id = ?", [
+      currentStreak,
+      rewardRow.reward_id,
+    ]);
+  } else {
+    await runQuery(
+      "INSERT INTO Reward_Streak (senior_id, current_streak, total_points) VALUES (?, ?, 0)",
+      [seniorId, currentStreak]
+    );
+  }
+
+  return currentStreak;
+};
 
 /**
  * GET /community/activities/all
@@ -80,12 +139,19 @@ router.post("/record-activity", (req, res) => {
     VALUES (?, ?, ?, NOW(), ?)
   `;
 
-  db.query(query, [senior_id, activity_name, activity_type, participation_status], (err, results) => {
+  db.query(query, [senior_id, activity_name, activity_type, participation_status], async (err, results) => {
     if (err) {
       console.error("Error recording activity:", err);
       return res.status(500).json({ error: "Failed to record activity" });
     }
-    res.json({ success: true, activity_id: results.insertId });
+
+    try {
+      const currentStreak = await syncRewardStreak(senior_id);
+      res.json({ success: true, activity_id: results.insertId, current_streak: currentStreak });
+    } catch (syncErr) {
+      console.error("Error syncing community streak:", syncErr);
+      res.json({ success: true, activity_id: results.insertId });
+    }
   });
 });
 

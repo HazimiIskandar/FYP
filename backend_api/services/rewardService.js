@@ -14,11 +14,33 @@ const toDateKey = (value) => {
   return `${year}-${month}-${day}`;
 };
 
-const calculateCurrentStreak = (checkins = []) => {
-  const orderedDates = checkins
-    .map((entry) => toDateKey(entry?.checkin_timestamp || entry?.date || entry?.created_at))
-    .filter(Boolean)
-    .sort((left, right) => right.localeCompare(left));
+const getEngagementTimestamp = (entry = {}) =>
+  entry.checkin_timestamp ||
+  entry.activity_date ||
+  entry.date ||
+  entry.created_at ||
+  entry.timestamp;
+
+const isCompletedEngagement = (entry = {}) => {
+  const checkInStatus = `${entry.checkin_status || ''}`.toLowerCase();
+  const participationStatus = `${entry.participation_status || ''}`.toLowerCase();
+
+  if (!checkInStatus && !participationStatus) {
+    return true;
+  }
+
+  return checkInStatus.includes('completed') || participationStatus === 'completed';
+};
+
+const calculateCurrentStreak = (engagements = []) => {
+  const orderedDates = Array.from(
+    new Set(
+      engagements
+        .filter(isCompletedEngagement)
+        .map((entry) => toDateKey(getEngagementTimestamp(entry)))
+        .filter(Boolean)
+    )
+  ).sort((left, right) => right.localeCompare(left));
 
   if (orderedDates.length === 0) {
     return 0;
@@ -60,5 +82,7 @@ const calculateCurrentStreak = (checkins = []) => {
 
 module.exports = {
   calculateCurrentStreak,
+  getEngagementTimestamp,
+  isCompletedEngagement,
   toDateKey,
 };

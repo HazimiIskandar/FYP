@@ -411,9 +411,15 @@ export default function App() {
 
     // Sort dates in descending order (most recent first)
     const orderedDates = allEngagementDates.sort((left, right) => right.localeCompare(left));
+    const todayKey = getDateKey(new Date());
+    const mostRecentDate = new Date(`${orderedDates[0]}T00:00:00`);
+    const today = new Date(`${todayKey}T00:00:00`);
+    const daysSinceLastEngagement = Math.round((today - mostRecentDate) / (24 * 60 * 60 * 1000));
+
+    if (daysSinceLastEngagement > 1) return 0;
 
     let streak = 1;
-    let previousDate = new Date(`${orderedDates[0]}T00:00:00`);
+    let previousDate = mostRecentDate;
 
     for (let index = 1; index < orderedDates.length; index += 1) {
       const currentDate = new Date(`${orderedDates[index]}T00:00:00`);

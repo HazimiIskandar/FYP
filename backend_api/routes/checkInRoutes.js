@@ -49,31 +49,42 @@ router.post("/", (req, res) => {
         db.query(insertCheckInSql, [senior_id, rewardId], (insertErr) => {
           if (insertErr) return res.status(500).json({ error: insertErr.message || insertErr });
 
-          const historySql = `
-            SELECT checkin_timestamp
+          const checkInHistorySql = `
+            SELECT checkin_timestamp, checkin_status
             FROM Daily_CheckIn
             WHERE senior_id = ?
             ORDER BY checkin_timestamp DESC
           `;
 
-          db.query(historySql, [senior_id], (historyErr, historyRows) => {
+          db.query(checkInHistorySql, [senior_id], (historyErr, historyRows) => {
             if (historyErr) return res.status(500).json({ error: historyErr.message || historyErr });
 
-            const currentStreak = calculateCurrentStreak(historyRows);
-            const nextTotalPoints = Number(previousPoints || 0) + CHECK_IN_POINTS;
-            const updateRewardSql = `
-              UPDATE Reward_Streak
-              SET current_streak = ?, total_points = ?
-              WHERE reward_id = ?
+            const communityHistorySql = `
+              SELECT activity_date, participation_status
+              FROM Community_Hub
+              WHERE senior_id = ?
+              ORDER BY activity_date DESC
             `;
 
-            db.query(updateRewardSql, [currentStreak, nextTotalPoints, rewardId], (updateErr) => {
-              if (updateErr) return res.status(500).json({ error: updateErr.message || updateErr });
+            db.query(communityHistorySql, [senior_id], (communityErr, communityRows) => {
+              if (communityErr) return res.status(500).json({ error: communityErr.message || communityErr });
 
-              res.json({
-                message: "Check-in successful",
-                current_streak: currentStreak,
-                total_points: nextTotalPoints,
+              const currentStreak = calculateCurrentStreak([...historyRows, ...communityRows]);
+              const nextTotalPoints = Number(previousPoints || 0) + CHECK_IN_POINTS;
+              const updateRewardSql = `
+                UPDATE Reward_Streak
+                SET current_streak = ?, total_points = ?
+                WHERE reward_id = ?
+              `;
+
+              db.query(updateRewardSql, [currentStreak, nextTotalPoints, rewardId], (updateErr) => {
+                if (updateErr) return res.status(500).json({ error: updateErr.message || updateErr });
+
+                res.json({
+                  message: "Check-in successful",
+                  current_streak: currentStreak,
+                  total_points: nextTotalPoints,
+                });
               });
             });
           });

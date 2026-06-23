@@ -56,13 +56,27 @@ const loadRewardSummary = async (seniorId) => {
     [seniorId]
   );
   const checkinRows = await runQuery(
-    "SELECT checkin_timestamp FROM Daily_CheckIn WHERE senior_id = ? ORDER BY checkin_timestamp DESC",
+    `
+      SELECT checkin_timestamp, checkin_status
+      FROM Daily_CheckIn
+      WHERE senior_id = ?
+      ORDER BY checkin_timestamp DESC
+    `,
+    [seniorId]
+  );
+  const communityRows = await runQuery(
+    `
+      SELECT activity_date, participation_status
+      FROM Community_Hub
+      WHERE senior_id = ?
+      ORDER BY activity_date DESC
+    `,
     [seniorId]
   );
 
   const rewardRow = rewardRows[0] || null;
   const todayKey = toDateKey(new Date());
-  const currentStreak = calculateCurrentStreak(checkinRows);
+  const currentStreak = calculateCurrentStreak([...checkinRows, ...communityRows]);
   const dailyPoints = normalizeDailyPoints(rewardRow, todayKey);
 
   if (rewardRow) {
