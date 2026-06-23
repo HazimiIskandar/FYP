@@ -3,8 +3,6 @@ const router = express.Router();
 const db = require("../config/db");
 const { calculateCurrentStreak } = require("../services/rewardService");
 
-const CHECK_IN_POINTS = 10;
-
 // POST /checkin - daily check-in for a senior.
 router.post("/", (req, res) => {
   if (!req.body || typeof req.body !== "object") {
@@ -40,7 +38,7 @@ router.post("/", (req, res) => {
     db.query(findRewardSql, [senior_id], (rewardErr, rewardRows) => {
       if (rewardErr) return res.status(500).json({ error: rewardErr.message || rewardErr });
 
-      const createCheckIn = (rewardId, previousPoints) => {
+      const createCheckIn = (rewardId, currentPoints) => {
         const insertCheckInSql = `
           INSERT INTO Daily_CheckIn (senior_id, checkin_status, reward_id)
           VALUES (?, 'Completed', ?)
@@ -70,20 +68,20 @@ router.post("/", (req, res) => {
               if (communityErr) return res.status(500).json({ error: communityErr.message || communityErr });
 
               const currentStreak = calculateCurrentStreak([...historyRows, ...communityRows]);
-              const nextTotalPoints = Number(previousPoints || 0) + CHECK_IN_POINTS;
+              const totalPoints = Number(currentPoints || 0);
               const updateRewardSql = `
                 UPDATE Reward_Streak
-                SET current_streak = ?, total_points = ?
+                SET current_streak = ?
                 WHERE reward_id = ?
               `;
 
-              db.query(updateRewardSql, [currentStreak, nextTotalPoints, rewardId], (updateErr) => {
+              db.query(updateRewardSql, [currentStreak, rewardId], (updateErr) => {
                 if (updateErr) return res.status(500).json({ error: updateErr.message || updateErr });
 
                 res.json({
                   message: "Check-in successful",
                   current_streak: currentStreak,
-                  total_points: nextTotalPoints,
+                  total_points: totalPoints,
                 });
               });
             });
