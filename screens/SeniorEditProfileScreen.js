@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -156,12 +156,27 @@ export default function SeniorEditProfileScreen({
   onRefresh,
   onProfile,
 }) {
-  const seniorCondition = senior?.medicalConditions?.[0] || {};
-  const seniorCondition2 = senior?.medicalConditions?.[1] || {};
+  const seniorMedicalConditions = Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : [];
+  const seniorNokContacts = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
+  const seniorCondition = seniorMedicalConditions[0] || {};
+  const seniorCondition2 = seniorMedicalConditions[1] || {};
   const initialRelationship = senior?.nokContacts?.[0]?.relationship_to_senior || '';
   const initialRelationship2 = senior?.nokContacts?.[1]?.relationship_to_senior || '';
   const isRelationshipStandard = RELATIONSHIPS.includes(initialRelationship);
   const isRelationship2Standard = RELATIONSHIPS.includes(initialRelationship2);
+  const seniorFormSourceKey = JSON.stringify({
+    seniorId: senior?.senior_id || null,
+    userId: senior?.user_id || null,
+    fullName: getSeniorName(senior),
+    dob: senior?.dob || '',
+    gender: senior?.gender || '',
+    address: senior?.address || '',
+    postalCode: senior?.postal_code || '',
+    unitNumber: senior?.unit_number || senior?.unit_no || '',
+    phone: senior?.phone_number || senior?.contact || '',
+    medicalConditions: seniorMedicalConditions,
+    nokContacts: seniorNokContacts,
+  });
   const initialDetails = useMemo(() => {
     const dobParts = parseDateParts(formatDate(senior?.dob));
     const diagnosedParts = parseDateParts(formatDate(seniorCondition?.diagnosed_date));
@@ -221,9 +236,10 @@ export default function SeniorEditProfileScreen({
       userId: senior?.user_id || null,
       seniorId: senior?.senior_id || null,
     };
-  }, [senior, seniorCondition, seniorCondition2, initialRelationship2, isRelationship2Standard, initialRelationship, isRelationshipStandard]);
+  }, [seniorFormSourceKey]);
 
   const [details, setDetails] = useState(initialDetails);
+  const lastFormSourceKeyRef = useRef(seniorFormSourceKey);
   const [savedMessage, setSavedMessage] = useState('');
   const [saveError, setSaveError] = useState('');
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -242,12 +258,21 @@ export default function SeniorEditProfileScreen({
   });
 
   useEffect(() => {
+    if (lastFormSourceKeyRef.current === seniorFormSourceKey) {
+      return;
+    }
+
+    lastFormSourceKeyRef.current = seniorFormSourceKey;
     setDetails(initialDetails);
-  }, [initialDetails]);
+  }, [initialDetails, seniorFormSourceKey]);
 
   useEffect(() => {
-    const medicalSource = Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : [];
-    const emergencySource = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
+    if (lastFormSourceKeyRef.current !== seniorFormSourceKey) {
+      return;
+    }
+
+    const medicalSource = seniorMedicalConditions;
+    const emergencySource = seniorNokContacts;
 
     setMedicalEntries(
       medicalSource.length ? medicalSource.map((item) => buildMedicalEntry(item)) : [buildMedicalEntry({})]
@@ -255,7 +280,7 @@ export default function SeniorEditProfileScreen({
     setEmergencyEntries(
       emergencySource.length ? emergencySource.map((item) => buildEmergencyEntry(item)) : [buildEmergencyEntry({})]
     );
-  }, [senior]);
+  }, [seniorFormSourceKey]);
 
   const updateMedicalEntry = (index, key, value) => {
     setMedicalEntries((current) =>
