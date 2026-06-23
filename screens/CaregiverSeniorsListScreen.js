@@ -92,16 +92,41 @@ export default function CaregiverSeniorsListScreen({
     setSubmitMessage('');
 
     try {
-      const response = await fetch(`${apiBase}/caregiver/link-senior`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          link_code: cleanedCode,
-          caregiver_id: authenticatedUser.user_id,
-        }),
-      });
+      const requestBody = {
+        link_code: cleanedCode,
+        caregiver_id: authenticatedUser.user_id,
+      };
+      const endpointPaths = ['/seniors/link-caregiver', '/caregiver/link-senior'];
+      let response = null;
+      let body = null;
+      let lastError = null;
 
-      const body = await response.json().catch(() => null);
+      for (const path of endpointPaths) {
+        try {
+          response = await fetch(`${apiBase}${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          });
+
+          body = await response.json().catch(() => null);
+          if (!response.ok && response.status === 404 && !body?.error && path !== endpointPaths[endpointPaths.length - 1]) {
+            lastError = new Error('Link endpoint was not found.');
+            response = null;
+            body = null;
+            continue;
+          }
+
+          lastError = null;
+          break;
+        } catch (fetchError) {
+          lastError = fetchError;
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error('Unable to reach the backend server.');
+      }
 
       if (!response.ok) {
         throw new Error(body?.error || body?.message || 'Unable to link senior.');
@@ -109,9 +134,17 @@ export default function CaregiverSeniorsListScreen({
 
       setSubmitMessage('Senior linked successfully.');
       setLinkCode('');
-      if (onRefresh) await onRefresh(authenticatedUser);
+      try {
+        if (onRefresh) await onRefresh(authenticatedUser);
+      } catch (refreshError) {
+        console.log('Linked senior, but roster refresh failed:', refreshError);
+      }
     } catch (error) {
-      setSubmitError(error?.message || 'Unable to submit link code.');
+      setSubmitError(
+        error?.message === 'Failed to fetch'
+          ? `Unable to reach backend at ${apiBase}. Please restart or redeploy the backend, then try again.`
+          : error?.message || 'Unable to submit link code.'
+      );
     } finally {
       setIsSubmitting(false);
     }

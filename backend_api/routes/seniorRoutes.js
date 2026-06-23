@@ -169,6 +169,76 @@ router.get("/", (req, res) => {
   });
 });
 
+router.post("/link-caregiver", (req, res) => {
+  const linkCode = String(req.body?.link_code || "").trim();
+  const caregiverId = req.body?.caregiver_id;
+
+  if (!/^\d{6}$/.test(linkCode)) {
+    return res.status(400).json({ error: "A valid 6-digit link code is required." });
+  }
+
+  if (!caregiverId || Number.isNaN(Number(caregiverId))) {
+    return res.status(400).json({ error: "Caregiver user ID is required." });
+  }
+
+  const findSeniorSql = `
+    SELECT senior_id
+    FROM Senior_Link_Code
+    WHERE link_code = ?
+    LIMIT 1
+  `;
+
+  db.query(findSeniorSql, [linkCode], (findErr, seniorRows) => {
+    if (findErr) return res.status(500).json({ error: findErr.message || findErr });
+    if (!seniorRows.length) {
+      return res.status(404).json({ error: "No senior found for that link code." });
+    }
+
+    const seniorId = seniorRows[0].senior_id;
+    const verifyCaregiverSql = `
+      SELECT role_id
+      FROM User_Account
+      WHERE user_id = ?
+      LIMIT 1
+    `;
+
+    db.query(verifyCaregiverSql, [caregiverId], (caregiverErr, caregiverRows) => {
+      if (caregiverErr) return res.status(500).json({ error: caregiverErr.message || caregiverErr });
+      if (!caregiverRows.length || Number(caregiverRows[0].role_id) !== 2) {
+        return res.status(403).json({ error: "Only caregiver accounts can link to a senior." });
+      }
+
+      const duplicateSql = `
+        SELECT senior_id, caregiver_id
+        FROM Senior_has_Caregiver
+        WHERE senior_id = ? AND caregiver_id = ?
+        LIMIT 1
+      `;
+
+      db.query(duplicateSql, [seniorId, caregiverId], (duplicateErr, duplicateRows) => {
+        if (duplicateErr) return res.status(500).json({ error: duplicateErr.message || duplicateErr });
+        if (duplicateRows.length) {
+          return res.status(409).json({ error: "This senior is already linked to your caregiver account." });
+        }
+
+        const insertSql = `
+          INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
+          VALUES (?, ?)
+        `;
+
+        db.query(insertSql, [seniorId, caregiverId], (insertErr) => {
+          if (insertErr) return res.status(500).json({ error: insertErr.message || insertErr });
+          res.status(201).json({
+            message: "Senior linked to caregiver successfully.",
+            senior_id: seniorId,
+            caregiver_id: Number(caregiverId),
+          });
+        });
+      });
+    });
+  });
+});
+
 /**
  * GET SINGLE SENIOR (basic profile)
  */
