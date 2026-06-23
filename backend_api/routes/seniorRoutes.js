@@ -190,8 +190,8 @@ router.get("/:senior_id/medical-conditions", async (req, res) => {
       SELECT
         mc.condition_id,
         mc.condition_name,
-        COALESCE(smc.severity_level, mc.severity_level) AS severity_level,
-        COALESCE(smc.medication_required, mc.medication_required) AS medication_required,
+        smc.severity_level,
+        smc.medication_required,
         smc.diagnosed_date
       FROM Senior_Medical_Condition smc
       JOIN Medical_Condition mc
@@ -380,13 +380,13 @@ router.put('/:senior_id/medical-condition', async (req, res) => {
 
   if (customCondition && !condition_id) {
     const insertConditionSql = `
-      INSERT INTO Medical_Condition (condition_name, severity_level, medication_required)
-      VALUES (?, ?, ?)
+      INSERT INTO Medical_Condition (condition_name)
+      VALUES (?)
     `;
 
     db.query(
       insertConditionSql,
-      [customCondition, severity_level || null, medication_required || null],
+      [customCondition],
       (err, result) => {
         if (err) return res.status(500).json(err);
         upsertCondition(result.insertId);
@@ -421,14 +421,12 @@ router.put('/:senior_id/medical-conditions/sync', async (req, res) => {
 
       if (!conditionId && item.customCondition) {
         const insertConditionSql = `
-          INSERT INTO Medical_Condition (condition_name, severity_level, medication_required)
-          VALUES (?, ?, ?)
+          INSERT INTO Medical_Condition (condition_name)
+          VALUES (?)
         `;
 
         const insertResult = await runQuery(insertConditionSql, [
           item.customCondition,
-          severityLevel,
-          medicationRequired,
         ]);
 
         conditionId = insertResult.insertId;
@@ -466,8 +464,8 @@ router.put('/:senior_id/medical-conditions/sync', async (req, res) => {
       SELECT
         mc.condition_id,
         mc.condition_name,
-        COALESCE(smc.severity_level, mc.severity_level) AS severity_level,
-        COALESCE(smc.medication_required, mc.medication_required) AS medication_required,
+        smc.severity_level,
+        smc.medication_required,
         smc.diagnosed_date
       FROM Senior_Medical_Condition smc
       JOIN Medical_Condition mc

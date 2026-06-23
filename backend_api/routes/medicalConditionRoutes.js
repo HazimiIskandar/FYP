@@ -21,8 +21,8 @@ router.get("/:senior_id", (req, res) => {
         SELECT
           mc.condition_id,
           mc.condition_name,
-          mc.severity_level,
-          mc.medication_required,
+          smc.severity_level,
+          smc.medication_required,
           smc.diagnosed_date
         FROM Medical_Condition mc
         JOIN Senior_Medical_Condition smc

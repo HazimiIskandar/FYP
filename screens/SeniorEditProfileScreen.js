@@ -38,7 +38,7 @@ const CONDITION_OTHER = 'Others';
 
 const GENDERS = ['Male', 'Female'];
 const RELATIONSHIPS = ['Son', 'Daughter', 'Spouse', 'Sibling', 'Friend', 'Neighbor', CONDITION_OTHER];
-const SEVERITY_OPTIONS = ['Low', 'Moderate', 'High'];
+const SEVERITY_OPTIONS = ['Mild', 'Moderate', 'High'];
 const MEDICATION_OPTIONS = ['Yes', 'No'];
 const MONTHS = [
   { label: '01', value: '01' },
@@ -116,6 +116,13 @@ const formatDateForDB = (value) => {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
 
+const capitalizeWords = (str) => {
+  return str
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 const buildMedicalEntry = (condition = {}) => {
   const conditionName = condition?.condition_name || '';
   const hasKnownConditionId = Number.isInteger(Number(condition?.condition_id));
@@ -158,8 +165,6 @@ export default function SeniorEditProfileScreen({
 }) {
   const seniorMedicalConditions = Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : [];
   const seniorNokContacts = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
-  const seniorCondition = seniorMedicalConditions[0] || {};
-  const seniorCondition2 = seniorMedicalConditions[1] || {};
   const initialRelationship = senior?.nokContacts?.[0]?.relationship_to_senior || '';
   const initialRelationship2 = senior?.nokContacts?.[1]?.relationship_to_senior || '';
   const isRelationshipStandard = RELATIONSHIPS.includes(initialRelationship);
@@ -179,8 +184,6 @@ export default function SeniorEditProfileScreen({
   });
   const initialDetails = useMemo(() => {
     const dobParts = parseDateParts(formatDate(senior?.dob));
-    const diagnosedParts = parseDateParts(formatDate(seniorCondition?.diagnosed_date));
-    const diagnosedParts2 = parseDateParts(formatDate(seniorCondition2?.diagnosed_date));
 
     return {
       fullName: getSeniorName(senior),
@@ -194,29 +197,6 @@ export default function SeniorEditProfileScreen({
       postalCode: senior?.postal_code || '',
       unitNumber: senior?.unit_number || senior?.unit_no || '',
       phone: senior?.phone_number || senior?.contact || '',
-      condition: seniorCondition?.condition_name || '',
-      conditionId: seniorCondition?.condition_id || null,
-      customCondition: '',
-      severity: seniorCondition?.severity_level || '',
-      medicationRequired: seniorCondition?.medication_required || '',
-      diagnosedDate: buildDateValue(diagnosedParts.day, diagnosedParts.month, diagnosedParts.year),
-      diagnosedDay: diagnosedParts.day,
-      diagnosedMonth: diagnosedParts.month,
-      diagnosedYear: diagnosedParts.year,
-      condition2: seniorCondition2?.condition_name || '',
-      conditionId2: seniorCondition2?.condition_id || null,
-      customCondition2: '',
-      severity2: seniorCondition2?.severity_level || '',
-      medicationRequired2: seniorCondition2?.medication_required || '',
-      diagnosedDate2: buildDateValue(diagnosedParts2.day, diagnosedParts2.month, diagnosedParts2.year),
-      diagnosedDay2: diagnosedParts2.day,
-      diagnosedMonth2: diagnosedParts2.month,
-      diagnosedYear2: diagnosedParts2.year,
-      hasSecondCondition:
-        Boolean(seniorCondition2?.condition_name) ||
-        Boolean(seniorCondition2?.severity_level) ||
-        Boolean(seniorCondition2?.medication_required) ||
-        Boolean(seniorCondition2?.diagnosed_date),
       emergencyName: senior?.nokContacts?.[0]?.full_name || '',
       emergencyRelationship: isRelationshipStandard ? initialRelationship : (initialRelationship ? CONDITION_OTHER : ''),
       emergencyRelationshipCustom: isRelationshipStandard ? '' : initialRelationship || '',
@@ -349,68 +329,6 @@ export default function SeniorEditProfileScreen({
       .finally(() => setLoadingConditions(false));
   }, [apiBase]);
 
-  useEffect(() => {
-    if (!medicalConditionsList.length || !details.condition) return;
-
-    const selectedCondition = medicalConditionsList.find(
-      (item) => item.condition_name === details.condition
-    );
-
-    if (selectedCondition && !details.conditionId) {
-      setDetails((current) => ({
-        ...current,
-        conditionId: selectedCondition.condition_id,
-        severity: current.severity || selectedCondition.severity_level || '',
-        medicationRequired: current.medicationRequired || selectedCondition.medication_required || '',
-      }));
-      return;
-    }
-
-    if (
-      details.condition &&
-      details.condition !== CONDITION_OTHER &&
-      !selectedCondition &&
-      !details.customCondition
-    ) {
-      setDetails((current) => ({
-        ...current,
-        condition: CONDITION_OTHER,
-        customCondition: current.condition,
-      }));
-    }
-  }, [medicalConditionsList, details.condition, details.conditionId, details.customCondition]);
-
-  useEffect(() => {
-    if (!medicalConditionsList.length || !details.condition2) return;
-
-    const selectedCondition = medicalConditionsList.find(
-      (item) => item.condition_name === details.condition2
-    );
-
-    if (selectedCondition && !details.conditionId2) {
-      setDetails((current) => ({
-        ...current,
-        conditionId2: selectedCondition.condition_id,
-        severity2: current.severity2 || selectedCondition.severity_level || '',
-        medicationRequired2: current.medicationRequired2 || selectedCondition.medication_required || '',
-      }));
-      return;
-    }
-
-    if (
-      details.condition2 &&
-      details.condition2 !== CONDITION_OTHER &&
-      !selectedCondition &&
-      !details.customCondition2
-    ) {
-      setDetails((current) => ({
-        ...current,
-        condition2: CONDITION_OTHER,
-        customCondition2: current.condition2,
-      }));
-    }
-  }, [medicalConditionsList, details.condition2, details.conditionId2, details.customCondition2]);
-
   const openDropdown = (key, title, options) => {
     setDropdownState({ visible: true, title, key, options });
   };
@@ -445,10 +363,7 @@ export default function SeniorEditProfileScreen({
           updateMedicalEntry(index, 'condition', value);
           updateMedicalEntry(index, 'conditionId', item?.condition_id || null);
           updateMedicalEntry(index, 'customCondition', '');
-          if (item) {
-            updateMedicalEntry(index, 'severity', item.severity_level || '');
-            updateMedicalEntry(index, 'medicationRequired', item.medication_required || '');
-          }
+          // Do NOT auto-populate severity or medicationRequired from Medical_Condition
         }
       } else {
         updateMedicalEntry(index, field, value);
@@ -479,47 +394,7 @@ export default function SeniorEditProfileScreen({
       return;
     }
 
-    if (dropdownState.key === 'condition') {
-      const nextDetails = { condition: value };
-
-      if (value === CONDITION_OTHER) {
-        nextDetails.conditionId = null;
-        nextDetails.customCondition = '';
-        nextDetails.severity = '';
-        nextDetails.medicationRequired = '';
-      } else {
-        const item = medicalConditionsList.find(
-          (option) => option.condition_name === value
-        );
-        nextDetails.conditionId = item?.condition_id || null;
-        if (item) {
-          nextDetails.severity = item.severity_level || '';
-          nextDetails.medicationRequired = item.medication_required || '';
-        }
-      }
-
-      setDetails((current) => ({ ...current, ...nextDetails }));
-    } else if (dropdownState.key === 'condition2') {
-      const nextDetails = { condition2: value };
-
-      if (value === CONDITION_OTHER) {
-        nextDetails.conditionId2 = null;
-        nextDetails.customCondition2 = '';
-        nextDetails.severity2 = '';
-        nextDetails.medicationRequired2 = '';
-      } else {
-        const item = medicalConditionsList.find(
-          (option) => option.condition_name === value
-        );
-        nextDetails.conditionId2 = item?.condition_id || null;
-        if (item) {
-          nextDetails.severity2 = item.severity_level || '';
-          nextDetails.medicationRequired2 = item.medication_required || '';
-        }
-      }
-
-      setDetails((current) => ({ ...current, ...nextDetails }));
-    } else if (dropdownState.key === 'emergencyRelationship') {
+    if (dropdownState.key === 'emergencyRelationship') {
       const nextDetails = { emergencyRelationship: value };
       if (value === CONDITION_OTHER) {
         nextDetails.emergencyRelationshipCustom = '';
@@ -595,20 +470,10 @@ export default function SeniorEditProfileScreen({
         : nokData
         ? [nokData]
         : [];
-      const savedCondition = Array.isArray(conditionsData) ? conditionsData[0] : conditionsData;
-      const savedCondition2 = Array.isArray(conditionsData) ? conditionsData[1] : null;
-      const diagnosedParts = parseDateParts(formatDate(savedCondition?.diagnosed_date));
-      const diagnosedParts2 = parseDateParts(formatDate(savedCondition2?.diagnosed_date));
       const relationship = nokData?.[0]?.relationship_to_senior || '';
       const relationship2 = nokData?.[1]?.relationship_to_senior || '';
       const isRelationshipStandard = RELATIONSHIPS.includes(relationship);
       const isRelationship2Standard = RELATIONSHIPS.includes(relationship2);
-      const conditionMatchesList = medicalConditionsList.some(
-        (item) => item.condition_id === savedCondition?.condition_id
-      );
-      const condition2MatchesList = medicalConditionsList.some(
-        (item) => item.condition_id === savedCondition2?.condition_id
-      );
 
       setMedicalEntries(
         conditionArray.length
@@ -642,43 +507,6 @@ export default function SeniorEditProfileScreen({
         postalCode: profileData?.postal_code || '',
         unitNumber: profileData?.unit_number || profileData?.unit_no || '',
         phone: profileData?.phone_number || profileData?.contact || '',
-        condition: savedCondition
-          ? conditionMatchesList
-            ? savedCondition.condition_name
-            : CONDITION_OTHER
-          : current.condition,
-        conditionId: savedCondition?.condition_id || current.conditionId,
-        customCondition:
-          savedCondition && !conditionMatchesList
-            ? savedCondition.condition_name || current.customCondition
-            : current.customCondition,
-        severity: savedCondition?.severity_level || current.severity,
-        medicationRequired: savedCondition?.medication_required || current.medicationRequired,
-        diagnosedDate: buildDateValue(diagnosedParts.day, diagnosedParts.month, diagnosedParts.year),
-        diagnosedDay: diagnosedParts.day,
-        diagnosedMonth: diagnosedParts.month,
-        diagnosedYear: diagnosedParts.year,
-        condition2: savedCondition2
-          ? condition2MatchesList
-            ? savedCondition2.condition_name
-            : CONDITION_OTHER
-          : '',
-        conditionId2: savedCondition2?.condition_id || null,
-        customCondition2:
-          savedCondition2 && !condition2MatchesList
-            ? savedCondition2.condition_name || ''
-            : '',
-        severity2: savedCondition2?.severity_level || '',
-        medicationRequired2: savedCondition2?.medication_required || '',
-        diagnosedDate2: buildDateValue(diagnosedParts2.day, diagnosedParts2.month, diagnosedParts2.year),
-        diagnosedDay2: diagnosedParts2.day,
-        diagnosedMonth2: diagnosedParts2.month,
-        diagnosedYear2: diagnosedParts2.year,
-        hasSecondCondition:
-          Boolean(savedCondition2?.condition_name) ||
-          Boolean(savedCondition2?.severity_level) ||
-          Boolean(savedCondition2?.medication_required) ||
-          Boolean(savedCondition2?.diagnosed_date),
         emergencyName: nokData?.[0]?.full_name || current.emergencyName,
         emergencyRelationship: isRelationshipStandard
           ? relationship
@@ -894,9 +722,14 @@ export default function SeniorEditProfileScreen({
         // Sync all medical conditions in one request.
         const conditionsToSync = medicalEntries
           .map((entry) => {
+            let customCondition = undefined;
+            if (entry.condition === CONDITION_OTHER && entry.customCondition) {
+              customCondition = capitalizeWords(entry.customCondition);
+            }
+
             const payload = {
               condition_id: entry.conditionId,
-              customCondition: entry.condition === CONDITION_OTHER ? entry.customCondition : undefined,
+              customCondition,
               diagnosed_date: formatDateForDB(entry.diagnosedDate),
               severity_level: entry.severity,
               medication_required: entry.medicationRequired,

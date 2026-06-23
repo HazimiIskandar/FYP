@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`User_Account` (
     ON DELETE RESTRICT
     ON UPDATE CASCADE)
 ENGINE = InnoDB
-AUTO_INCREMENT = 3
+AUTO_INCREMENT = 11
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`AIC_Staff` (
     ON DELETE CASCADE
     ON UPDATE CASCADE)
 ENGINE = InnoDB
+AUTO_INCREMENT = 3
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -91,7 +92,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Senior` (
     ON DELETE RESTRICT
     ON UPDATE CASCADE)
 ENGINE = InnoDB
-AUTO_INCREMENT = 6
+AUTO_INCREMENT = 11
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Community_Hub` (
     FOREIGN KEY (`senior_id`)
     REFERENCES `senior_connect_curiousago`.`Senior` (`senior_id`))
 ENGINE = InnoDB
+AUTO_INCREMENT = 5
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -122,12 +124,16 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Reward_Streak` (
   `senior_id` INT NOT NULL,
   `current_streak` INT NOT NULL,
   `total_points` INT NOT NULL,
+  `daily_points` INT NOT NULL DEFAULT '0',
+  `daily_points_date` DATE NULL DEFAULT NULL,
+  `last_checkin_date` DATE NULL DEFAULT NULL,
   PRIMARY KEY (`reward_id`),
   INDEX `senior_id` (`senior_id` ASC) VISIBLE,
   CONSTRAINT `Reward_Streak_ibfk_1`
     FOREIGN KEY (`senior_id`)
     REFERENCES `senior_connect_curiousago`.`Senior` (`senior_id`))
 ENGINE = InnoDB
+AUTO_INCREMENT = 13
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -152,6 +158,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Daily_CheckIn` (
     FOREIGN KEY (`reward_id`)
     REFERENCES `senior_connect_curiousago`.`Reward_Streak` (`reward_id`))
 ENGINE = InnoDB
+AUTO_INCREMENT = 4
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -166,6 +173,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Sensor` (
   `installed_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`sensor_id`))
 ENGINE = InnoDB
+AUTO_INCREMENT = 2
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -184,6 +192,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Sensor_Alert` (
     FOREIGN KEY (`sensor_id`)
     REFERENCES `senior_connect_curiousago`.`Sensor` (`sensor_id`))
 ENGINE = InnoDB
+AUTO_INCREMENT = 2
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -238,6 +247,7 @@ DEFAULT CHARACTER SET = utf8mb4;
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Escalation_Assignment` (
   `staff_id` INT NOT NULL,
   `escalation_id` INT NOT NULL,
+  PRIMARY KEY (`staff_id`, `escalation_id`),
   INDEX `fk_AIC_Staff_has_Escalation_History_Escalation_History1_idx` (`escalation_id` ASC) VISIBLE,
   INDEX `fk_AIC_Staff_has_Escalation_History_AIC_Staff1_idx` (`staff_id` ASC) VISIBLE,
   CONSTRAINT `fk_AIC_Staff_has_Escalation_History_AIC_Staff1`
@@ -276,7 +286,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`NOK` (
   `relationship_to_senior` VARCHAR(50) NOT NULL,
   PRIMARY KEY (`nok_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 4
+AUTO_INCREMENT = 10
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -375,7 +385,9 @@ DEFAULT CHARACTER SET = utf8mb4;
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Senior_Medical_Condition` (
   `senior_id` INT NOT NULL,
   `condition_id` INT NOT NULL,
-  `diagnosed_date` DATE NOT NULL,
+  `diagnosed_date` DATE NULL DEFAULT NULL,
+  `severity_level` VARCHAR(45) NULL DEFAULT NULL,
+  `medication_required` VARCHAR(45) NULL DEFAULT NULL,
   PRIMARY KEY (`senior_id`, `condition_id`),
   INDEX `condition_id` (`condition_id` ASC) VISIBLE,
   CONSTRAINT `Senior_Medical_Condition_ibfk_1`
@@ -462,17 +474,13 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Sensor_Reading` (
   `unit` VARCHAR(20) NOT NULL,
   `recorded_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `sensor_id` INT NOT NULL,
-  `event_id` INT NULL DEFAULT NULL,
   PRIMARY KEY (`reading_id`, `sensor_id`),
   INDEX `fk_Sensor_Reading_Sensor1_idx` (`sensor_id` ASC) VISIBLE,
-  INDEX `fk_Sensor_Reading_Emergency_Event1_idx` (`event_id` ASC) VISIBLE,
-  CONSTRAINT `fk_Sensor_Reading_Emergency_Event1`
-    FOREIGN KEY (`event_id`)
-    REFERENCES `senior_connect_curiousago`.`Emergency_Event` (`event_id`),
   CONSTRAINT `fk_Sensor_Reading_Sensor1`
     FOREIGN KEY (`sensor_id`)
     REFERENCES `senior_connect_curiousago`.`Sensor` (`sensor_id`))
 ENGINE = InnoDB
+AUTO_INCREMENT = 2
 DEFAULT CHARACTER SET = utf8mb4;
 
 
