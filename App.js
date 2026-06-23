@@ -460,6 +460,15 @@ export default function App() {
     )
   ).length;
 
+  // determine if the current senior has a completed check-in for today
+  const isCheckedInToday = currentSenior?.senior_id
+    ? checkIns.some((c) =>
+        String(c?.senior_id) === String(currentSenior.senior_id) &&
+        (c?.checkin_status || '').toLowerCase().includes('completed') &&
+        (!c.checkin_timestamp || new Date(c.checkin_timestamp).toDateString() === todayString)
+      )
+    : false;
+
   // -------------------------
   // NOTIFICATIONS
   // -------------------------
@@ -753,7 +762,7 @@ export default function App() {
         <SeniorHomeScreen
           senior={currentSenior}
           seniorName={seniorName}
-          hasCheckedIn={hasCheckedIn}
+          hasCheckedIn={isCheckedInToday}
           currentStreak={currentStreak}
           onCheckIn={handleCheckIn}
           onSOS={() => setCurrentScreen('Emergency')}
