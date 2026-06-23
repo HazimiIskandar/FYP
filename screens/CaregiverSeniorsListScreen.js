@@ -69,8 +69,8 @@ export default function CaregiverSeniorsListScreen({
   const submitLinkCode = async () => {
     const cleanedCode = linkCode.trim().toUpperCase();
 
-    if (!/^[A-Z0-9]{6}$/.test(cleanedCode)) {
-      setSubmitError('Please enter a valid 6-character link code.');
+    if (!/^\d{6}$/.test(cleanedCode)) {
+      setSubmitError('Please enter a valid 6-digit link code.');
       setSubmitMessage('');
       return;
     }
@@ -218,12 +218,13 @@ export default function CaregiverSeniorsListScreen({
               style={styles.codeInput}
               value={linkCode}
               onChangeText={(value) => {
-                setLinkCode(value.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 6));
+                setLinkCode(value.replace(/\D/g, '').slice(0, 6));
                 setSubmitError('');
                 setSubmitMessage('');
               }}
-              placeholder="Enter 6-character code"
+              placeholder="Enter 6-digit code"
               placeholderTextColor="#9CA3AF"
+              keyboardType="number-pad"
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={6}

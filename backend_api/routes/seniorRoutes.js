@@ -36,23 +36,21 @@ const ensureSeniorMedicalConditionColumns = async () => {
 
 const seniorMedicalConditionColumnsReady = ensureSeniorMedicalConditionColumns();
 
-const LINK_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
 const createLinkCode = () => {
   let code = "";
   for (let i = 0; i < 6; i += 1) {
-    code += LINK_CODE_ALPHABET[crypto.randomInt(0, LINK_CODE_ALPHABET.length)];
+    code += String(crypto.randomInt(0, 10));
   }
   return code;
 };
 
-const saveUniqueLinkCode = (seniorId, attempts, callback) => {
+const saveUniqueLinkCode = (seniorId, attempts, callback, requestedCode = null) => {
   if (attempts <= 0) {
     callback(new Error("Unable to generate a unique link code. Please try again."));
     return;
   }
 
-  const linkCode = createLinkCode();
+  const linkCode = requestedCode || createLinkCode();
 
   db.query(
     "SELECT senior_id FROM Senior_Link_Code WHERE link_code = ? LIMIT 1",
@@ -64,6 +62,11 @@ const saveUniqueLinkCode = (seniorId, attempts, callback) => {
       }
 
       if (rows.length && String(rows[0].senior_id) !== String(seniorId)) {
+        if (requestedCode) {
+          callback(new Error("This link code is already in use. Please generate another code."));
+          return;
+        }
+
         saveUniqueLinkCode(seniorId, attempts - 1, callback);
         return;
       }
@@ -78,6 +81,11 @@ const saveUniqueLinkCode = (seniorId, attempts, callback) => {
 
       db.query(sql, [seniorId, linkCode], (err) => {
         if (err && err.code === "ER_DUP_ENTRY") {
+          if (requestedCode) {
+            callback(new Error("This link code is already in use. Please generate another code."));
+            return;
+          }
+
           saveUniqueLinkCode(seniorId, attempts - 1, callback);
           return;
         }
@@ -214,9 +222,14 @@ router.put("/:senior_id/checkin-time", (req, res) => {
 
 router.post("/:senior_id/link-code", (req, res) => {
   const { senior_id } = req.params;
+  const requestedCode = req.body?.link_code ? String(req.body.link_code).trim() : null;
 
   if (!senior_id || Number.isNaN(Number(senior_id))) {
     return res.status(400).json({ error: "A valid senior_id is required." });
+  }
+
+  if (requestedCode && !/^\d{6}$/.test(requestedCode)) {
+    return res.status(400).json({ error: "A valid 6-digit link code is required." });
   }
 
   db.query("SELECT senior_id FROM Senior WHERE senior_id = ? LIMIT 1", [senior_id], (findErr, rows) => {
@@ -230,7 +243,7 @@ router.post("/:senior_id/link-code", (req, res) => {
         senior_id: Number(senior_id),
         link_code: linkCode,
       });
-    });
+    }, requestedCode);
   });
 });
 

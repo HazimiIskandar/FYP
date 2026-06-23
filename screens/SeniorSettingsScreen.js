@@ -47,6 +47,8 @@ const CHECKIN_TIMES = [
   '12:00 PM',
 ];
 
+const generateLinkCode = () => String(Math.floor(100000 + Math.random() * 900000));
+
 export default function SeniorSettingsScreen({
   senior = {},
   apiBase,
@@ -162,9 +164,11 @@ export default function SeniorSettingsScreen({
     setLinkStatusMessage('');
 
     try {
+      const generatedCode = generateLinkCode();
       const response = await fetch(`${apiBase}/seniors/${senior?.senior_id}/link-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link_code: generatedCode }),
       });
 
       const body = await response.json().catch(() => null);
@@ -172,7 +176,7 @@ export default function SeniorSettingsScreen({
         throw new Error(body?.error || body?.message || 'Unable to generate link code.');
       }
 
-      setLinkCode(body?.link_code || '');
+      setLinkCode(body?.link_code || generatedCode);
       setLinkStatusMessage('Share this code with your caregiver.');
     } catch (err) {
       setLinkStatusError(err?.message || 'Unable to generate link code.');
@@ -356,14 +360,18 @@ export default function SeniorSettingsScreen({
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity
-                style={[styles.generateButton, linkSaving && styles.disabledButton]}
-                onPress={generateSeniorLinkCode}
-                activeOpacity={0.86}
-                disabled={linkSaving}
-              >
-                <Text style={styles.generateButtonText}>{linkSaving ? 'Generating...' : 'Generate Link Code'}</Text>
-              </TouchableOpacity>
+              <View>
+                <TouchableOpacity
+                  style={[styles.generateButton, linkSaving && styles.disabledButton]}
+                  onPress={generateSeniorLinkCode}
+                  activeOpacity={0.86}
+                  disabled={linkSaving}
+                >
+                  <Text style={styles.generateButtonText}>{linkSaving ? 'Generating...' : 'Generate Link Code'}</Text>
+                </TouchableOpacity>
+                {linkStatusError ? <Text style={styles.errorText}>{linkStatusError}</Text> : null}
+                {linkStatusMessage ? <Text style={styles.savedText}>{linkStatusMessage}</Text> : null}
+              </View>
             )}
           </View>
         </View>
