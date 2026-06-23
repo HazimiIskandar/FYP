@@ -12,18 +12,59 @@ const runQuery = (sql, params = []) =>
     });
   });
 
+const ensureRewardRow = async (seniorId) => {
+  const rewardRows = await runQuery(
+    `
+      SELECT reward_id
+      FROM Reward_Streak
+      WHERE senior_id = ?
+      ORDER BY reward_id ASC
+      LIMIT 1
+    `,
+    [seniorId]
+  );
+
+  if (rewardRows.length > 0) {
+    return rewardRows[0].reward_id;
+  }
+
+  const insertResult = await runQuery(
+    "INSERT INTO Reward_Streak (senior_id, current_streak, total_points) VALUES (?, 0, 0)",
+    [seniorId]
+  );
+
+  return insertResult.insertId;
+};
+
+const ensureDailyCheckInForActivity = async (seniorId) => {
+  const existingRows = await runQuery(
+    `
+      SELECT checkin_id
+      FROM Daily_CheckIn
+      WHERE senior_id = ? AND DATE(checkin_timestamp) = CURDATE()
+      LIMIT 1
+    `,
+    [seniorId]
+  );
+
+  if (existingRows.length > 0) {
+    return { created: false, checkin_id: existingRows[0].checkin_id };
+  }
+
+  const rewardId = await ensureRewardRow(seniorId);
+  const insertResult = await runQuery(
+    `
+      INSERT INTO Daily_CheckIn (senior_id, checkin_status, reward_id)
+      VALUES (?, 'Completed', ?)
+    `,
+    [seniorId, rewardId]
+  );
+
+  return { created: true, checkin_id: insertResult.insertId };
+};
+
 const syncRewardStreak = async (seniorId) => {
-  const [rewardRows, checkInRows, communityRows] = await Promise.all([
-    runQuery(
-      `
-        SELECT reward_id
-        FROM Reward_Streak
-        WHERE senior_id = ?
-        ORDER BY reward_id ASC
-        LIMIT 1
-      `,
-      [seniorId]
-    ),
+  const [checkInRows, communityRows] = await Promise.all([
     runQuery(
       `
         SELECT checkin_timestamp, checkin_status
@@ -45,19 +86,12 @@ const syncRewardStreak = async (seniorId) => {
   ]);
 
   const currentStreak = calculateCurrentStreak([...checkInRows, ...communityRows]);
-  const rewardRow = rewardRows[0] || null;
+  const rewardId = await ensureRewardRow(seniorId);
 
-  if (rewardRow) {
-    await runQuery("UPDATE Reward_Streak SET current_streak = ? WHERE reward_id = ?", [
-      currentStreak,
-      rewardRow.reward_id,
-    ]);
-  } else {
-    await runQuery(
-      "INSERT INTO Reward_Streak (senior_id, current_streak, total_points) VALUES (?, ?, 0)",
-      [seniorId, currentStreak]
-    );
-  }
+  await runQuery("UPDATE Reward_Streak SET current_streak = ? WHERE reward_id = ?", [
+    currentStreak,
+    rewardId,
+  ]);
 
   return currentStreak;
 };
@@ -146,8 +180,15 @@ router.post("/record-activity", (req, res) => {
     }
 
     try {
+      const checkIn = await ensureDailyCheckInForActivity(senior_id);
       const currentStreak = await syncRewardStreak(senior_id);
-      res.json({ success: true, activity_id: results.insertId, current_streak: currentStreak });
+      res.json({
+        success: true,
+        activity_id: results.insertId,
+        checkin_id: checkIn.checkin_id,
+        checkin_created: checkIn.created,
+        current_streak: currentStreak,
+      });
     } catch (syncErr) {
       console.error("Error syncing community streak:", syncErr);
       res.json({ success: true, activity_id: results.insertId });
