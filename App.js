@@ -911,6 +911,7 @@ export default function App() {
           onHome={() => setCurrentScreen('Home')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
+          onRefresh={refreshAll}
         />
       );
     }

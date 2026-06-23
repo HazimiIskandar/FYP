@@ -69,9 +69,11 @@ const setStorageItem = (key, value) => {
   memoryStorage[key] = value;
 };
 
-const readStoredRewards = () => {
-  const totalPointsValue = getStorageItem(REWARD_STORAGE_KEY);
-  const dailyProgressValue = getStorageItem(DAILY_REWARD_STORAGE_KEY);
+const getRewardStorageKey = (baseKey, seniorId) => `${baseKey}:${seniorId || 'guest'}`;
+
+const readStoredRewards = (seniorId) => {
+  const totalPointsValue = getStorageItem(getRewardStorageKey(REWARD_STORAGE_KEY, seniorId));
+  const dailyProgressValue = getStorageItem(getRewardStorageKey(DAILY_REWARD_STORAGE_KEY, seniorId));
 
   const totalPoints = Number(totalPointsValue || 0);
   let dailyProgress = {};
@@ -91,15 +93,15 @@ const readStoredRewards = () => {
   };
 };
 
-const saveStoredRewards = (totalPoints, dailyEarned) => {
-  setStorageItem(REWARD_STORAGE_KEY, String(totalPoints));
+const saveStoredRewards = (seniorId, totalPoints, dailyEarned) => {
+  setStorageItem(getRewardStorageKey(REWARD_STORAGE_KEY, seniorId), String(totalPoints));
   setStorageItem(
-    DAILY_REWARD_STORAGE_KEY,
+    getRewardStorageKey(DAILY_REWARD_STORAGE_KEY, seniorId),
     JSON.stringify({ date: getTodayKey(), earned: dailyEarned })
   );
 };
 
-export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfile, onSettings }) {
+export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfile, onSettings, onRefresh }) {
   const [cards, setCards] = useState(createDeck);
   const [flippedIds, setFlippedIds] = useState([]);
   const [matchedKeys, setMatchedKeys] = useState([]);
@@ -111,6 +113,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
   const [dailyRewardPoints, setDailyRewardPoints] = useState(0);
   const [rewardsLoaded, setRewardsLoaded] = useState(false);
   const [rewardGrantedThisGame, setRewardGrantedThisGame] = useState(false);
+  const seniorId = senior?.senior_id;
 
   const gameComplete = matchedKeys.length === 8;
   const pointsToKopi = Math.max(0, KOPI_COST - totalRewardPoints);
@@ -131,18 +134,16 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
 
     const loadRewards = async () => {
       // Always load from backend when we have a senior_id
-      if (apiBase && senior?.senior_id) {
+      if (apiBase && seniorId) {
         try {
-          const response = await fetch(`${apiBase}/rewards/senior/${senior.senior_id}`);
+          const response = await fetch(`${apiBase}/rewards/senior/${seniorId}`);
           if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 
           const rewardData = await response.json();
 
           if (mounted) {
             setTotalRewardPoints(Number(rewardData?.total_points || 0));
-            // Daily earned comes from local storage (cap enforced client-side)
-            const stored = readStoredRewards();
-            setDailyRewardPoints(stored.dailyEarned);
+            setDailyRewardPoints(Number(rewardData?.daily_points || 0));
             setRewardsLoaded(true);
           }
           return;
@@ -151,7 +152,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
         }
       }
 
-      const storedRewards = readStoredRewards();
+      const storedRewards = readStoredRewards(seniorId);
       if (mounted) {
         setTotalRewardPoints(storedRewards.totalPoints);
         setDailyRewardPoints(storedRewards.dailyEarned);
@@ -161,15 +162,17 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
 
     loadRewards();
     return () => { mounted = false; };
-  }, [apiBase, senior?.senior_id]);
+  }, [apiBase, seniorId]);
 
   useEffect(() => {
     if (!rewardsLoaded) {
       return;
     }
 
-    saveStoredRewards(totalRewardPoints, dailyRewardPoints);
-  }, [dailyRewardPoints, rewardsLoaded, totalRewardPoints]);
+    if (!apiBase || !seniorId) {
+      saveStoredRewards(seniorId, totalRewardPoints, dailyRewardPoints);
+    }
+  }, [apiBase, dailyRewardPoints, rewardsLoaded, seniorId, totalRewardPoints]);
 
   useEffect(() => {
     if (!gameComplete || rewardGrantedThisGame || !rewardsLoaded) {
@@ -179,32 +182,29 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     const awardGamePoints = async () => {
       setRewardGrantedThisGame(true);
 
-      const remainingDailyPoints = Math.max(0, DAILY_REWARD_CAP - dailyRewardPoints);
-      const pointsToAdd = Math.min(GAME_COMPLETION_REWARD, remainingDailyPoints);
-
-      if (pointsToAdd <= 0) {
+      if (dailyRewardPoints >= DAILY_REWARD_CAP) {
         setMessage('Daily reward cap reached. Come back tomorrow for more kopi points.');
         return;
       }
 
-      if (apiBase && senior?.senior_id) {
+      if (apiBase && seniorId) {
         try {
           // Record the game activity for streak counting
           await fetch(`${apiBase}/community/record-activity`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              senior_id: senior.senior_id,
+              senior_id: seniorId,
               activity_name: 'Memory Game',
               activity_type: 'Game',
               participation_status: 'Completed',
             }),
           }).catch((err) => console.log('Failed to record community activity:', err));
 
-          const response = await fetch(`${apiBase}/rewards/senior/${senior.senior_id}/game-points`, {
+          const response = await fetch(`${apiBase}/rewards/senior/${seniorId}/game-points`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ points: pointsToAdd }),
+            body: JSON.stringify({ points: GAME_COMPLETION_REWARD }),
           });
 
           const rewardData = await response.json().catch(() => null);
@@ -213,15 +213,30 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
             throw new Error(rewardData?.error || 'Unable to save kopi points.');
           }
 
-          // Backend returns updated total; daily tracking stays client-side
+          const awardedPoints = Number(rewardData?.awarded_points || 0);
+
           setTotalRewardPoints(Number(rewardData?.total_points || 0));
-          setDailyRewardPoints((d) => d + pointsToAdd);
-          saveStoredRewards(Number(rewardData?.total_points || 0), dailyRewardPoints + pointsToAdd);
-          setMessage(`Well done. You earned ${pointsToAdd} kopi points today.`);
+          setDailyRewardPoints(Number(rewardData?.daily_points || 0));
+          setMessage(
+            awardedPoints > 0
+              ? `Well done. You earned ${awardedPoints} kopi points today.`
+              : 'Daily reward cap reached. Come back tomorrow for more kopi points.'
+          );
+          if (typeof onRefresh === 'function') {
+            await onRefresh();
+          }
           return;
         } catch (error) {
           console.log('Failed to save backend kopi points:', error);
         }
+      }
+
+      const remainingDailyPoints = Math.max(0, DAILY_REWARD_CAP - dailyRewardPoints);
+      const pointsToAdd = Math.min(GAME_COMPLETION_REWARD, remainingDailyPoints);
+
+      if (pointsToAdd <= 0) {
+        setMessage('Daily reward cap reached. Come back tomorrow for more kopi points.');
+        return;
       }
 
       setDailyRewardPoints((currentPoints) => currentPoints + pointsToAdd);
@@ -230,7 +245,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     };
 
     awardGamePoints();
-  }, [apiBase, dailyRewardPoints, gameComplete, rewardGrantedThisGame, rewardsLoaded, senior?.senior_id]);
+  }, [apiBase, dailyRewardPoints, gameComplete, rewardGrantedThisGame, rewardsLoaded, seniorId]);
 
   const resetGame = () => {
     setCards(createDeck());
@@ -249,17 +264,25 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     }
 
     const redeemOnBackend = async () => {
-      if (apiBase && senior?.senior_id) {
+      if (apiBase && seniorId) {
         try {
           const response = await fetch(`${apiBase}/rewards/redeem`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ senior_id: senior.senior_id, reward_name: 'Kopi' }),
+            body: JSON.stringify({ senior_id: seniorId, reward_name: 'Kopi' }),
           });
 
+          const result = await response.json().catch(() => null);
           if (!response.ok) {
-            throw new Error('Unable to redeem kopi right now.');
+            throw new Error(result?.error || 'Unable to redeem kopi right now.');
           }
+
+          setTotalRewardPoints(Number(result?.total_points ?? totalRewardPoints - KOPI_COST));
+          setMessage('Kopi redeemed. Enjoy your treat!');
+          if (typeof onRefresh === 'function') {
+            await onRefresh();
+          }
+          return;
         } catch (error) {
           console.log('Failed to redeem kopi on backend:', error);
         }

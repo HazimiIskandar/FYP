@@ -2,6 +2,39 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 
+const runQuery = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) reject(err);
+      else resolve(results);
+    });
+  });
+
+const ensureSeniorMedicalConditionColumns = async () => {
+  try {
+    const columns = await runQuery("SHOW COLUMNS FROM Senior_Medical_Condition");
+    const columnNames = new Set(columns.map((column) => column.Field));
+    const alterations = [];
+
+    if (!columnNames.has("severity_level")) {
+      alterations.push("ADD COLUMN severity_level VARCHAR(45) NULL");
+    }
+    if (!columnNames.has("medication_required")) {
+      alterations.push("ADD COLUMN medication_required VARCHAR(45) NULL");
+    }
+
+    for (const alteration of alterations) {
+      await runQuery(`ALTER TABLE Senior_Medical_Condition ${alteration}`);
+    }
+
+    await runQuery("ALTER TABLE Senior_Medical_Condition MODIFY diagnosed_date DATE NULL");
+  } catch (err) {
+    console.error("Failed to prepare Senior_Medical_Condition columns:", err.message || err);
+  }
+};
+
+const seniorMedicalConditionColumnsReady = ensureSeniorMedicalConditionColumns();
+
 /**
  * CREATE SENIOR RECORD IF MISSING
  */
@@ -149,24 +182,29 @@ router.post("/:senior_id/link-code", (req, res) => {
 /**
  * GET MEDICAL CONDITIONS
  */
-router.get("/:senior_id/medical-conditions", (req, res) => {
-  const sql = `
-    SELECT
-      mc.condition_id,
-      mc.condition_name,
-      mc.severity_level,
-      mc.medication_required,
-      smc.diagnosed_date
-    FROM Senior_Medical_Condition smc
-    JOIN Medical_Condition mc
-      ON smc.condition_id = mc.condition_id
-    WHERE smc.senior_id = ?
-  `;
+router.get("/:senior_id/medical-conditions", async (req, res) => {
+  try {
+    await seniorMedicalConditionColumnsReady;
 
-  db.query(sql, [req.params.senior_id], (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
+    const sql = `
+      SELECT
+        mc.condition_id,
+        mc.condition_name,
+        COALESCE(smc.severity_level, mc.severity_level) AS severity_level,
+        COALESCE(smc.medication_required, mc.medication_required) AS medication_required,
+        smc.diagnosed_date
+      FROM Senior_Medical_Condition smc
+      JOIN Medical_Condition mc
+        ON smc.condition_id = mc.condition_id
+      WHERE smc.senior_id = ?
+      ORDER BY smc.diagnosed_date DESC, mc.condition_name ASC
+    `;
+
+    const results = await runQuery(sql, [req.params.senior_id]);
+    res.json(Array.isArray(results) ? results : []);
+  } catch (err) {
+    res.status(500).json({ error: err.message || err });
+  }
 });
 
 /**
@@ -296,7 +334,7 @@ router.put("/:senior_id/nok", (req, res) => {
   });
 });
 
-router.put('/:senior_id/medical-condition', (req, res) => {
+router.put('/:senior_id/medical-condition', async (req, res) => {
   const seniorId = req.params.senior_id;
   const {
     condition_id,
@@ -310,20 +348,31 @@ router.put('/:senior_id/medical-condition', (req, res) => {
     return res.status(400).json({ error: 'Senior ID is required.' });
   }
 
+  await seniorMedicalConditionColumnsReady;
+
   const upsertCondition = (resolvedConditionId) => {
     if (!resolvedConditionId) {
       return res.status(400).json({ error: 'A valid condition_id or customCondition is required.' });
     }
 
     const sql = `
-      INSERT INTO Senior_Medical_Condition (senior_id, condition_id, diagnosed_date)
-      VALUES (?, ?, ?)
+      INSERT INTO Senior_Medical_Condition
+        (senior_id, condition_id, diagnosed_date, severity_level, medication_required)
+      VALUES (?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         condition_id = VALUES(condition_id),
-        diagnosed_date = VALUES(diagnosed_date)
+        diagnosed_date = VALUES(diagnosed_date),
+        severity_level = VALUES(severity_level),
+        medication_required = VALUES(medication_required)
     `;
 
-    db.query(sql, [seniorId, resolvedConditionId, diagnosed_date || null], (err) => {
+    db.query(sql, [
+      seniorId,
+      resolvedConditionId,
+      diagnosed_date || null,
+      severity_level || null,
+      medication_required || null,
+    ], (err) => {
       if (err) return res.status(500).json(err);
       res.json({ message: 'Senior medical condition saved successfully.' });
     });
@@ -356,15 +405,9 @@ router.put('/:senior_id/medical-conditions/sync', async (req, res) => {
     return res.status(400).json({ error: 'Senior ID is required.' });
   }
 
-  const runQuery = (sql, params = []) =>
-    new Promise((resolve, reject) => {
-      db.query(sql, params, (err, results) => {
-        if (err) reject(err);
-        else resolve(results);
-      });
-    });
-
   try {
+    await seniorMedicalConditionColumnsReady;
+
     const resolved = [];
 
     for (const item of conditions) {
@@ -396,6 +439,8 @@ router.put('/:senior_id/medical-conditions/sync', async (req, res) => {
       resolved.push({
         condition_id: conditionId,
         diagnosed_date: diagnosedDate,
+        severity_level: severityLevel,
+        medication_required: medicationRequired,
       });
     }
 
@@ -403,25 +448,32 @@ router.put('/:senior_id/medical-conditions/sync', async (req, res) => {
 
     for (const item of resolved) {
       const linkSql = `
-        INSERT INTO Senior_Medical_Condition (senior_id, condition_id, diagnosed_date)
-        VALUES (?, ?, ?)
+        INSERT INTO Senior_Medical_Condition
+          (senior_id, condition_id, diagnosed_date, severity_level, medication_required)
+        VALUES (?, ?, ?, ?, ?)
       `;
 
-      await runQuery(linkSql, [seniorId, item.condition_id, item.diagnosed_date]);
+      await runQuery(linkSql, [
+        seniorId,
+        item.condition_id,
+        item.diagnosed_date,
+        item.severity_level,
+        item.medication_required,
+      ]);
     }
 
     const fetchSql = `
       SELECT
         mc.condition_id,
         mc.condition_name,
-        mc.severity_level,
-        mc.medication_required,
+        COALESCE(smc.severity_level, mc.severity_level) AS severity_level,
+        COALESCE(smc.medication_required, mc.medication_required) AS medication_required,
         smc.diagnosed_date
       FROM Senior_Medical_Condition smc
       JOIN Medical_Condition mc
         ON smc.condition_id = mc.condition_id
       WHERE smc.senior_id = ?
-      ORDER BY smc.diagnosed_date DESC
+      ORDER BY smc.diagnosed_date DESC, mc.condition_name ASC
     `;
 
     const updatedConditions = await runQuery(fetchSql, [seniorId]);
