@@ -32,23 +32,6 @@ export default function App() {
 
   const [currentScreen, setCurrentScreen] = useState('Language');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
-
-  // Derive hasCheckedIn from actual check-in data
-  useEffect(() => {
-    if (!currentSenior?.senior_id) {
-      setHasCheckedIn(false);
-      return;
-    }
-
-    const todayString = new Date().toDateString();
-    const foundToday = checkIns.some(
-      (c) =>
-        String(c.senior_id) === String(currentSenior.senior_id) &&
-        (c?.checkin_status || '').toLowerCase().includes('completed') &&
-        new Date(c.checkin_timestamp).toDateString() === todayString
-    );
-    setHasCheckedIn(foundToday);
-  }, [checkIns, currentSenior?.senior_id]);
   const [selectedSenior, setSelectedSenior] = useState(null);
   const [selectedSeniorOrigin, setSelectedSeniorOrigin] = useState('Status');
   const [authenticatedUser, setAuthenticatedUser] = useState(null);
