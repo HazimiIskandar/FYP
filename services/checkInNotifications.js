@@ -45,7 +45,7 @@ export async function setupCheckInNotifications() {
   return true;
 }
 
-export async function scheduleCheckInReminders(seniorName = 'Senior', checkInTime = '09:00') {
+export async function scheduleCheckInReminders(seniorName = 'Senior', checkInTime1 = '09:00', checkInTime2 = '19:00') {
   const hasPermission = await setupCheckInNotifications();
 
   if (!hasPermission) {
@@ -54,9 +54,11 @@ export async function scheduleCheckInReminders(seniorName = 'Senior', checkInTim
 
   await cancelMissedCheckInReminders();
 
-  const reminders = getDailyReminderTriggers(checkInTime);
+  const reminders1 = getDailyReminderTriggers(checkInTime1);
+  const reminders2 = getDailyReminderTriggers(checkInTime2);
+  const allReminders = [...reminders1, ...reminders2];
 
-  for (const reminder of reminders) {
+  for (const reminder of allReminders) {
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: reminder.title,
@@ -74,8 +76,8 @@ export async function scheduleCheckInReminders(seniorName = 'Senior', checkInTim
   return true;
 }
 
-export async function scheduleMissedCheckInReminders(seniorName = 'Senior', checkInTime = '09:00') {
-  return scheduleCheckInReminders(seniorName, checkInTime);
+export async function scheduleMissedCheckInReminders(seniorName = 'Senior', checkInTime1 = '09:00', checkInTime2 = '19:00') {
+  return scheduleCheckInReminders(seniorName, checkInTime1, checkInTime2);
 }
 
 export async function cancelMissedCheckInReminders() {
