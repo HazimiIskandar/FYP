@@ -162,6 +162,7 @@ export default function SeniorEditProfileScreen({
   onBack,
   onRefresh,
   onProfile,
+  isCaregiverView = false,
 }) {
   const seniorMedicalConditions = Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : [];
   const seniorNokContacts = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
@@ -1166,13 +1167,15 @@ export default function SeniorEditProfileScreen({
         </View>
       </Modal>
 
-      <SeniorBottomNav
-        activeTab="Settings"
-        onHome={onHome}
-        onCommunity={onCommunity}
-        onProfile={() => {}}
-        onSettings={onSettings}
-      />
+      {!isCaregiverView && (
+        <SeniorBottomNav
+          activeTab="Settings"
+          onHome={onHome}
+          onCommunity={onCommunity}
+          onProfile={() => {}}
+          onSettings={onSettings}
+        />
+      )}
 
       {confirmVisible ? (
         <View style={styles.modalOverlay}>

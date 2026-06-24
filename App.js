@@ -18,6 +18,7 @@ import EmergencyScreen from './screens/EmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
 import CaregiverSeniorsListScreen from './screens/CaregiverSeniorsListScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
+import CaregiverEditSeniorMenuScreen from './screens/CaregiverEditSeniorMenuScreen';
 import AICPortalScreen from './screens/AICPortalScreen';
 import SeniorDetailsScreen from './screens/SeniorDetailsScreen';
 import CommunityScreen from './screens/CommunityScreen';
@@ -891,9 +892,13 @@ export default function App() {
           senior={selectedSenior}
           medicalConditions={selectedSenior?.medicalConditions ?? []}
           showStatusBadge={selectedSeniorOrigin !== 'SeniorsList'}
+          apiBase={apiBase}
+          authenticatedUser={authenticatedUser}
+          onRefresh={refreshAll}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
+          onGoToEditMenu={() => setCurrentScreen('CaregiverEditSeniorMenu')}
           onGoBack={() =>
             setCurrentScreen(
               selectedSeniorOrigin === 'SeniorsList'
@@ -902,6 +907,35 @@ export default function App() {
             )
           }
           onLogout={handleLogout}
+        />
+      );
+    }
+
+    if (currentScreen === 'CaregiverEditSeniorMenu') {
+      return (
+        <CaregiverEditSeniorMenuScreen
+          senior={selectedSenior}
+          apiBase={apiBase}
+          authenticatedUser={authenticatedUser}
+          onGoToHome={() => setCurrentScreen('CaregiverHome')}
+          onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
+          onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
+          onGoBack={() => setCurrentScreen('SeniorDetails')}
+          onEditProfile={() => setCurrentScreen('CaregiverSeniorEditProfile')}
+          onLogout={handleLogout}
+          onRefresh={refreshAll}
+        />
+      );
+    }
+
+    if (currentScreen === 'CaregiverSeniorEditProfile') {
+      return (
+        <SeniorEditProfileScreen
+          senior={selectedSenior}
+          apiBase={apiBase}
+          onBack={() => setCurrentScreen('CaregiverEditSeniorMenu')}
+          isCaregiverView={true}
+          onRefresh={refreshAll}
         />
       );
     }

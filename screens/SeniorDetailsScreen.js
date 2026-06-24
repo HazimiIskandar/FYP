@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -12,8 +12,15 @@ export default function SeniorDetailsScreen({
   onGoToHome,
   onGoToSeniorsList,
   onGoToStatus,
+  onGoToEditMenu,
   onLogout,
+  apiBase,
+  authenticatedUser,
+  onRefresh,
 }) {
+  const [removeConfirmVisible, setRemoveConfirmVisible] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
   console.log('=== SENIOR DETAILS SCREEN MOUNTED ===');
   console.log('Senior prop received:', JSON.stringify(senior, null, 2));
   console.log('Medical conditions prop:', medicalConditions);
@@ -60,8 +67,30 @@ export default function SeniorDetailsScreen({
         ? senior.medicalConditions
         : [];
 
-  // Get NOK contacts from senior object set by App
   const nokContacts = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
+
+  const confirmRemoveSenior = async () => {
+    if (!apiBase || !senior?.senior_id || !authenticatedUser?.user_id) return;
+    setRemoving(true);
+    setSettingsError('');
+    try {
+      const response = await fetch(`${apiBase}/seniors/${senior.senior_id}/caregivers/${authenticatedUser.user_id}`, {
+        method: 'DELETE',
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error || 'Failed to remove senior.');
+      }
+      setRemoveConfirmVisible(false);
+      if (onRefresh) onRefresh();
+      onGoToSeniorsList();
+    } catch (err) {
+      setSettingsError(err?.message || 'Unable to remove senior.');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
 
@@ -244,6 +273,14 @@ export default function SeniorDetailsScreen({
           )}
         </View>
 
+        <TouchableOpacity style={styles.updateBtn} onPress={onGoToEditMenu}>
+          <Text style={styles.updateBtnText}>Update Senior Profile</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.removeBtn} onPress={() => setRemoveConfirmVisible(true)}>
+          <Text style={styles.removeBtnText}>Remove Senior</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.backBtn} onPress={onGoBack}>
           <Text style={styles.backText}>Go Back</Text>
         </TouchableOpacity>
@@ -257,6 +294,37 @@ export default function SeniorDetailsScreen({
         onStatus={onGoToStatus}
         onLogout={onLogout}
       />
+
+      {removeConfirmVisible ? (
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIcon}>
+              <Ionicons name="warning" size={32} color="#DC2626" />
+            </View>
+            <Text style={styles.confirmTitle}>Remove Senior?</Text>
+            <Text style={styles.confirmMessage}>
+              Are you sure you want to stop monitoring {name}? This action cannot be undone.
+            </Text>
+            {settingsError ? <Text style={styles.errorText}>{settingsError}</Text> : null}
+            <TouchableOpacity
+              style={[styles.dangerButton, removing && { opacity: 0.6 }]}
+              onPress={confirmRemoveSenior}
+              disabled={removing}
+            >
+              <Text style={styles.dangerButtonText}>
+                {removing ? 'Removing...' : 'Yes, Remove Senior'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setRemoveConfirmVisible(false)}
+              disabled={removing}
+            >
+              <Text style={styles.cancelButtonText}>No, Keep Monitoring</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
 
     </SafeAreaView>
   );
@@ -374,6 +442,34 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
+  updateBtn: {
+    backgroundColor: '#111827',
+    padding: 14,
+    borderRadius: 18,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+
+  updateBtnText: {
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+
+  removeBtn: {
+    backgroundColor: '#DC2626',
+    padding: 14,
+    borderRadius: 18,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+
+  removeBtnText: {
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+
   backBtn: {
     backgroundColor: '#2563EB',
     padding: 14,
@@ -426,4 +522,59 @@ const styles = StyleSheet.create({
   nokBlock: {
     marginBottom: 6,
   },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
+    backgroundColor: 'rgba(17, 24, 39, 0.55)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  confirmCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 22,
+    alignItems: 'center',
+  },
+  confirmIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  confirmTitle: { color: '#111827', fontSize: 27, fontWeight: '900', textAlign: 'center' },
+  confirmMessage: {
+    color: '#4B5563',
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  dangerButton: {
+    backgroundColor: '#DC2626',
+    width: '100%',
+    minHeight: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  dangerButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900' },
+  cancelButton: {
+    backgroundColor: '#EFF6FF',
+    width: '100%',
+    minHeight: 54,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: { color: '#2563EB', fontSize: 17, fontWeight: '900' },
+  errorText: { color: '#DC2626', fontSize: 14, fontWeight: '800', textAlign: 'center', marginBottom: 12 },
 });
