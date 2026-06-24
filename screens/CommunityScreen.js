@@ -33,14 +33,16 @@ const shuffle = (items) => {
   return nextItems;
 };
 
+const LUCKY_CARD = { key: 'lucky', label: 'Lucky', icon: 'star', color: '#EAB308', background: '#FEF08A', id: 'lucky-card' };
+
 const createDeck = () => {
-  const selectedItems = shuffle(MEMORY_ITEMS).slice(0, 8);
+  const selectedItems = shuffle(MEMORY_ITEMS).slice(0, 4);
   const pairedItems = selectedItems.flatMap((item) => [
     { ...item, id: `${item.key}-a` },
     { ...item, id: `${item.key}-b` },
   ]);
 
-  return shuffle(pairedItems);
+  return shuffle([...pairedItems, LUCKY_CARD]);
 };
 
 const getTodayKey = () => {
@@ -115,7 +117,8 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
   const [rewardGrantedThisGame, setRewardGrantedThisGame] = useState(false);
   const seniorId = senior?.senior_id;
 
-  const gameComplete = matchedKeys.length === 8;
+  const pairsFoundCount = matchedKeys.filter(k => k !== 'lucky').length;
+  const gameComplete = pairsFoundCount === 4;
   const pointsToKopi = Math.max(0, KOPI_COST - totalRewardPoints);
   const canRedeemKopi = totalRewardPoints >= KOPI_COST;
 
@@ -126,8 +129,8 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
         : 'Game complete. Reward points added if today has cap left.';
     }
 
-    return `${matchedKeys.length} of 8 pairs found`;
-  }, [dailyRewardPoints, gameComplete, matchedKeys.length]);
+    return `${pairsFoundCount} of 4 pairs found`;
+  }, [dailyRewardPoints, gameComplete, pairsFoundCount]);
 
   useEffect(() => {
     let mounted = true;
@@ -302,6 +305,13 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
       flippedIds.includes(card.id) ||
       matchedKeys.includes(card.key)
     ) {
+      return;
+    }
+
+    if (card.key === 'lucky') {
+      setMatchedKeys((currentMatches) => [...currentMatches, card.key]);
+      setScore((currentScore) => currentScore + 200);
+      setMessage('Lucky card! +200 points.');
       return;
     }
 
@@ -489,7 +499,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   memoryCard: {
-    width: '23.5%',
+    width: '31%',
     aspectRatio: 0.92,
     borderRadius: 13,
     borderWidth: 2,
