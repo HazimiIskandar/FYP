@@ -268,11 +268,12 @@ export default function AICPortalScreen({
 
 function CaseDetailView({ caseItem, onBack, onLogout, apiBase }) {
   const [seniorDetailsVisible, setSeniorDetailsVisible] = useState(false);
-  // Medical condition + NOK arrays fetched on demand for the viewed senior.
-  // App.js only hydrates these for the logged-in user; AIC staff have no
-  // senior_id, so we hit /seniors/:id/medical-conditions and /seniors/:id/nok
-  // ourselves (the same endpoints the caregiver profile uses).
-  const [extras, setExtras] = useState({ conditions: [], nokContacts: [] });
+  // Medical condition + NOK + Caregiver arrays fetched on demand for the
+  // viewed senior. App.js only hydrates these for the logged-in user; AIC
+  // staff have no senior_id, so we hit /seniors/:id/medical-conditions,
+  // /seniors/:id/nok, and /seniors/:id/caregivers ourselves (the same
+  // endpoints the caregiver profile uses).
+  const [extras, setExtras] = useState({ conditions: [], nokContacts: [], caregivers: [] });
   const senior = caseItem.senior || {};
   const seniorId = caseItem?.seniorId || senior?.senior_id;
 
@@ -284,15 +285,16 @@ function CaseDetailView({ caseItem, onBack, onLogout, apiBase }) {
     Promise.all([
       fetchJsonOrEmpty(`${apiBase}/seniors/${seniorId}/medical-conditions`),
       fetchJsonOrEmpty(`${apiBase}/seniors/${seniorId}/nok`),
+      fetchJsonOrEmpty(`${apiBase}/seniors/${seniorId}/caregivers`),
     ])
-      .then(([conditions, nokContacts]) => {
+      .then(([conditions, nokContacts, caregivers]) => {
         if (isCancelled) return;
-        setExtras({ conditions, nokContacts });
+        setExtras({ conditions, nokContacts, caregivers });
       })
       .catch((err) => {
         if (isCancelled) return;
         console.log('Failed to load senior extras:', err);
-        setExtras({ conditions: [], nokContacts: [] });
+        setExtras({ conditions: [], nokContacts: [], caregivers: [] });
       });
 
     return () => {
@@ -308,6 +310,9 @@ function CaseDetailView({ caseItem, onBack, onLogout, apiBase }) {
   const nokContacts = extras.nokContacts.length
     ? extras.nokContacts
     : (senior.nokContacts || []);
+  const caregivers = extras.caregivers.length
+    ? extras.caregivers
+    : (senior.caregivers || []);
   const firstCondition = conditions[0] || {};
   const firstNok = nokContacts[0] || {};
 
@@ -365,6 +370,26 @@ function CaseDetailView({ caseItem, onBack, onLogout, apiBase }) {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScrollContent}>
+              {caregivers.length > 0
+                ? caregivers.map((caregiver, index) => (
+                    <View key={caregiver?.user_id ?? `caregiver-${index}`} style={styles.infoCard}>
+                      <Text style={styles.infoTitle}>
+                        {caregivers.length > 1
+                          ? `Assigned Caretaker (${index + 1})`
+                          : 'Assigned Caretaker'}
+                      </Text>
+                      <InfoRow icon="person-outline" label="Name" value={caregiver?.full_name} />
+                      <InfoRow icon="call-outline" label="Phone" value={caregiver?.phone_number} />
+                      <InfoRow icon="mail-outline" label="Email" value={caregiver?.email} />
+                    </View>
+                  ))
+                : (
+                    <View style={styles.infoCard}>
+                      <Text style={styles.infoTitle}>Assigned Caretaker</Text>
+                      <Text style={styles.mutedText}>No caregiver assigned for this senior.</Text>
+                    </View>
+                  )}
+
               <View style={styles.infoCard}>
                 <Text style={styles.infoTitle}>Personal Details</Text>
                 <InfoRow icon="calendar-outline" label="Date-of-Birth" value={formatDate(senior?.dob)} />
