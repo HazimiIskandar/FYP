@@ -11,7 +11,7 @@ export default function CaregiverHomeScreen({
   onCallEmergencyContact = () => {},
   onGoToSeniorsList,
   onGoToRoster,
-  onLogout,
+  onSettings,
 }) {
   const getDisplayName = (senior) => {
     if (!senior) return 'Unknown Senior';
@@ -99,7 +99,7 @@ export default function CaregiverHomeScreen({
         onHome={() => {}}
         onSeniors={onGoToSeniorsList}
         onStatus={onGoToRoster}
-        onLogout={onLogout}
+        onSettings={onSettings}
       />
     </SafeAreaView>
   );

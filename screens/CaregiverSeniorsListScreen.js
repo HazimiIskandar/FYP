@@ -8,7 +8,7 @@ export default function CaregiverSeniorsListScreen({
   seniors = [],
   onGoToHome,
   onGoToStatus,
-  onLogout,
+  onSettings,
   onSelectSenior,
   backendError,
   apiBase,
@@ -177,7 +177,7 @@ export default function CaregiverSeniorsListScreen({
         onHome={onGoToHome}
         onSeniors={() => {}}
         onStatus={onGoToStatus}
-        onLogout={onLogout}
+        onSettings={onSettings}
       />
     </SafeAreaView>
   );

@@ -22,6 +22,7 @@ import CaregiverSeniorsListScreen from './screens/CaregiverSeniorsListScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
 import CaregiverEditSeniorMenuScreen from './screens/CaregiverEditSeniorMenuScreen';
 import AICPortalScreen from './screens/AICPortalScreen';
+import StaffSettingsScreen from './screens/StaffSettingsScreen';
 import SeniorDetailsScreen from './screens/SeniorDetailsScreen';
 import CommunityScreen from './screens/CommunityScreen';
 import FakeCallScreen from './screens/FakeCallScreen';
@@ -929,7 +930,7 @@ export default function App() {
           activeTicket={emergencyEvents?.[0]}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
-          onLogout={handleLogout}
+          onSettings={() => setCurrentScreen('StaffSettings')}
         />
       );
     }
@@ -943,7 +944,7 @@ export default function App() {
           onRefresh={refreshAll}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
-          onLogout={handleLogout}
+          onSettings={() => setCurrentScreen('StaffSettings')}
           onSelectSenior={(senior) => handleSelectSenior(senior, 'SeniorsList')}
           backendError={backendError}
         />
@@ -956,9 +957,24 @@ export default function App() {
           seniors={seniors}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
-          onLogout={handleLogout}
+          onSettings={() => setCurrentScreen('StaffSettings')}
           onSelectSenior={(senior) => handleSelectSenior(senior, 'Status')}
           backendError={backendError}
+        />
+      );
+    }
+
+    if (currentScreen === 'StaffSettings') {
+      return (
+        <StaffSettingsScreen
+          authenticatedUser={authenticatedUser}
+          apiBase={apiBase}
+          onLogout={handleLogout}
+          onRefresh={refreshAll}
+          onCases={() => setCurrentScreen('AICPortal')}
+          onHome={() => setCurrentScreen('CaregiverHome')}
+          onSeniors={() => setCurrentScreen('CaregiverSeniorsList')}
+          onStatus={() => setCurrentScreen('CaregiverRoster')}
         />
       );
     }
@@ -971,7 +987,7 @@ export default function App() {
           emergencyEvents={emergencyEvents}
           authenticatedUser={authenticatedUser}
           apiBase={apiBase}
-          onLogout={handleLogout}
+          onSettings={() => setCurrentScreen('StaffSettings')}
         />
       );
     }
@@ -996,7 +1012,7 @@ export default function App() {
                 : 'CaregiverRoster'
             )
           }
-          onLogout={handleLogout}
+          onSettings={() => setCurrentScreen('StaffSettings')}
         />
       );
     }
@@ -1012,7 +1028,7 @@ export default function App() {
           onGoToStatus={() => setCurrentScreen('CaregiverRoster')}
           onGoBack={() => setCurrentScreen('SeniorDetails')}
           onEditProfile={() => setCurrentScreen('CaregiverSeniorEditProfile')}
-          onLogout={handleLogout}
+          onSettings={() => setCurrentScreen('StaffSettings')}
           onRefresh={refreshAll}
         />
       );

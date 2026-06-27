@@ -13,7 +13,7 @@ export default function SeniorDetailsScreen({
   onGoToSeniorsList,
   onGoToStatus,
   onGoToEditMenu,
-  onLogout,
+  onSettings,
   apiBase,
   authenticatedUser,
   onRefresh,
@@ -292,7 +292,7 @@ export default function SeniorDetailsScreen({
         onHome={onGoToHome}
         onSeniors={onGoToSeniorsList}
         onStatus={onGoToStatus}
-        onLogout={onLogout}
+        onSettings={onSettings}
       />
 
       {removeConfirmVisible ? (

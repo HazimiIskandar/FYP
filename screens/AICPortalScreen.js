@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
+import AICBottomNav from '../components/AICBottomNav';
 
 const fetchJsonOrEmpty = async (url) => {
     try {
@@ -84,7 +85,7 @@ export default function AICPortalScreen({
   emergencyEvents = [],
   authenticatedUser = {},
   apiBase,
-  onLogout,
+  onSettings,
 }) {
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [activeFilter, setActiveFilter] = useState('All');
@@ -193,7 +194,7 @@ export default function AICPortalScreen({
       <CaseDetailView
         caseItem={selectedCase}
         onBack={() => setSelectedCaseId(null)}
-        onLogout={onLogout}
+        onSettings={onSettings}
         apiBase={apiBase}
       />
     );
@@ -261,12 +262,12 @@ export default function AICPortalScreen({
         ) : null}
       </ScrollView>
 
-      <AICBottomNav activeTab="Cases" onCases={() => setActiveFilter('All')} onLogout={onLogout} />
+      <AICBottomNav activeTab="Cases" onCases={() => setActiveFilter('All')} onSettings={onSettings} />
     </SafeAreaView>
   );
 }
 
-function CaseDetailView({ caseItem, onBack, onLogout, apiBase }) {
+function CaseDetailView({ caseItem, onBack, onSettings, apiBase }) {
   const [seniorDetailsVisible, setSeniorDetailsVisible] = useState(false);
   // Medical condition + NOK + Caregiver arrays fetched on demand for the
   // viewed senior. App.js only hydrates these for the logged-in user; AIC
@@ -350,7 +351,7 @@ function CaseDetailView({ caseItem, onBack, onLogout, apiBase }) {
         </TouchableOpacity>
       </ScrollView>
 
-      <AICBottomNav activeTab="Cases" onCases={onBack} onLogout={onLogout} />
+      <AICBottomNav activeTab="Cases" onCases={onBack} onSettings={onSettings} />
 
       {seniorDetailsVisible ? (
         <View style={styles.modalOverlay}>
@@ -434,21 +435,6 @@ function InfoRow({ icon, label, value }) {
         <Text style={styles.infoLabel}>{label}: </Text>
         {value || 'Not recorded'}
       </Text>
-    </View>
-  );
-}
-
-function AICBottomNav({ activeTab, onCases, onLogout }) {
-  return (
-    <View style={styles.bottomNav}>
-      <TouchableOpacity style={styles.navItem} onPress={onCases}>
-        <Ionicons name="folder-open" size={26} color={activeTab === 'Cases' ? '#2563EB' : '#6B7280'} />
-        <Text style={[styles.navText, activeTab === 'Cases' && styles.navTextActive]}>Cases</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.navItem} onPress={onLogout}>
-        <Ionicons name="log-out-outline" size={26} color="#6B7280" />
-        <Text style={styles.navText}>Log Out</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -631,16 +617,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalScrollContent: { padding: 14, paddingBottom: 4 },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#FFFFFF',
-    paddingTop: 12,
-    paddingBottom: 28,
-    borderTopWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  navItem: { alignItems: 'center', minWidth: 88 },
-  navText: { color: '#6B7280', fontSize: 13, marginTop: 4, fontWeight: '700' },
-  navTextActive: { color: '#2563EB' },
 });

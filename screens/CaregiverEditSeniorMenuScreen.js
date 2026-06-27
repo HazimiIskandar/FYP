@@ -55,7 +55,7 @@ export default function CaregiverEditSeniorMenuScreen({
   onGoToHome,
   onGoToSeniorsList,
   onGoToStatus,
-  onLogout,
+  onSettings,
   onRefresh,
 }) {
   const seniorName = getSeniorName(senior);
@@ -173,7 +173,7 @@ export default function CaregiverEditSeniorMenuScreen({
         onHome={onGoToHome}
         onSeniors={onGoToSeniorsList}
         onStatus={onGoToStatus}
-        onLogout={onLogout}
+        onSettings={onSettings}
       />
 
       {timeDropdownVisible ? (

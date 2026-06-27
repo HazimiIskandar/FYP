@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function CaregiverBottomNav({ activeTab, onHome, onSeniors, onStatus, onLogout }) {
+export default function CaregiverBottomNav({ activeTab, onHome, onSeniors, onStatus, onSettings }) {
   return (
     <View style={styles.bottomNav}>
       <TouchableOpacity style={styles.navItem} onPress={onHome}>
@@ -17,9 +17,9 @@ export default function CaregiverBottomNav({ activeTab, onHome, onSeniors, onSta
         <Ionicons name="pulse" size={26} color={activeTab === 'Status' ? '#2563EB' : '#6B7280'} />
         <Text style={[styles.navText, { color: activeTab === 'Status' ? '#2563EB' : '#6B7280' }]}>Status</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.navItem} onPress={onLogout}>
-        <Ionicons name="log-out-outline" size={26} color="#6B7280" />
-        <Text style={styles.navText}>Log Out</Text>
+      <TouchableOpacity style={styles.navItem} onPress={onSettings}>
+        <Ionicons name="settings-outline" size={26} color={activeTab === 'Settings' ? '#2563EB' : '#6B7280'} />
+        <Text style={[styles.navText, { color: activeTab === 'Settings' ? '#2563EB' : '#6B7280' }]}>Settings</Text>
       </TouchableOpacity>
     </View>
   );
