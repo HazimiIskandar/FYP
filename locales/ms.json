@@ -70,7 +70,39 @@
   },
   "profile": {
     "title": "Profil",
-    "editProfile": "Edit Profil"
+    "editProfile": "Edit Profil",
+    "myProfile": "Profil Saya",
+    "personalDetails": "Butiran Peribadi",
+    "fullName": "Nama Penuh",
+    "dateOfBirth": "Tarikh Lahir",
+    "gender": "Jantina",
+    "address": "Alamat",
+    "postalCode": "Poskod",
+    "unitNumber": "Nombor Unit",
+    "phone": "Telefon",
+    "email": "E-mel",
+    "name": "Nama",
+    "relationship": "Hubungan",
+    "medicalConditions": "Keadaan Perubatan",
+    "conditionNumber": "Keadaan {{number}}",
+    "condition": "Keadaan",
+    "severity": "Tahap Keterukan",
+    "medicationRequired": "Ubat Diperlukan",
+    "diagnosed": "Didiagnosis",
+    "emergencyContacts": "Kenalan Kecemasan",
+    "contactNumber": "Kenalan {{number}}",
+    "notRecorded": "Tidak direkodkan",
+    "noMedicalConditions": "Tiada keadaan perubatan direkodkan.",
+    "noEmergencyContacts": "Tiada kenalan kecemasan direkodkan.",
+    "relationships": {
+      "son": "Anak lelaki",
+      "daughter": "Anak perempuan",
+      "spouse": "Pasangan",
+      "sibling": "Adik-beradik",
+      "friend": "Rakan",
+      "neighbor": "Jiran",
+      "others": "Lain-lain"
+    }
   },
   "navigation": {
     "home": "Laman Utama",
@@ -93,7 +125,47 @@
     "signIn": "Daftar Masuk"
   },
   "community": {
-    "title": "Komuniti"
+    "title": "Komuniti",
+    "memoryMatch": "Padanan Memori",
+    "memorySubtitle": "Cari 8 pasangan dalam grid 4 kali 4",
+    "gameScore": "Skor Permainan",
+    "kopiPoints": "Mata Kopi",
+    "kopiRewardProgress": "Kemajuan Ganjaran Kopi",
+    "todayPoints": "{{points}} / {{cap}} hari ini",
+    "enoughPoints": "Anda mempunyai mata yang mencukupi untuk menebus kopi.",
+    "morePoints": "{{points}} lagi mata untuk menebus kopi.",
+    "pairsFound": "{{count}} daripada {{total}} pasangan ditemui",
+    "gameComplete": "Permainan selesai",
+    "tap": "Tekan",
+    "attempts": "{{count}} percubaan",
+    "playAgain": "Main lagi",
+    "restartGame": "Mula semula permainan",
+    "redeemFreeKopi": "Tebus kopi percuma",
+    "kopiCost": "Kopi memerlukan 1,500 mata",
+    "dailyEarnLimit": "Dapatkan sehingga 50 mata kopi sehari",
+    "memoryItems": {
+      "kopi": "Kopi",
+      "radio": "Radio",
+      "home": "Rumah",
+      "music": "Muzik",
+      "photo": "Foto",
+      "book": "Buku",
+      "phone": "Telefon",
+      "news": "Berita",
+      "lucky": "Bertuah"
+    },
+    "messages": {
+      "tapTwo": "Tekan dua kad untuk mencari pasangan yang sepadan.",
+      "dailyCapReachedShort": "Had ganjaran harian telah dicapai. Datang semula esok.",
+      "gameCompleteReward": "Permainan selesai. Mata ganjaran ditambah jika had hari ini masih ada.",
+      "dailyCapReached": "Had ganjaran harian telah dicapai. Datang semula esok untuk lebih mata kopi.",
+      "pointsEarned": "Syabas. Anda memperoleh {{points}} mata kopi hari ini.",
+      "kopiRedeemed": "Kopi telah ditebus. Nikmati ganjaran anda!",
+      "luckyCard": "Kad bertuah! +200 mata.",
+      "pickOneMore": "Pilih satu lagi kad.",
+      "niceMatch": "Padanan bagus. Teruskan.",
+      "notMatch": "Tidak sepadan. Cuba lagi."
+    }
   },
   "emergency": {
     "sos": "Kecemasan SOS"

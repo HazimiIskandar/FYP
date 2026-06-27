@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
@@ -12,14 +13,14 @@ const DAILY_REWARD_STORAGE_KEY = 'haloappDailyRewardProgress';
 const memoryStorage = {};
 
 const MEMORY_ITEMS = [
-  { key: 'kopi', label: 'Kopi', icon: 'cafe', color: '#92400E', background: '#FEF3C7' },
-  { key: 'radio', label: 'Radio', icon: 'radio', color: '#1D4ED8', background: '#DBEAFE' },
-  { key: 'home', label: 'Home', icon: 'home', color: '#166534', background: '#DCFCE7' },
-  { key: 'music', label: 'Music', icon: 'musical-notes', color: '#7C2D12', background: '#FFEDD5' },
-  { key: 'photo', label: 'Photo', icon: 'images', color: '#6D28D9', background: '#EDE9FE' },
-  { key: 'book', label: 'Book', icon: 'book', color: '#BE123C', background: '#FFE4E6' },
-  { key: 'phone', label: 'Phone', icon: 'call', color: '#0F766E', background: '#CCFBF1' },
-  { key: 'news', label: 'News', icon: 'newspaper', color: '#4338CA', background: '#E0E7FF' },
+  { key: 'kopi', icon: 'cafe', color: '#92400E', background: '#FEF3C7' },
+  { key: 'radio', icon: 'radio', color: '#1D4ED8', background: '#DBEAFE' },
+  { key: 'home', icon: 'home', color: '#166534', background: '#DCFCE7' },
+  { key: 'music', icon: 'musical-notes', color: '#7C2D12', background: '#FFEDD5' },
+  { key: 'photo', icon: 'images', color: '#6D28D9', background: '#EDE9FE' },
+  { key: 'book', icon: 'book', color: '#BE123C', background: '#FFE4E6' },
+  { key: 'phone', icon: 'call', color: '#0F766E', background: '#CCFBF1' },
+  { key: 'news', icon: 'newspaper', color: '#4338CA', background: '#E0E7FF' },
 ];
 
 const shuffle = (items) => {
@@ -33,7 +34,7 @@ const shuffle = (items) => {
   return nextItems;
 };
 
-const LUCKY_CARD = { key: 'lucky', label: 'Lucky', icon: 'star', color: '#EAB308', background: '#FEF08A', id: 'lucky-card' };
+const LUCKY_CARD = { key: 'lucky', icon: 'star', color: '#EAB308', background: '#FEF08A', id: 'lucky-card' };
 
 const createDeck = () => {
   const selectedItems = shuffle(MEMORY_ITEMS).slice(0, 4);
@@ -104,12 +105,13 @@ const saveStoredRewards = (seniorId, totalPoints, dailyEarned) => {
 };
 
 export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfile, onSettings, onRefresh }) {
+  const { t } = useTranslation();
   const [cards, setCards] = useState(createDeck);
   const [flippedIds, setFlippedIds] = useState([]);
   const [matchedKeys, setMatchedKeys] = useState([]);
   const [attempts, setAttempts] = useState(0);
   const [score, setScore] = useState(0);
-  const [message, setMessage] = useState('Tap two cards to find a matching pair.');
+  const [message, setMessage] = useState({ key: 'community.messages.tapTwo', options: {} });
   const [isChecking, setIsChecking] = useState(false);
   const [totalRewardPoints, setTotalRewardPoints] = useState(0);
   const [dailyRewardPoints, setDailyRewardPoints] = useState(0);
@@ -126,12 +128,16 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
   const progressText = useMemo(() => {
     if (gameComplete) {
       return dailyRewardPoints >= DAILY_REWARD_CAP
-        ? 'Daily reward cap reached. Come back tomorrow.'
-        : 'Game complete. Reward points added if today has cap left.';
+        ? t('community.messages.dailyCapReachedShort')
+        : t('community.messages.gameCompleteReward');
     }
 
-    return `${pairsFoundCount} of 4 pairs found`;
-  }, [dailyRewardPoints, gameComplete, pairsFoundCount]);
+    return t('community.pairsFound', { count: pairsFoundCount, total: 4 });
+  }, [dailyRewardPoints, gameComplete, pairsFoundCount, t]);
+
+  const setGameMessage = (key, options = {}) => {
+    setMessage({ key, options });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -187,7 +193,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
       setRewardGrantedThisGame(true);
 
       if (dailyRewardPoints >= DAILY_REWARD_CAP) {
-        setMessage('Daily reward cap reached. Come back tomorrow for more kopi points.');
+        setGameMessage('community.messages.dailyCapReached');
         return;
       }
 
@@ -211,8 +217,8 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
           setDailyRewardPoints(Number(rewardData?.daily_points || 0));
           setMessage(
             awardedPoints > 0
-              ? `Well done. You earned ${awardedPoints} kopi points today.`
-              : 'Daily reward cap reached. Come back tomorrow for more kopi points.'
+              ? { key: 'community.messages.pointsEarned', options: { points: awardedPoints } }
+              : { key: 'community.messages.dailyCapReached', options: {} }
           );
           if (typeof onRefresh === 'function') {
             await onRefresh();
@@ -227,13 +233,13 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
       const pointsToAdd = Math.min(GAME_COMPLETION_REWARD, remainingDailyPoints);
 
       if (pointsToAdd <= 0) {
-        setMessage('Daily reward cap reached. Come back tomorrow for more kopi points.');
+        setGameMessage('community.messages.dailyCapReached');
         return;
       }
 
       setDailyRewardPoints((currentPoints) => currentPoints + pointsToAdd);
       setTotalRewardPoints((currentPoints) => currentPoints + pointsToAdd);
-      setMessage(`Well done. You earned ${pointsToAdd} kopi points today.`);
+      setGameMessage('community.messages.pointsEarned', { points: pointsToAdd });
     };
 
     awardGamePoints();
@@ -279,7 +285,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     setMatchedKeys([]);
     setAttempts(0);
     setScore(0);
-    setMessage('Tap two cards to find a matching pair.');
+    setGameMessage('community.messages.tapTwo');
     setIsChecking(false);
     setRewardGrantedThisGame(false);
   };
@@ -304,7 +310,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
           }
 
           setTotalRewardPoints(Number(result?.total_points ?? totalRewardPoints - KOPI_COST));
-          setMessage('Kopi redeemed. Enjoy your treat!');
+          setGameMessage('community.messages.kopiRedeemed');
           if (typeof onRefresh === 'function') {
             await onRefresh();
           }
@@ -315,7 +321,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
       }
 
       setTotalRewardPoints((currentPoints) => currentPoints - KOPI_COST);
-      setMessage('Kopi redeemed. Enjoy your treat!');
+      setGameMessage('community.messages.kopiRedeemed');
     };
 
     redeemOnBackend();
@@ -336,7 +342,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     if (card.key === 'lucky') {
       setMatchedKeys((currentMatches) => [...currentMatches, card.key]);
       setScore((currentScore) => currentScore + 200);
-      setMessage('Lucky card! +200 points.');
+      setGameMessage('community.messages.luckyCard');
       return;
     }
 
@@ -344,7 +350,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     setFlippedIds(nextFlippedIds);
 
     if (nextFlippedIds.length === 1) {
-      setMessage('Pick one more card.');
+      setGameMessage('community.messages.pickOneMore');
       return;
     }
 
@@ -361,7 +367,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
         setScore((currentScore) => currentScore + 100);
         setFlippedIds([]);
         setIsChecking(false);
-        setMessage('Nice match. Keep going.');
+        setGameMessage('community.messages.niceMatch');
       }, 450);
       return;
     }
@@ -369,44 +375,46 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     setTimeout(() => {
       setFlippedIds([]);
       setIsChecking(false);
-      setMessage('Not a match. Try again.');
+      setGameMessage('community.messages.notMatch');
     }, 850);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Memory Match" subtitle="Find 8 pairs in a 4 by 4 grid" />
+      <Header title={t('community.memoryMatch')} subtitle={t('community.memorySubtitle')} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.scoreRow}>
           <View style={styles.scoreTile}>
             <Text style={styles.scoreNumber}>{score}</Text>
-            <Text style={styles.scoreLabel}>Game Score</Text>
+            <Text style={styles.scoreLabel}>{t('community.gameScore')}</Text>
           </View>
           <View style={styles.scoreTile}>
             <Text style={styles.scoreNumber}>{totalRewardPoints}</Text>
-            <Text style={styles.scoreLabel}>Kopi Points</Text>
+            <Text style={styles.scoreLabel}>{t('community.kopiPoints')}</Text>
           </View>
         </View>
 
         <View style={styles.rewardCard}>
           <View style={styles.rewardHeader}>
-            <Text style={styles.rewardTitle}>Kopi Reward Progress</Text>
-            <Text style={styles.rewardMeta}>{dailyRewardPoints} / {DAILY_REWARD_CAP} today</Text>
+            <Text style={styles.rewardTitle}>{t('community.kopiRewardProgress')}</Text>
+            <Text style={styles.rewardMeta}>{t('community.todayPoints', { points: dailyRewardPoints, cap: DAILY_REWARD_CAP })}</Text>
           </View>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${Math.min(100, (totalRewardPoints / KOPI_COST) * 100)}%` }]} />
           </View>
           <Text style={styles.rewardText}>
-            {canRedeemKopi ? 'You have enough points to redeem kopi.' : `${pointsToKopi} more points to redeem kopi.`}
+            {canRedeemKopi
+              ? t('community.enoughPoints')
+              : t('community.morePoints', { points: pointsToKopi })}
           </Text>
         </View>
 
         <View style={styles.messageCard}>
           <Ionicons name={gameComplete ? 'trophy' : 'albums'} size={24} color="#2563EB" />
           <View style={styles.messageCopy}>
-            <Text style={styles.messageTitle}>{gameComplete ? 'Game complete' : progressText}</Text>
-            <Text style={styles.messageText}>{gameComplete ? progressText : message}</Text>
+            <Text style={styles.messageTitle}>{gameComplete ? t('community.gameComplete') : progressText}</Text>
+            <Text style={styles.messageText}>{gameComplete ? progressText : t(message.key, message.options)}</Text>
           </View>
         </View>
 
@@ -428,12 +436,12 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
                 {isFaceUp ? (
                   <>
                     <Ionicons name={card.icon} size={30} color={card.color} />
-                    <Text style={[styles.cardLabel, { color: card.color }]}>{card.label}</Text>
+                    <Text style={[styles.cardLabel, { color: card.color }]}>{t(`community.memoryItems.${card.key}`)}</Text>
                   </>
                 ) : (
                   <>
                     <Ionicons name="help" size={36} color="#FFFFFF" />
-                    <Text style={styles.cardBackText}>Tap</Text>
+                    <Text style={styles.cardBackText}>{t('community.tap')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -441,11 +449,11 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
           })}
         </View>
 
-        <Text style={styles.attemptText}>{attempts} attempt(s)</Text>
+        <Text style={styles.attemptText}>{t('community.attempts', { count: attempts })}</Text>
 
         <TouchableOpacity style={styles.resetButton} onPress={resetGame} activeOpacity={0.86}>
           <Ionicons name="refresh" size={22} color="#FFFFFF" />
-          <Text style={styles.resetButtonText}>{gameComplete ? 'Play again' : 'Restart game'}</Text>
+          <Text style={styles.resetButtonText}>{gameComplete ? t('community.playAgain') : t('community.restartGame')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -456,8 +464,8 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
         >
           <Ionicons name="cafe" size={26} color="#FFFFFF" />
           <View style={styles.kopiCopy}>
-            <Text style={styles.kopiButtonText}>{canRedeemKopi ? 'Redeem free kopi' : 'Kopi costs 1,500 points'}</Text>
-            <Text style={styles.kopiButtonSubtext}>Earn up to 50 kopi points per day</Text>
+            <Text style={styles.kopiButtonText}>{canRedeemKopi ? t('community.redeemFreeKopi') : t('community.kopiCost')}</Text>
+            <Text style={styles.kopiButtonSubtext}>{t('community.dailyEarnLimit')}</Text>
           </View>
         </TouchableOpacity>
       </ScrollView>

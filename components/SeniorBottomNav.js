@@ -1,28 +1,31 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 export default function SeniorBottomNav({ onHome, onCommunity, onProfile, onSettings, activeTab }) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.bottomNav}>
       <TouchableOpacity style={styles.navItem} onPress={onHome}>
         <Ionicons name="home" size={26} color={activeTab === 'Home' ? '#2563EB' : '#6B7280'} />
-        <Text style={[styles.navText, { color: activeTab === 'Home' ? '#2563EB' : '#6B7280' }]}>Home</Text>
+        <Text style={[styles.navText, { color: activeTab === 'Home' ? '#2563EB' : '#6B7280' }]}>{t('navigation.home')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.navItem} onPress={onCommunity}>
         <Ionicons name="people" size={26} color={activeTab === 'Community' ? '#2563EB' : '#6B7280'} />
-        <Text style={[styles.navText, { color: activeTab === 'Community' ? '#2563EB' : '#6B7280' }]}>Community</Text>
+        <Text style={[styles.navText, { color: activeTab === 'Community' ? '#2563EB' : '#6B7280' }]}>{t('navigation.community')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.navItem} onPress={onProfile}>
         <Ionicons name="person-circle" size={26} color={activeTab === 'Profile' ? '#2563EB' : '#6B7280'} />
-        <Text style={[styles.navText, { color: activeTab === 'Profile' ? '#2563EB' : '#6B7280' }]}>Profile</Text>
+        <Text style={[styles.navText, { color: activeTab === 'Profile' ? '#2563EB' : '#6B7280' }]}>{t('navigation.profile')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.navItem} onPress={onSettings}>
         <Ionicons name="settings" size={26} color={activeTab === 'Settings' ? '#2563EB' : '#6B7280'} />
-        <Text style={[styles.navText, { color: activeTab === 'Settings' ? '#2563EB' : '#6B7280' }]}>Settings</Text>
+        <Text style={[styles.navText, { color: activeTab === 'Settings' ? '#2563EB' : '#6B7280' }]}>{t('navigation.settings')}</Text>
       </TouchableOpacity>
     </View>
   );

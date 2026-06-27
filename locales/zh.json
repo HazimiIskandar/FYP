@@ -70,7 +70,39 @@
   },
   "profile": {
     "title": "个人资料",
-    "editProfile": "编辑资料"
+    "editProfile": "编辑资料",
+    "myProfile": "我的个人资料",
+    "personalDetails": "个人详情",
+    "fullName": "全名",
+    "dateOfBirth": "出生日期",
+    "gender": "性别",
+    "address": "地址",
+    "postalCode": "邮政编码",
+    "unitNumber": "门牌号码",
+    "phone": "电话",
+    "email": "电子邮件",
+    "name": "姓名",
+    "relationship": "关系",
+    "medicalConditions": "医疗状况",
+    "conditionNumber": "状况 {{number}}",
+    "condition": "状况",
+    "severity": "严重程度",
+    "medicationRequired": "需要药物",
+    "diagnosed": "诊断日期",
+    "emergencyContacts": "紧急联系人",
+    "contactNumber": "联系人 {{number}}",
+    "notRecorded": "未记录",
+    "noMedicalConditions": "没有记录医疗状况。",
+    "noEmergencyContacts": "没有记录紧急联系人。",
+    "relationships": {
+      "son": "儿子",
+      "daughter": "女儿",
+      "spouse": "配偶",
+      "sibling": "兄弟姐妹",
+      "friend": "朋友",
+      "neighbor": "邻居",
+      "others": "其他"
+    }
   },
   "navigation": {
     "home": "首页",
@@ -93,7 +125,47 @@
     "signIn": "登录"
   },
   "community": {
-    "title": "社区"
+    "title": "社区",
+    "memoryMatch": "记忆配对",
+    "memorySubtitle": "在 4 x 4 方格中找出 8 对",
+    "gameScore": "游戏分数",
+    "kopiPoints": "咖啡积分",
+    "kopiRewardProgress": "咖啡奖励进度",
+    "todayPoints": "今天 {{points}} / {{cap}}",
+    "enoughPoints": "您有足够积分兑换咖啡。",
+    "morePoints": "还需要 {{points}} 积分即可兑换咖啡。",
+    "pairsFound": "已找到 {{count}} / {{total}} 对",
+    "gameComplete": "游戏完成",
+    "tap": "点击",
+    "attempts": "{{count}} 次尝试",
+    "playAgain": "再玩一次",
+    "restartGame": "重新开始",
+    "redeemFreeKopi": "兑换免费咖啡",
+    "kopiCost": "咖啡需要 1,500 积分",
+    "dailyEarnLimit": "每天最多可赚取 50 咖啡积分",
+    "memoryItems": {
+      "kopi": "咖啡",
+      "radio": "收音机",
+      "home": "家",
+      "music": "音乐",
+      "photo": "照片",
+      "book": "书",
+      "phone": "电话",
+      "news": "新闻",
+      "lucky": "幸运"
+    },
+    "messages": {
+      "tapTwo": "点击两张卡片来寻找配对。",
+      "dailyCapReachedShort": "已达到每日奖励上限。请明天再回来。",
+      "gameCompleteReward": "游戏完成。如果今天还有额度，奖励积分已加入。",
+      "dailyCapReached": "已达到每日奖励上限。请明天再回来赚取咖啡积分。",
+      "pointsEarned": "做得好。您今天获得了 {{points}} 咖啡积分。",
+      "kopiRedeemed": "咖啡已兑换。祝您享用愉快！",
+      "luckyCard": "幸运卡！+200 分。",
+      "pickOneMore": "再选一张卡片。",
+      "niceMatch": "配对成功。继续加油。",
+      "notMatch": "没有配对。再试一次。"
+    }
   },
   "emergency": {
     "sos": "紧急求助"

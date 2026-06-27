@@ -70,7 +70,39 @@
   },
   "profile": {
     "title": "Profile",
-    "editProfile": "Edit Profile"
+    "editProfile": "Edit Profile",
+    "myProfile": "My Profile",
+    "personalDetails": "Personal Details",
+    "fullName": "Full Name",
+    "dateOfBirth": "Date of Birth",
+    "gender": "Gender",
+    "address": "Address",
+    "postalCode": "Postal Code",
+    "unitNumber": "Unit Number",
+    "phone": "Phone",
+    "email": "Email",
+    "name": "Name",
+    "relationship": "Relationship",
+    "medicalConditions": "Medical Conditions",
+    "conditionNumber": "Condition {{number}}",
+    "condition": "Condition",
+    "severity": "Severity",
+    "medicationRequired": "Medication Required",
+    "diagnosed": "Diagnosed",
+    "emergencyContacts": "Emergency Contacts",
+    "contactNumber": "Contact {{number}}",
+    "notRecorded": "Not recorded",
+    "noMedicalConditions": "No medical conditions recorded.",
+    "noEmergencyContacts": "No emergency contacts recorded.",
+    "relationships": {
+      "son": "Son",
+      "daughter": "Daughter",
+      "spouse": "Spouse",
+      "sibling": "Sibling",
+      "friend": "Friend",
+      "neighbor": "Neighbor",
+      "others": "Others"
+    }
   },
   "navigation": {
     "home": "Home",
@@ -93,7 +125,47 @@
     "signIn": "Sign In"
   },
   "community": {
-    "title": "Community"
+    "title": "Community",
+    "memoryMatch": "Memory Match",
+    "memorySubtitle": "Find 8 pairs in a 4 by 4 grid",
+    "gameScore": "Game Score",
+    "kopiPoints": "Kopi Points",
+    "kopiRewardProgress": "Kopi Reward Progress",
+    "todayPoints": "{{points}} / {{cap}} today",
+    "enoughPoints": "You have enough points to redeem kopi.",
+    "morePoints": "{{points}} more points to redeem kopi.",
+    "pairsFound": "{{count}} of {{total}} pairs found",
+    "gameComplete": "Game complete",
+    "tap": "Tap",
+    "attempts": "{{count}} attempt(s)",
+    "playAgain": "Play again",
+    "restartGame": "Restart game",
+    "redeemFreeKopi": "Redeem free kopi",
+    "kopiCost": "Kopi costs 1,500 points",
+    "dailyEarnLimit": "Earn up to 50 kopi points per day",
+    "memoryItems": {
+      "kopi": "Kopi",
+      "radio": "Radio",
+      "home": "Home",
+      "music": "Music",
+      "photo": "Photo",
+      "book": "Book",
+      "phone": "Phone",
+      "news": "News",
+      "lucky": "Lucky"
+    },
+    "messages": {
+      "tapTwo": "Tap two cards to find a matching pair.",
+      "dailyCapReachedShort": "Daily reward cap reached. Come back tomorrow.",
+      "gameCompleteReward": "Game complete. Reward points added if today has cap left.",
+      "dailyCapReached": "Daily reward cap reached. Come back tomorrow for more kopi points.",
+      "pointsEarned": "Well done. You earned {{points}} kopi points today.",
+      "kopiRedeemed": "Kopi redeemed. Enjoy your treat!",
+      "luckyCard": "Lucky card! +200 points.",
+      "pickOneMore": "Pick one more card.",
+      "niceMatch": "Nice match. Keep going.",
+      "notMatch": "Not a match. Try again."
+    }
   },
   "emergency": {
     "sos": "SOS Emergency"

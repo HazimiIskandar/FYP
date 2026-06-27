@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
@@ -23,6 +24,15 @@ const formatDate = (value) => {
 
 const CONDITION_OTHER = 'Others';
 const RELATIONSHIPS = ['Son', 'Daughter', 'Spouse', 'Sibling', 'Friend', 'Neighbor', CONDITION_OTHER];
+const RELATIONSHIP_TRANSLATION_KEYS = {
+  Son: 'profile.relationships.son',
+  Daughter: 'profile.relationships.daughter',
+  Spouse: 'profile.relationships.spouse',
+  Sibling: 'profile.relationships.sibling',
+  Friend: 'profile.relationships.friend',
+  Neighbor: 'profile.relationships.neighbor',
+  Others: 'profile.relationships.others',
+};
 
 export default function SeniorProfileScreen({
   senior = {},
@@ -31,6 +41,7 @@ export default function SeniorProfileScreen({
   onCommunity,
   onSettings,
 }) {
+  const { t, i18n } = useTranslation();
   const medicalFromProp = useMemo(
     () => (Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : []),
     [senior?.medicalConditions]
@@ -85,16 +96,18 @@ export default function SeniorProfileScreen({
   }, [apiBase, senior?.senior_id]);
 
   const details = useMemo(() => {
+    const notRecorded = t('profile.notRecorded');
+
     return {
       fullName: getSeniorName(senior),
-      dob: formatDate(senior?.dob) || 'Not recorded',
-      gender: senior?.gender || 'Not recorded',
-      address: senior?.address || 'Not recorded',
-      postalCode: senior?.postal_code || 'Not recorded',
-      unitNumber: senior?.unit_number || senior?.unit_no || 'Not recorded',
-      phone: senior?.phone_number || senior?.contact || 'Not recorded',
+      dob: formatDate(senior?.dob) || notRecorded,
+      gender: senior?.gender || notRecorded,
+      address: senior?.address || notRecorded,
+      postalCode: senior?.postal_code || notRecorded,
+      unitNumber: senior?.unit_number || senior?.unit_no || notRecorded,
+      phone: senior?.phone_number || senior?.contact || notRecorded,
     };
-  }, [senior]);
+  }, [senior, t, i18n.language]);
 
   const renderInfoRow = (icon, label, value) => (
     <View style={styles.infoRow}>
@@ -108,58 +121,58 @@ export default function SeniorProfileScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="My Profile" />
+      <Header title={t('profile.myProfile')} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Personal Details</Text>
-          {renderInfoRow('person-outline', 'Full Name', details.fullName)}
-          {renderInfoRow('calendar-outline', 'Date of Birth', details.dob)}
-          {renderInfoRow('male-female-outline', 'Gender', details.gender)}
-          {renderInfoRow('home-outline', 'Address', details.address)}
-          {renderInfoRow('mail-outline', 'Postal Code', details.postalCode)}
-          {renderInfoRow('business-outline', 'Unit Number', details.unitNumber)}
-          {renderInfoRow('call-outline', 'Phone', details.phone)}
+          <Text style={styles.cardTitle}>{t('profile.personalDetails')}</Text>
+          {renderInfoRow('person-outline', t('profile.fullName'), details.fullName)}
+          {renderInfoRow('calendar-outline', t('profile.dateOfBirth'), details.dob)}
+          {renderInfoRow('male-female-outline', t('profile.gender'), details.gender)}
+          {renderInfoRow('home-outline', t('profile.address'), details.address)}
+          {renderInfoRow('mail-outline', t('profile.postalCode'), details.postalCode)}
+          {renderInfoRow('business-outline', t('profile.unitNumber'), details.unitNumber)}
+          {renderInfoRow('call-outline', t('profile.phone'), details.phone)}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Medical Conditions</Text>
+          <Text style={styles.cardTitle}>{t('profile.medicalConditions')}</Text>
           {medicalConditions.length ? (
             medicalConditions.map((condition, index) => (
               <View key={`condition-${condition?.condition_id || index}`} style={styles.groupBlock}>
-                <Text style={styles.groupTitle}>Condition {index + 1}</Text>
-                {renderInfoRow('fitness-outline', 'Condition', condition?.condition_name || 'Not recorded')}
-                {renderInfoRow('warning-outline', 'Severity', condition?.severity_level || 'Not recorded')}
-                {renderInfoRow('medical-outline', 'Medication Required', condition?.medication_required || 'Not recorded')}
-                {renderInfoRow('calendar-outline', 'Diagnosed', formatDate(condition?.diagnosed_date) || 'Not recorded')}
+                <Text style={styles.groupTitle}>{t('profile.conditionNumber', { number: index + 1 })}</Text>
+                {renderInfoRow('fitness-outline', t('profile.condition'), condition?.condition_name || t('profile.notRecorded'))}
+                {renderInfoRow('warning-outline', t('profile.severity'), condition?.severity_level || t('profile.notRecorded'))}
+                {renderInfoRow('medical-outline', t('profile.medicationRequired'), condition?.medication_required || t('profile.notRecorded'))}
+                {renderInfoRow('calendar-outline', t('profile.diagnosed'), formatDate(condition?.diagnosed_date) || t('profile.notRecorded'))}
               </View>
             ))
           ) : (
-            <Text style={styles.emptyText}>No medical conditions recorded.</Text>
+            <Text style={styles.emptyText}>{t('profile.noMedicalConditions')}</Text>
           )}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Emergency Contacts</Text>
+          <Text style={styles.cardTitle}>{t('profile.emergencyContacts')}</Text>
           {emergencyContacts.length ? (
             emergencyContacts.map((contact, index) => {
               const relationship = contact?.relationship_to_senior || '';
               const displayRelationship = RELATIONSHIPS.includes(relationship)
-                ? relationship
-                : (relationship || 'Not recorded');
+                ? t(RELATIONSHIP_TRANSLATION_KEYS[relationship])
+                : (relationship || t('profile.notRecorded'));
 
               return (
                 <View key={`nok-${contact?.nok_id || index}`} style={styles.groupBlock}>
-                  <Text style={styles.groupTitle}>Contact {index + 1}</Text>
-                  {renderInfoRow('person-outline', 'Name', contact?.full_name || 'Not recorded')}
-                  {renderInfoRow('people-outline', 'Relationship', displayRelationship)}
-                  {renderInfoRow('call-outline', 'Phone', contact?.phone_number || 'Not recorded')}
-                  {renderInfoRow('mail-outline', 'Email', contact?.email || 'Not recorded')}
+                  <Text style={styles.groupTitle}>{t('profile.contactNumber', { number: index + 1 })}</Text>
+                  {renderInfoRow('person-outline', t('profile.name'), contact?.full_name || t('profile.notRecorded'))}
+                  {renderInfoRow('people-outline', t('profile.relationship'), displayRelationship)}
+                  {renderInfoRow('call-outline', t('profile.phone'), contact?.phone_number || t('profile.notRecorded'))}
+                  {renderInfoRow('mail-outline', t('profile.email'), contact?.email || t('profile.notRecorded'))}
                 </View>
               );
             })
           ) : (
-            <Text style={styles.emptyText}>No emergency contacts recorded.</Text>
+            <Text style={styles.emptyText}>{t('profile.noEmergencyContacts')}</Text>
           )}
         </View>
       </ScrollView>
