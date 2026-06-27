@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -115,6 +115,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
   const [dailyRewardPoints, setDailyRewardPoints] = useState(0);
   const [rewardsLoaded, setRewardsLoaded] = useState(false);
   const [rewardGrantedThisGame, setRewardGrantedThisGame] = useState(false);
+  const recordedActivityKeyRef = useRef(null);
   const seniorId = senior?.senior_id;
 
   const pairsFoundCount = matchedKeys.filter(k => k !== 'lucky').length;
@@ -192,18 +193,6 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
 
       if (apiBase && seniorId) {
         try {
-          // Record the game activity for streak counting
-          await fetch(`${apiBase}/community/record-activity`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              senior_id: seniorId,
-              activity_name: 'Memory Game',
-              activity_type: 'Game',
-              participation_status: 'Completed',
-            }),
-          }).catch((err) => console.log('Failed to record community activity:', err));
-
           const response = await fetch(`${apiBase}/rewards/senior/${seniorId}/game-points`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -249,6 +238,40 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
 
     awardGamePoints();
   }, [apiBase, dailyRewardPoints, gameComplete, rewardGrantedThisGame, rewardsLoaded, seniorId]);
+
+  const recordCommunityActivity = async () => {
+    const activityKey = `${seniorId}:${getTodayKey()}`;
+
+    if (recordedActivityKeyRef.current === activityKey || !apiBase || !seniorId) {
+      return;
+    }
+
+    recordedActivityKeyRef.current = activityKey;
+
+    try {
+      const response = await fetch(`${apiBase}/community/record-activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senior_id: seniorId,
+          activity_name: 'Memory Game',
+          activity_type: 'Game',
+          participation_status: 'Completed',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      if (typeof onRefresh === 'function') {
+        await onRefresh();
+      }
+    } catch (err) {
+      recordedActivityKeyRef.current = null;
+      console.log('Failed to record community activity:', err);
+    }
+  };
 
   const resetGame = () => {
     setCards(createDeck());
@@ -307,6 +330,8 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     ) {
       return;
     }
+
+    recordCommunityActivity();
 
     if (card.key === 'lucky') {
       setMatchedKeys((currentMatches) => [...currentMatches, card.key]);

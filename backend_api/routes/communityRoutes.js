@@ -158,42 +158,62 @@ router.get("/activities/:senior_id", (req, res) => {
 
 /**
  * POST /community/record-activity
- * Record a community game completion for a senior
+ * Record a community game activity for a senior
  * Body: { senior_id, activity_name, activity_type, participation_status }
  */
-router.post("/record-activity", (req, res) => {
+router.post("/record-activity", async (req, res) => {
   const { senior_id, activity_name = "Memory Game", activity_type = "Game", participation_status = "Completed" } = req.body;
 
   if (!senior_id) {
     return res.status(400).json({ error: "senior_id is required" });
   }
 
-  const query = `
-    INSERT INTO Community_Hub (senior_id, activity_name, activity_type, activity_date, participation_status)
-    VALUES (?, ?, ?, NOW(), ?)
-  `;
+  try {
+    const existingRows = await runQuery(
+      `
+        SELECT activity_id
+        FROM Community_Hub
+        WHERE senior_id = ?
+          AND activity_name = ?
+          AND activity_type = ?
+          AND DATE(activity_date) = CURDATE()
+        ORDER BY activity_id ASC
+        LIMIT 1
+      `,
+      [senior_id, activity_name, activity_type]
+    );
 
-  db.query(query, [senior_id, activity_name, activity_type, participation_status], async (err, results) => {
-    if (err) {
-      console.error("Error recording activity:", err);
-      return res.status(500).json({ error: "Failed to record activity" });
+    let activityId = existingRows[0]?.activity_id;
+    let activityCreated = false;
+
+    if (!activityId) {
+      const insertResult = await runQuery(
+        `
+          INSERT INTO Community_Hub (senior_id, activity_name, activity_type, activity_date, participation_status)
+          VALUES (?, ?, ?, NOW(), ?)
+        `,
+        [senior_id, activity_name, activity_type, participation_status]
+      );
+
+      activityId = insertResult.insertId;
+      activityCreated = true;
     }
 
-    try {
-      const checkIn = await ensureDailyCheckInForActivity(senior_id);
-      const currentStreak = await syncRewardStreak(senior_id);
-      res.json({
-        success: true,
-        activity_id: results.insertId,
-        checkin_id: checkIn.checkin_id,
-        checkin_created: checkIn.created,
-        current_streak: currentStreak,
-      });
-    } catch (syncErr) {
-      console.error("Error syncing community streak:", syncErr);
-      res.json({ success: true, activity_id: results.insertId });
-    }
-  });
+    const checkIn = await ensureDailyCheckInForActivity(senior_id);
+    const currentStreak = await syncRewardStreak(senior_id);
+
+    res.json({
+      success: true,
+      activity_id: activityId,
+      activity_created: activityCreated,
+      checkin_id: checkIn.checkin_id,
+      checkin_created: checkIn.created,
+      current_streak: currentStreak,
+    });
+  } catch (err) {
+    console.error("Error recording activity:", err);
+    res.status(500).json({ error: "Failed to record activity" });
+  }
 });
 
 module.exports = router;
