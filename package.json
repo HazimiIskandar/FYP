@@ -15,11 +15,13 @@
     "expo-notifications": "~0.32.17",
     "expo-status-bar": "~3.0.9",
     "express": "^5.2.1",
+    "i18next": "^26.3.3",
     "mysql2": "^3.22.3",
     "nodemon": "^3.1.14",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-i18next": "^17.0.8",
     "react-native": "0.81.5",
     "react-native-paper": "4.9.2",
     "react-native-web": "^0.21.0"

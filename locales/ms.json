@@ -1,0 +1,101 @@
+{
+  "app": {
+    "name": "Haloapp",
+    "tagline": "Daftar masuk selamat untuk warga emas"
+  },
+  "language": {
+    "title": "Pilih bahasa anda",
+    "subtitle": "Anda boleh menukar ini kemudian dalam tetapan.",
+    "english": "English",
+    "chinese": "中文",
+    "malay": "Bahasa Melayu",
+    "tamil": "தமிழ்"
+  },
+  "login": {
+    "signIn": "Daftar Masuk",
+    "subtitle": "Masukkan E-mel dan Kata Laluan anda untuk teruskan",
+    "email": "E-mel",
+    "password": "Kata Laluan",
+    "forgotPassword": "Lupa kata laluan?",
+    "login": "Log Masuk",
+    "noAccount": "Tiada akaun? ",
+    "signUp": "Daftar",
+    "caregiverLogin": "Log Masuk Penjaga"
+  },
+  "home": {
+    "goodMorning": "Selamat pagi",
+    "goodMorningName": "Selamat pagi, {{name}}",
+    "tapToCheckIn": "Tekan sekali untuk beritahu penjaga anda bahawa anda okay",
+    "checkedInToday": "Anda telah daftar masuk hari ini",
+    "checkInReady": "Daftar masuk harian sudah sedia",
+    "streakDays": "Rentetan {{streak}} hari. Dua hari lagi untuk tebus kopi.",
+    "familyWillSee": "Keluarga anda akan melihat status anda selepas anda tekan.",
+    "day": "Hari {{number}}",
+    "done": "Selesai",
+    "iAmOkay": "Saya okay",
+    "checkInNow": "Daftar masuk sekarang",
+    "sosEmergency": "Kecemasan SOS",
+    "language": "Bahasa"
+  },
+  "settings": {
+    "title": "Tetapan",
+    "subtitle": "Urus akaun dan peringatan",
+    "updateProfile": "Kemas Kini Profil",
+    "notification": "Pemberitahuan",
+    "caregiver": "Penjaga",
+    "logOut": "Log Keluar",
+    "notificationTitle": "Pemberitahuan",
+    "notificationSubtitle": "Peringatan daftar masuk harian",
+    "notificationDesc": "Apl akan mengingatkan anda 30 minit dan 15 minit sebelum waktu daftar masuk yang dipilih.",
+    "morningCheckIn": "Waktu Daftar Masuk Pagi",
+    "eveningCheckIn": "Waktu Daftar Masuk Petang",
+    "saveCheckInTime": "Simpan Waktu Daftar Masuk",
+    "saving": "Menyimpan…",
+    "selectCheckInTime": "Pilih Waktu Daftar Masuk",
+    "caregiverTitle": "Penjaga",
+    "caregiverSubtitle": "Kongsi kod pautan",
+    "yourLinkCode": "Kod pautan unik anda",
+    "generateNewCode": "Hasilkan Kod Baru",
+    "generateLinkCode": "Hasilkan Kod Pautan",
+    "generating": "Menghasilkan...",
+    "shareCode": "Kongsi kod ini dengan penjaga anda.",
+    "logOutTitle": "Log keluar?",
+    "logOutMessage": "Sila sahkan sebelum meninggalkan akaun warga emas anda.",
+    "yesLogOut": "Ya, Log Keluar",
+    "no": "Tidak",
+    "timesSaved": "Waktu daftar masuk disimpan: {{t1}} & {{t2}}",
+    "pleaseSelectBoth": "Sila pilih kedua-dua waktu daftar masuk.",
+    "minimumGap": "Sila pastikan ada jarak minimum 10 jam antara daftar masuk.",
+    "noConnection": "Tidak dapat menyimpan — tiada sambungan ke pelayan."
+  },
+  "profile": {
+    "title": "Profil",
+    "editProfile": "Edit Profil"
+  },
+  "navigation": {
+    "home": "Laman Utama",
+    "community": "Komuniti",
+    "profile": "Profil",
+    "settings": "Tetapan"
+  },
+  "createAccount": {
+    "title": "Buat Akaun",
+    "subtitle": "Masukkan Nama Penuh dan E-mel anda untuk menyediakan akaun.",
+    "fullName": "Nama Penuh",
+    "emailAddress": "Alamat E-mel",
+    "password": "Kata Laluan",
+    "selectRole": "Pilih peranan",
+    "senior": "Warga Emas",
+    "caregiver": "Penjaga",
+    "aicStaff": "Kakitangan AIC",
+    "createAccount": "Buat Akaun",
+    "alreadyHaveAccount": "Sudah ada akaun? ",
+    "signIn": "Daftar Masuk"
+  },
+  "community": {
+    "title": "Komuniti"
+  },
+  "emergency": {
+    "sos": "Kecemasan SOS"
+  }
+}

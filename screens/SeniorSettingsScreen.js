@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 // import * as Notifications from 'expo-notifications'; // kept for future use
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
@@ -70,6 +71,7 @@ export default function SeniorSettingsScreen({
   onLogout,
   onRefresh,
 }) {
+  const { t } = useTranslation();
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
     const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM, 7:00 PM';
@@ -237,7 +239,7 @@ export default function SeniorSettingsScreen({
       }
 
       setLinkCode(body?.link_code || generatedCode);
-      setLinkStatusMessage('Share this code with your caregiver.');
+      setLinkStatusMessage(t('settings.shareCode'));
     } catch (err) {
       setLinkStatusError(err?.message || 'Unable to generate link code.');
     } finally {
@@ -247,7 +249,7 @@ export default function SeniorSettingsScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Settings" subtitle="Manage account and reminders" />
+      <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity
@@ -258,7 +260,7 @@ export default function SeniorSettingsScreen({
           <View style={styles.settingIcon}>
             <Ionicons name="person-outline" size={23} color="#2563EB" />
           </View>
-          <Text style={styles.settingText}>Update Profile</Text>
+          <Text style={styles.settingText}>{t('settings.updateProfile')}</Text>
           <Ionicons name="chevron-forward" size={23} color="#6B7280" />
         </TouchableOpacity>
 
@@ -270,7 +272,7 @@ export default function SeniorSettingsScreen({
           <View style={styles.settingIcon}>
             <Ionicons name="notifications-outline" size={23} color="#2563EB" />
           </View>
-          <Text style={styles.settingText}>Notification</Text>
+          <Text style={styles.settingText}>{t('settings.notification')}</Text>
           <Ionicons name="chevron-forward" size={23} color="#6B7280" />
         </TouchableOpacity>
 
@@ -282,7 +284,7 @@ export default function SeniorSettingsScreen({
           <View style={styles.settingIcon}>
             <Ionicons name="people-outline" size={23} color="#2563EB" />
           </View>
-          <Text style={styles.settingText}>Caregiver</Text>
+          <Text style={styles.settingText}>{t('settings.caregiver')}</Text>
           <Ionicons name="chevron-forward" size={23} color="#6B7280" />
         </TouchableOpacity>
 
@@ -292,7 +294,7 @@ export default function SeniorSettingsScreen({
           activeOpacity={0.86}
         >
           <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.logoutButtonText}>Log Out</Text>
+          <Text style={styles.logoutButtonText}>{t('settings.logOut')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -354,8 +356,8 @@ export default function SeniorSettingsScreen({
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Notification</Text>
-                <Text style={styles.modalSubtitle}>Daily check-in reminders</Text>
+                <Text style={styles.modalTitle}>{t('settings.notificationTitle')}</Text>
+                <Text style={styles.modalSubtitle}>{t('settings.notificationSubtitle')}</Text>
               </View>
               <TouchableOpacity style={styles.closeButton} onPress={() => setActiveModal(null)}>
                 <Ionicons name="close" size={24} color="#111827" />
@@ -365,11 +367,11 @@ export default function SeniorSettingsScreen({
             <View style={styles.noticeBox}>
               <Ionicons name="notifications-outline" size={22} color="#2563EB" />
               <Text style={styles.noticeText}>
-                The app will remind you 30 minutes and 15 minutes before your chosen check-in time.
+                {t('settings.notificationDesc')}
               </Text>
             </View>
 
-            <Text style={styles.inputLabel}>Morning Check-In Time</Text>
+            <Text style={styles.inputLabel}>{t('settings.morningCheckIn')}</Text>
             <TouchableOpacity
               style={styles.selectBox}
               onPress={() => { setEditingTimeIndex(1); setTimeDropdownVisible(true); }}
@@ -379,7 +381,7 @@ export default function SeniorSettingsScreen({
               <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
             </TouchableOpacity>
 
-            <Text style={[styles.inputLabel, { marginTop: 16 }]}>Evening Check-In Time</Text>
+            <Text style={[styles.inputLabel, { marginTop: 16 }]}>{t('settings.eveningCheckIn')}</Text>
             <TouchableOpacity
               style={styles.selectBox}
               onPress={() => { setEditingTimeIndex(2); setTimeDropdownVisible(true); }}
@@ -398,7 +400,7 @@ export default function SeniorSettingsScreen({
               activeOpacity={0.86}
               disabled={timeSaving}
             >
-              <Text style={styles.primaryButtonText}>{timeSaving ? 'Saving…' : 'Save Check-In Time'}</Text>
+              <Text style={styles.primaryButtonText}>{timeSaving ? t('settings.saving') : t('settings.saveCheckInTime')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -409,8 +411,8 @@ export default function SeniorSettingsScreen({
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Caregiver</Text>
-                <Text style={styles.modalSubtitle}>Share link code</Text>
+                <Text style={styles.modalTitle}>{t('settings.caregiverTitle')}</Text>
+                <Text style={styles.modalSubtitle}>{t('settings.caregiverSubtitle')}</Text>
               </View>
               <TouchableOpacity style={styles.closeButton} onPress={() => setActiveModal(null)}>
                 <Ionicons name="close" size={24} color="#111827" />
@@ -419,7 +421,7 @@ export default function SeniorSettingsScreen({
 
             {linkCode ? (
               <View style={styles.codeCard}>
-                <Text style={styles.codeLabel}>Your unique link code</Text>
+                <Text style={styles.codeLabel}>{t('settings.yourLinkCode')}</Text>
                 <Text style={styles.linkCode}>{linkCode}</Text>
                 {linkStatusError ? <Text style={styles.errorText}>{linkStatusError}</Text> : null}
                 {linkStatusMessage ? <Text style={styles.savedText}>{linkStatusMessage}</Text> : null}
@@ -429,7 +431,7 @@ export default function SeniorSettingsScreen({
                   activeOpacity={0.86}
                   disabled={linkSaving}
                 >
-                  <Text style={styles.primaryButtonText}>{linkSaving ? 'Generating...' : 'Generate New Code'}</Text>
+                  <Text style={styles.primaryButtonText}>{linkSaving ? t('settings.generating') : t('settings.generateNewCode')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -440,7 +442,7 @@ export default function SeniorSettingsScreen({
                   activeOpacity={0.86}
                   disabled={linkSaving}
                 >
-                  <Text style={styles.generateButtonText}>{linkSaving ? 'Generating...' : 'Generate Link Code'}</Text>
+                  <Text style={styles.generateButtonText}>{linkSaving ? t('settings.generating') : t('settings.generateLinkCode')}</Text>
                 </TouchableOpacity>
                 {linkStatusError ? <Text style={styles.errorText}>{linkStatusError}</Text> : null}
                 {linkStatusMessage ? <Text style={styles.savedText}>{linkStatusMessage}</Text> : null}
@@ -456,13 +458,13 @@ export default function SeniorSettingsScreen({
             <View style={styles.confirmIcon}>
               <Ionicons name="log-out-outline" size={34} color="#DC2626" />
             </View>
-            <Text style={styles.confirmTitle}>Log out?</Text>
-            <Text style={styles.confirmMessage}>Please confirm before leaving your senior account.</Text>
+            <Text style={styles.confirmTitle}>{t('settings.logOutTitle')}</Text>
+            <Text style={styles.confirmMessage}>{t('settings.logOutMessage')}</Text>
             <TouchableOpacity style={styles.dangerButton} onPress={onLogout} activeOpacity={0.86}>
-              <Text style={styles.dangerButtonText}>Yes, Log Out</Text>
+              <Text style={styles.dangerButtonText}>{t('settings.yesLogOut')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelButton} onPress={() => setLogoutConfirmVisible(false)} activeOpacity={0.86}>
-              <Text style={styles.cancelButtonText}>No</Text>
+              <Text style={styles.cancelButtonText}>{t('settings.no')}</Text>
             </TouchableOpacity>
           </View>
         </View>

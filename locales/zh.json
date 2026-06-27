@@ -1,0 +1,101 @@
+{
+  "app": {
+    "name": "Haloapp",
+    "tagline": "为年长者提供安全的签到服务"
+  },
+  "language": {
+    "title": "选择您的语言",
+    "subtitle": "您可以稍后在设置中更改。",
+    "english": "English",
+    "chinese": "中文",
+    "malay": "Bahasa Melayu",
+    "tamil": "தமிழ்"
+  },
+  "login": {
+    "signIn": "登录",
+    "subtitle": "输入您的电子邮件和密码以继续",
+    "email": "电子邮件",
+    "password": "密码",
+    "forgotPassword": "忘记密码？",
+    "login": "登录",
+    "noAccount": "还没有账户？",
+    "signUp": "注册",
+    "caregiverLogin": "看护者登录"
+  },
+  "home": {
+    "goodMorning": "早上好",
+    "goodMorningName": "早上好，{{name}}",
+    "tapToCheckIn": "点击一次让您的看护者知道您没事",
+    "checkedInToday": "您今天已签到",
+    "checkInReady": "每日签到已准备就绪",
+    "streakDays": "连续{{streak}}天。再两天即可兑换咖啡。",
+    "familyWillSee": "您的家人会在您点击后看到您的状态。",
+    "day": "第{{number}}天",
+    "done": "完成",
+    "iAmOkay": "我没事",
+    "checkInNow": "现在签到",
+    "sosEmergency": "紧急求助",
+    "language": "语言"
+  },
+  "settings": {
+    "title": "设置",
+    "subtitle": "管理账户和提醒",
+    "updateProfile": "更新资料",
+    "notification": "通知",
+    "caregiver": "看护者",
+    "logOut": "退出登录",
+    "notificationTitle": "通知",
+    "notificationSubtitle": "每日签到提醒",
+    "notificationDesc": "应用会在您选择的签到时间前30分钟和15分钟提醒您。",
+    "morningCheckIn": "早上签到时间",
+    "eveningCheckIn": "晚上签到时间",
+    "saveCheckInTime": "保存签到时间",
+    "saving": "保存中…",
+    "selectCheckInTime": "选择签到时间",
+    "caregiverTitle": "看护者",
+    "caregiverSubtitle": "分享链接代码",
+    "yourLinkCode": "您的唯一链接代码",
+    "generateNewCode": "生成新代码",
+    "generateLinkCode": "生成链接代码",
+    "generating": "生成中...",
+    "shareCode": "将此代码分享给您的看护者。",
+    "logOutTitle": "退出登录？",
+    "logOutMessage": "请确认后再离开您的年长者账户。",
+    "yesLogOut": "是的，退出登录",
+    "no": "不",
+    "timesSaved": "签到时间已保存：{{t1}} 和 {{t2}}",
+    "pleaseSelectBoth": "请选择两个签到时间。",
+    "minimumGap": "请确保签到时间之间至少有10小时间隔。",
+    "noConnection": "无法保存 — 未连接到服务器。"
+  },
+  "profile": {
+    "title": "个人资料",
+    "editProfile": "编辑资料"
+  },
+  "navigation": {
+    "home": "首页",
+    "community": "社区",
+    "profile": "个人资料",
+    "settings": "设置"
+  },
+  "createAccount": {
+    "title": "创建账户",
+    "subtitle": "输入您的全名和电子邮件以设置您的账户。",
+    "fullName": "全名",
+    "emailAddress": "电子邮件地址",
+    "password": "密码",
+    "selectRole": "选择角色",
+    "senior": "年长者",
+    "caregiver": "看护者",
+    "aicStaff": "AIC 员工",
+    "createAccount": "创建账户",
+    "alreadyHaveAccount": "已有账户？",
+    "signIn": "登录"
+  },
+  "community": {
+    "title": "社区"
+  },
+  "emergency": {
+    "sos": "紧急求助"
+  }
+}

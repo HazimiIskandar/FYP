@@ -1,15 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
 export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn, onSOS, onCommunity, onProfile, onSettings, currentStreak }) {
+  const { t } = useTranslation();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const displayStreak = Math.max(0, currentStreak ?? 0);
-  const languages = ['English', '中文', 'Malay', 'தமிழ்'];
+  const languages = [
+    { code: 'en', label: t('language.english') },
+    { code: 'zh', label: t('language.chinese') },
+    { code: 'ms', label: t('language.malay') },
+    { code: 'ta', label: t('language.tamil') },
+  ];
 
   const getSeniorDisplayName = (senior) => {
     if (!senior) return 'Unknown Senior';
@@ -41,15 +49,15 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title={`Good morning${seniorName ? `, ${seniorName}` : ''}`}
-        subtitle="Tap once to let your caregiver know you are okay"
+        title={seniorName ? t('home.goodMorningName', { name: seniorName }) : t('home.goodMorning')}
+        subtitle={t('home.tapToCheckIn')}
         rightContent={(
           <TouchableOpacity
             style={styles.languageButton}
             onPress={() => setLanguageModalVisible(true)}
             activeOpacity={0.86}
           >
-            <Text style={styles.languageButtonText}>Language</Text>
+            <Text style={styles.languageButtonText}>{t('home.language')}</Text>
           </TouchableOpacity>
         )}
       />
@@ -61,10 +69,10 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
           </View>
           <View style={styles.statusCopy}>
             <Text style={styles.statusTitle}>
-              {hasCheckedIn ? 'You checked in today' : 'Daily check-in is ready'}
+              {hasCheckedIn ? t('home.checkedInToday') : t('home.checkInReady')}
             </Text>
             <Text style={styles.statusSubtitle}>
-              {hasCheckedIn ? `${displayStreak}-day streak. Two more days to redeem kopi.` : 'Your family will see your status after you tap.'}
+              {hasCheckedIn ? t('home.streakDays', { streak: displayStreak }) : t('home.familyWillSee')}
             </Text>
           </View>
         </View>
@@ -77,7 +85,7 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
                 <View style={[styles.stampCircle, filled ? styles.stampFilled : styles.stampEmpty]}>
                   {filled ? <Ionicons name="checkmark-sharp" size={18} color="#FFFFFF" /> : <Text style={styles.stampNumber}>{day}</Text>}
                 </View>
-                <Text style={styles.stampLabel}>Day {day}</Text>
+                <Text style={styles.stampLabel}>{t('home.day', { number: day })}</Text>
               </View>
             );
           })}
@@ -87,13 +95,13 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
           {hasCheckedIn ? (
             <Animated.View style={[styles.giantCircle, styles.checkedCircle, { transform: [{ scale: scaleAnim }] }]}>
               <Ionicons name="checkmark" size={128} color="#FFFFFF" />
-              <Text style={styles.checkedText}>Done</Text>
+              <Text style={styles.checkedText}>{t('home.done')}</Text>
             </Animated.View>
           ) : (
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
               <TouchableOpacity style={styles.giantCircle} onPress={onCheckIn} activeOpacity={0.86}>
-                <Text style={styles.giantCircleText}>I am okay</Text>
-                <Text style={styles.giantCircleSubtext}>Check in now</Text>
+                <Text style={styles.giantCircleText}>{t('home.iAmOkay')}</Text>
+                <Text style={styles.giantCircleSubtext}>{t('home.checkInNow')}</Text>
               </TouchableOpacity>
             </Animated.View>
           )}
@@ -101,7 +109,7 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
 
         <TouchableOpacity style={styles.sosButton} onPress={onSOS} activeOpacity={0.86}>
           <Ionicons name="alert-circle" size={28} color="#FFFFFF" />
-          <Text style={styles.sosText}>SOS Emergency</Text>
+          <Text style={styles.sosText}>{t('home.sosEmergency')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -114,15 +122,18 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
           onPress={() => setLanguageModalVisible(false)}
         >
           <View style={styles.languageModal}>
-            <Text style={styles.modalTitle}>Language</Text>
-            {languages.map((language) => (
+            <Text style={styles.modalTitle}>{t('home.language')}</Text>
+            {languages.map((lang) => (
               <TouchableOpacity
-                key={language}
+                key={lang.code}
                 style={styles.modalLanguageOption}
-                onPress={() => setLanguageModalVisible(false)}
+                onPress={() => {
+                  i18n.changeLanguage(lang.code);
+                  setLanguageModalVisible(false);
+                }}
                 activeOpacity={0.86}
               >
-                <Text style={styles.modalLanguageText}>{language}</Text>
+                <Text style={styles.modalLanguageText}>{lang.label}</Text>
               </TouchableOpacity>
             ))}
           </View>

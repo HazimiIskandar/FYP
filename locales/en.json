@@ -1,0 +1,101 @@
+{
+  "app": {
+    "name": "Haloapp",
+    "tagline": "Safe check-ins for seniors"
+  },
+  "language": {
+    "title": "Choose your language",
+    "subtitle": "You can change this later in settings.",
+    "english": "English",
+    "chinese": "中文",
+    "malay": "Bahasa Melayu",
+    "tamil": "தமிழ்"
+  },
+  "login": {
+    "signIn": "Sign In",
+    "subtitle": "Enter your Email and Password to continue",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "login": "Login",
+    "noAccount": "Haven't any account? ",
+    "signUp": "Sign Up",
+    "caregiverLogin": "Caregiver Login"
+  },
+  "home": {
+    "goodMorning": "Good morning",
+    "goodMorningName": "Good morning, {{name}}",
+    "tapToCheckIn": "Tap once to let your caregiver know you are okay",
+    "checkedInToday": "You checked in today",
+    "checkInReady": "Daily check-in is ready",
+    "streakDays": "{{streak}}-day streak. Two more days to redeem kopi.",
+    "familyWillSee": "Your family will see your status after you tap.",
+    "day": "Day {{number}}",
+    "done": "Done",
+    "iAmOkay": "I am okay",
+    "checkInNow": "Check in now",
+    "sosEmergency": "SOS Emergency",
+    "language": "Language"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage account and reminders",
+    "updateProfile": "Update Profile",
+    "notification": "Notification",
+    "caregiver": "Caregiver",
+    "logOut": "Log Out",
+    "notificationTitle": "Notification",
+    "notificationSubtitle": "Daily check-in reminders",
+    "notificationDesc": "The app will remind you 30 minutes and 15 minutes before your chosen check-in time.",
+    "morningCheckIn": "Morning Check-In Time",
+    "eveningCheckIn": "Evening Check-In Time",
+    "saveCheckInTime": "Save Check-In Time",
+    "saving": "Saving…",
+    "selectCheckInTime": "Select Check-In Time",
+    "caregiverTitle": "Caregiver",
+    "caregiverSubtitle": "Share link code",
+    "yourLinkCode": "Your unique link code",
+    "generateNewCode": "Generate New Code",
+    "generateLinkCode": "Generate Link Code",
+    "generating": "Generating...",
+    "shareCode": "Share this code with your caregiver.",
+    "logOutTitle": "Log out?",
+    "logOutMessage": "Please confirm before leaving your senior account.",
+    "yesLogOut": "Yes, Log Out",
+    "no": "No",
+    "timesSaved": "Check-in times saved: {{t1}} & {{t2}}",
+    "pleaseSelectBoth": "Please select both check-in times.",
+    "minimumGap": "Please ensure there is a minimum 10-hour gap between check-ins.",
+    "noConnection": "Unable to save — no connection to server."
+  },
+  "profile": {
+    "title": "Profile",
+    "editProfile": "Edit Profile"
+  },
+  "navigation": {
+    "home": "Home",
+    "community": "Community",
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "createAccount": {
+    "title": "Create Account",
+    "subtitle": "Enter your Full Name and Email to set up your account.",
+    "fullName": "Full Name",
+    "emailAddress": "Email Address",
+    "password": "Password",
+    "selectRole": "Select role",
+    "senior": "Senior",
+    "caregiver": "Caregiver",
+    "aicStaff": "AIC Staff",
+    "createAccount": "Create Account",
+    "alreadyHaveAccount": "Already have an account? ",
+    "signIn": "Sign In"
+  },
+  "community": {
+    "title": "Community"
+  },
+  "emergency": {
+    "sos": "SOS Emergency"
+  }
+}

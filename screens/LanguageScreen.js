@@ -1,19 +1,30 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function LanguageScreen({ onSelectLanguage }) {
-  const languages = ['English', '中文', 'Bahasa Melayu', 'தமிழ்'];
+  const { t } = useTranslation();
+  const languages = [
+    { code: 'en', label: t('language.english') },
+    { code: 'zh', label: t('language.chinese') },
+    { code: 'ms', label: t('language.malay') },
+    { code: 'ta', label: t('language.tamil') },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.centerContent}>
-        <Text style={styles.appName}>Haloapp</Text>
-        <Text style={styles.title}>Choose your language</Text>
-        <Text style={styles.subtitle}>You can change this later in settings.</Text>
+        <Text style={styles.appName}>{t('app.name')}</Text>
+        <Text style={styles.title}>{t('language.title')}</Text>
+        <Text style={styles.subtitle}>{t('language.subtitle')}</Text>
 
         {languages.map((lang) => (
-          <TouchableOpacity key={lang} style={styles.languageButton} onPress={onSelectLanguage}>
-            <Text style={styles.languageButtonText}>{lang}</Text>
+          <TouchableOpacity
+            key={lang.code}
+            style={styles.languageButton}
+            onPress={() => onSelectLanguage(lang.code)}
+          >
+            <Text style={styles.languageButtonText}>{lang.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

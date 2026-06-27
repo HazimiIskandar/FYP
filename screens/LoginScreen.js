@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   TextInput,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 
 export default function LoginScreen({
@@ -14,7 +15,9 @@ export default function LoginScreen({
   loginError,
   // onForgot, // Uncomment to re-enable Forgot Password
   onSignUp,
+  onLanguage,
 }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -24,20 +27,32 @@ export default function LoginScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Haloapp" subtitle="Safe check-ins for seniors" />
+      <Header
+        title={t('app.name')}
+        subtitle={t('app.tagline')}
+        rightContent={
+          <TouchableOpacity
+            style={styles.languageButton}
+            onPress={onLanguage}
+            activeOpacity={0.86}
+          >
+            <Text style={styles.languageButtonText}>{t('home.language')}</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <View style={styles.content}>
-        <Text style={styles.title}>Sign In</Text>
+        <Text style={styles.title}>{t('login.signIn')}</Text>
 
         <Text style={styles.subtitle}>
-          Enter your Email and Password to continue
+          {t('login.subtitle')}
         </Text>
 
         <TextInput
           style={styles.input}
           value={email}
           onChangeText={setEmail}
-          placeholder="Email"
+          placeholder={t('login.email')}
           placeholderTextColor="#000000"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -48,14 +63,14 @@ export default function LoginScreen({
           style={styles.input}
           value={password}
           onChangeText={setPassword}
-          placeholder="Password"
+          placeholder={t('login.password')}
           placeholderTextColor="#000000"
           secureTextEntry
         />
 
         {/* Forgot Password link — uncomment to re-enable
         <TouchableOpacity onPress={onForgot} style={styles.forgotLink}>
-          <Text style={styles.forgotText}>Forgot password?</Text>
+          <Text style={styles.forgotText}>{t('login.forgotPassword')}</Text>
         </TouchableOpacity>
         */}
 
@@ -71,16 +86,16 @@ export default function LoginScreen({
           onPress={handlePress}
           disabled={!email.trim() || !password}
         >
-          <Text style={styles.primaryButtonText}>Login</Text>
+          <Text style={styles.primaryButtonText}>{t('login.login')}</Text>
         </TouchableOpacity>
 
         <View style={styles.signUpContainer}>
           <Text style={styles.signUpLabel}>
-            Haven't any account?{' '}
+            {t('login.noAccount')}
           </Text>
 
           <TouchableOpacity onPress={onSignUp} activeOpacity={0.7}>
-            <Text style={styles.signUpLinkText}>Sign Up</Text>
+            <Text style={styles.signUpLinkText}>{t('login.signUp')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -185,4 +200,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
+  languageButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  languageButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
 });

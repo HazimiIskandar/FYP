@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import './i18n';
+import i18n from './i18n';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -32,6 +34,7 @@ import {
 export default function App() {
 
   const [currentScreen, setCurrentScreen] = useState('Language');
+  const [previousScreen, setPreviousScreen] = useState(null);
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [selectedSenior, setSelectedSenior] = useState(null);
   const [selectedSeniorOrigin, setSelectedSeniorOrigin] = useState('Status');
@@ -711,16 +714,26 @@ export default function App() {
   const renderScreen = () => {
 
     if (currentScreen === 'Language') {
-      return <LanguageScreen onSelectLanguage={() => setCurrentScreen('CreateAccount')} />;
+      const goBackTo = previousScreen || 'CreateAccount';
+      return (
+        <LanguageScreen
+          onSelectLanguage={(langCode) => {
+            i18n.changeLanguage(langCode);
+            setCurrentScreen(goBackTo);
+          }}
+        />
+      );
     }
-
-    // Account choice screen removed; language now goes directly to CreateAccount
 
     if (currentScreen === 'CreateAccount') {
       return (
         <CreateAccountScreen
           onCreate={handleRegister}
           onSignIn={() => setCurrentScreen('Login')}
+          onLanguage={() => {
+            setPreviousScreen('CreateAccount');
+            setCurrentScreen('Language');
+          }}
           error={registerError}
         />
       );
@@ -734,6 +747,10 @@ export default function App() {
           loginError={loginError}
           // onForgot={() => setCurrentScreen('ForgotPassword')} // Uncomment to re-enable Forgot Password
           onSignUp={() => setCurrentScreen('CreateAccount')}
+          onLanguage={() => {
+            setPreviousScreen('Login');
+            setCurrentScreen('Language');
+          }}
         />
       );
     }
