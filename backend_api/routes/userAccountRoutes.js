@@ -3,6 +3,56 @@ const router = express.Router();
 const db = require("../config/db");
 const bcrypt = require('bcryptjs');
 
+const capitalizeWords = (value) =>
+    String(value || '')
+        .replace(/\d/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+
+const isValidName = (value) => {
+    const text = String(value || '').trim();
+    return Boolean(text) && !/\d/.test(text);
+};
+
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.com$/i.test(String(value || '').trim());
+const isEightDigitPhone = (value) => /^\d{8}$/.test(String(value || '').trim());
+
+const isStrongPassword = (value) => {
+    const password = String(value || '');
+    const hasStrongMix =
+        password.length >= 12 &&
+        password.length <= 64 &&
+        /[a-z]/.test(password) &&
+        /[A-Z]/.test(password) &&
+        /\d/.test(password) &&
+        /[^A-Za-z0-9]/.test(password);
+    const hasPassphrase =
+        password.length >= 16 &&
+        password.length <= 64 &&
+        password.trim().split(/\s+/).filter(Boolean).length >= 3;
+
+    return hasStrongMix || hasPassphrase;
+};
+
+const getAgeFromDBDate = (value) => {
+    if (!value) return null;
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - date.getFullYear();
+    const hasBirthdayPassed =
+        today.getMonth() > date.getMonth() ||
+        (today.getMonth() === date.getMonth() && today.getDate() >= date.getDate());
+
+    if (!hasBirthdayPassed) age -= 1;
+    return age;
+};
+
 // GET all users
 router.get("/", (req, res) => {
 
@@ -59,14 +109,25 @@ router.post("/login", (req, res) => {
 
 router.post("/register", (req, res) => {
     const { name, email, phone_number, role, password } = req.body;
+    const normalizedName = capitalizeWords(name);
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
     if (!name || !email || !password) {
         return res.status(400).json({ error: "Name, email and password are required" });
     }
+    if (!isValidName(name)) {
+        return res.status(400).json({ error: "Full name cannot contain numbers." });
+    }
+    if (!isValidEmail(normalizedEmail)) {
+        return res.status(400).json({ error: "Email must include @ and end with .com." });
+    }
+    if (!isStrongPassword(password)) {
+        return res.status(400).json({ error: "Password must be 12+ characters with uppercase, lowercase, number, and symbol, or a 16+ character multi-word passphrase." });
+    }
 
     // prevent duplicate emails
     const checkSql = `SELECT user_id FROM User_Account WHERE email = ?`;
-    db.query(checkSql, [email], (checkErr, checkRes) => {
+    db.query(checkSql, [normalizedEmail], (checkErr, checkRes) => {
         if (checkErr) return res.status(500).json({ error: checkErr.message || checkErr });
         if (checkRes.length) return res.status(409).json({ error: 'Email already registered' });
 
@@ -97,7 +158,7 @@ router.post("/register", (req, res) => {
                 const hasRole = columns.includes('role');
 
                 const insertFields = ['full_name', 'email', 'phone_number', passwordColumn];
-                const insertValues = [name, email, phone_number || '', hash];
+                const insertValues = [normalizedName, normalizedEmail, phone_number || '', hash];
 
                 if (hasRoleId) {
                     insertFields.push('role_id');
@@ -151,14 +212,24 @@ router.put('/:user_id', (req, res) => {
     const params = [];
 
     if (full_name !== undefined) {
+        if (!isValidName(full_name)) {
+            return res.status(400).json({ error: 'Full name cannot contain numbers.' });
+        }
         fields.push('full_name = ?');
-        params.push(full_name);
+        params.push(capitalizeWords(full_name));
     }
     if (phone_number !== undefined) {
+        if (!isEightDigitPhone(phone_number)) {
+            return res.status(400).json({ error: 'Phone number must be exactly 8 digits.' });
+        }
         fields.push('phone_number = ?');
-        params.push(phone_number);
+        params.push(String(phone_number || '').trim());
     }
     if (dob !== undefined) {
+        const age = getAgeFromDBDate(dob);
+        if (age === null || age < 60) {
+            return res.status(400).json({ error: 'Senior must be at least 60 years old.' });
+        }
         fields.push('dob = ?');
         params.push(dob);
     }

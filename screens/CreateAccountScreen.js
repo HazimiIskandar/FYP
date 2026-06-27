@@ -17,6 +17,15 @@ const roles = [
   { key: 'AIC Staff', translationKey: 'createAccount.aicStaff' },
 ];
 
+const capitalizeWords = (value) =>
+  String(value || '')
+    .replace(/\d/g, '')
+    .replace(/\s+/g, ' ')
+    .trimStart()
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+
 export default function CreateAccountScreen({ onCreate, onSignIn, onLanguage, error }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
@@ -50,7 +59,7 @@ export default function CreateAccountScreen({ onCreate, onSignIn, onLanguage, er
         <TextInput
           style={styles.input}
           value={name}
-          onChangeText={setName}
+          onChangeText={(value) => setName(capitalizeWords(value))}
           placeholder={t('createAccount.fullName')}
           placeholderTextColor="#000000"
           autoCapitalize="words"
@@ -102,7 +111,7 @@ export default function CreateAccountScreen({ onCreate, onSignIn, onLanguage, er
           onPress={() =>
             onCreate({
               name: name.trim(),
-              email: email.trim(),
+              email: email.trim().toLowerCase(),
               password,
               role,
             })

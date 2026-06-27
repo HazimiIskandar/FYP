@@ -36,6 +36,37 @@ const ensureSeniorMedicalConditionColumns = async () => {
 
 const seniorMedicalConditionColumnsReady = ensureSeniorMedicalConditionColumns();
 
+const capitalizeWords = (value) =>
+  String(value || "")
+    .replace(/\d/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+
+const isValidName = (value) => {
+  const text = String(value || "").trim();
+  return Boolean(text) && !/\d/.test(text);
+};
+
+const isEightDigitPhone = (value) => /^\d{8}$/.test(String(value || "").trim());
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.com$/i.test(String(value || "").trim());
+
+const validateNokPayload = ({ full_name, phone_number, email }) => {
+  if (full_name !== undefined && !isValidName(full_name)) {
+    return "Emergency contact name cannot contain numbers.";
+  }
+  if (phone_number !== undefined && !isEightDigitPhone(phone_number)) {
+    return "Emergency contact phone number must be exactly 8 digits.";
+  }
+  if (email && !isValidEmail(email)) {
+    return "Emergency contact email must include @ and end with .com.";
+  }
+  return null;
+};
+
 const createLinkCode = () => {
   let code = "";
   for (let i = 0; i < 6; i += 1) {
@@ -434,6 +465,11 @@ router.put("/:senior_id/nok", (req, res) => {
     email,
     relationship_to_senior,
   } = req.body;
+  const validationError = validateNokPayload({ full_name, phone_number, email });
+
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
 
   const checkSql = `
     SELECT nok_id
@@ -461,9 +497,9 @@ router.put("/:senior_id/nok", (req, res) => {
       db.query(
         updateSql,
         [
-          full_name,
-          phone_number,
-          email,
+          capitalizeWords(full_name),
+          String(phone_number || "").trim(),
+          String(email || "").trim().toLowerCase(),
           relationship_to_senior,
           nokId,
         ],
@@ -488,9 +524,9 @@ router.put("/:senior_id/nok", (req, res) => {
       db.query(
         insertSql,
         [
-          full_name,
-          phone_number,
-          email,
+          capitalizeWords(full_name),
+          String(phone_number || "").trim(),
+          String(email || "").trim().toLowerCase(),
           relationship_to_senior,
         ],
         (err, result) => {
@@ -681,13 +717,23 @@ router.put('/:senior_id/medical-conditions/sync', async (req, res) => {
 router.post('/:senior_id/nok', (req, res) => {
   const seniorId = req.params.senior_id;
   const { full_name, phone_number, email, relationship_to_senior } = req.body;
+  const validationError = validateNokPayload({ full_name, phone_number, email });
+
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
 
   const insertSql = `
     INSERT INTO NOK (full_name, phone_number, email, relationship_to_senior)
     VALUES (?, ?, ?, ?)
   `;
 
-  db.query(insertSql, [full_name, phone_number, email, relationship_to_senior], (err, result) => {
+  db.query(insertSql, [
+    capitalizeWords(full_name),
+    String(phone_number || "").trim(),
+    String(email || "").trim().toLowerCase(),
+    relationship_to_senior,
+  ], (err, result) => {
     if (err) return res.status(500).json(err);
 
     const nokId = result.insertId;

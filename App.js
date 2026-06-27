@@ -263,6 +263,40 @@ export default function App() {
     ].every((value) => `${value ?? ''}`.trim().length > 0);
   };
 
+  const capitalizeWords = (value) =>
+    String(value || '')
+      .replace(/\d/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+
+  const isValidName = (value) => {
+    const text = String(value || '').trim();
+    return Boolean(text) && !/\d/.test(text);
+  };
+
+  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.com$/i.test(String(value || '').trim());
+
+  const isStrongPassword = (value) => {
+    const password = String(value || '');
+    const hasStrongMix =
+      password.length >= 12 &&
+      password.length <= 64 &&
+      /[a-z]/.test(password) &&
+      /[A-Z]/.test(password) &&
+      /\d/.test(password) &&
+      /[^A-Za-z0-9]/.test(password);
+    const hasPassphrase =
+      password.length >= 16 &&
+      password.length <= 64 &&
+      password.trim().split(/\s+/).filter(Boolean).length >= 3;
+
+    return hasStrongMix || hasPassphrase;
+  };
+
   const handleLogin = async (payload) => {
     const email = typeof payload === 'string' ? payload : payload?.email;
     const password = typeof payload === 'string' ? null : payload?.password;
@@ -330,8 +364,26 @@ export default function App() {
   };
 
   const handleRegister = async ({ name, email, password, role }) => {
-    if (!name || !email) {
-      setRegisterError('Please enter both name and email.');
+    const normalizedName = capitalizeWords(name);
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+
+    if (!normalizedName || !normalizedEmail || !password) {
+      setRegisterError('Please enter name, email, and password.');
+      return;
+    }
+
+    if (!isValidName(name)) {
+      setRegisterError('Full name cannot contain numbers.');
+      return;
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      setRegisterError('Email must include @ and end with .com.');
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      setRegisterError('Password must be 12+ characters with uppercase, lowercase, number, and symbol, or a 16+ character multi-word passphrase.');
       return;
     }
 
@@ -346,8 +398,8 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
-          email,
+          name: normalizedName,
+          email: normalizedEmail,
           password,
           phone_number: '',
           role: role || 'Senior',

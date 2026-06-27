@@ -116,11 +116,34 @@ const formatDateForDB = (value) => {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
 
-const capitalizeWords = (str) => {
-  return str
+const capitalizeWords = (str) =>
+  String(str || '')
+    .replace(/\d/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
     .split(' ')
+    .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
+
+const hasDigits = (value) => /\d/.test(String(value || ''));
+const isEightDigitPhone = (value) => /^\d{8}$/.test(String(value || '').trim());
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.com$/i.test(String(value || '').trim());
+
+const getAgeFromDBDate = (value) => {
+  if (!value) return null;
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const hasBirthdayPassed =
+    today.getMonth() > date.getMonth() ||
+    (today.getMonth() === date.getMonth() && today.getDate() >= date.getDate());
+
+  if (!hasBirthdayPassed) age -= 1;
+  return age;
 };
 
 const buildMedicalEntry = (condition = {}) => {
@@ -340,7 +363,14 @@ export default function SeniorEditProfileScreen({
   };
 
   const updateDetail = (key, value) => {
-    setDetails((current) => ({ ...current, [key]: value }));
+    const nextValue =
+      key === 'fullName'
+        ? capitalizeWords(value)
+        : key === 'phone'
+        ? String(value || '').replace(/\D/g, '').slice(0, 8)
+        : value;
+
+    setDetails((current) => ({ ...current, [key]: nextValue }));
     setSavedMessage('');
   };
 
@@ -575,11 +605,53 @@ export default function SeniorEditProfileScreen({
       .map(([label]) => label);
   };
 
+  const getValidationErrors = () => {
+    const errors = [];
+    const dobForDB = formatDateForDB(details.dob || details.dobDate);
+    const age = getAgeFromDBDate(dobForDB);
+
+    if (hasDigits(details.fullName)) {
+      errors.push('Full name cannot contain numbers.');
+    }
+    if (age === null || age < 60) {
+      errors.push('Senior must be at least 60 years old.');
+    }
+    if (!isEightDigitPhone(details.phone)) {
+      errors.push('Senior phone number must be exactly 8 digits.');
+    }
+
+    emergencyEntries.forEach((entry, index) => {
+      const hasDetails = [entry.name, entry.relationship, entry.relationshipCustom, entry.phone, entry.email]
+        .some((value) => `${value ?? ''}`.trim().length > 0);
+
+      if (!hasDetails) return;
+
+      if (hasDigits(entry.name)) {
+        errors.push(`Emergency Contact ${index + 1} name cannot contain numbers.`);
+      }
+      if (!isEightDigitPhone(entry.phone)) {
+        errors.push(`Emergency Contact ${index + 1} phone number must be exactly 8 digits.`);
+      }
+      if (entry.email && !isValidEmail(entry.email)) {
+        errors.push(`Emergency Contact ${index + 1} email must include @ and end with .com.`);
+      }
+    });
+
+    return errors;
+  };
+
   const handleSave = () => {
     const missingFields = getMissingRequiredFields();
     if (missingFields.length) {
       setSavedMessage('');
       setSaveError(`Please fill in required fields: ${missingFields.join(', ')}.`);
+      return;
+    }
+
+    const validationErrors = getValidationErrors();
+    if (validationErrors.length) {
+      setSavedMessage('');
+      setSaveError(validationErrors.join('\n'));
       return;
     }
 
@@ -602,10 +674,18 @@ export default function SeniorEditProfileScreen({
       return;
     }
 
+    const validationErrors = getValidationErrors();
+    if (validationErrors.length) {
+      setSaveError(validationErrors.join('\n'));
+      return;
+    }
+
     try {
+      const normalizedFullName = capitalizeWords(details.fullName);
+      const normalizedPhone = String(details.phone || '').replace(/\D/g, '').slice(0, 8);
       const userPayload = {
-        full_name: details.fullName,
-        phone_number: details.phone,
+        full_name: normalizedFullName,
+        phone_number: normalizedPhone,
         gender: details.gender,
         address: details.address,
         postal_code: details.postalCode,
@@ -665,10 +745,10 @@ export default function SeniorEditProfileScreen({
             entry.relationship === CONDITION_OTHER ? entry.relationshipCustom : entry.relationship;
 
           const payload = {
-            full_name: entry.name,
+            full_name: capitalizeWords(entry.name),
             relationship_to_senior: relationship,
-            phone_number: entry.phone,
-            email: entry.email,
+            phone_number: String(entry.phone || '').replace(/\D/g, '').slice(0, 8),
+            email: String(entry.email || '').trim().toLowerCase(),
           };
 
           const hasDetails = Object.values(payload).some((value) => `${value ?? ''}`.trim().length > 0);
@@ -794,6 +874,7 @@ export default function SeniorEditProfileScreen({
           placeholder={placeholder}
           placeholderTextColor="#9CA3AF"
           keyboardType={keyboardType}
+          maxLength={key === 'phone' ? 8 : undefined}
         />
       </View>
     </View>
@@ -1006,7 +1087,7 @@ export default function SeniorEditProfileScreen({
                   <TextInput
                     style={styles.input}
                     value={entry.name}
-                    onChangeText={(value) => updateEmergencyEntry(index, 'name', value)}
+                    onChangeText={(value) => updateEmergencyEntry(index, 'name', capitalizeWords(value))}
                     placeholder="Enter contact name"
                     placeholderTextColor="#9CA3AF"
                   />
@@ -1051,10 +1132,13 @@ export default function SeniorEditProfileScreen({
                   <TextInput
                     style={styles.input}
                     value={entry.phone}
-                    onChangeText={(value) => updateEmergencyEntry(index, 'phone', value)}
+                    onChangeText={(value) =>
+                      updateEmergencyEntry(index, 'phone', String(value || '').replace(/\D/g, '').slice(0, 8))
+                    }
                     placeholder="Enter phone number"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="phone-pad"
+                    maxLength={8}
                   />
                 </View>
               </View>
@@ -1066,7 +1150,7 @@ export default function SeniorEditProfileScreen({
                   <TextInput
                     style={styles.input}
                     value={entry.email}
-                    onChangeText={(value) => updateEmergencyEntry(index, 'email', value)}
+                    onChangeText={(value) => updateEmergencyEntry(index, 'email', String(value || '').trim().toLowerCase())}
                     placeholder="Enter email address"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="email-address"
