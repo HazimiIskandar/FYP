@@ -126,6 +126,15 @@ const capitalizeWords = (str) =>
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 
+const capitalizeWordsForInput = (str) =>
+  String(str || '')
+    .replace(/\d/g, '')
+    .replace(/\s+/g, ' ')
+    .trimStart()
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+
 const hasDigits = (value) => /\d/.test(String(value || ''));
 const isEightDigitPhone = (value) => /^\d{8}$/.test(String(value || '').trim());
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.com$/i.test(String(value || '').trim());
@@ -365,7 +374,7 @@ export default function SeniorEditProfileScreen({
   const updateDetail = (key, value) => {
     const nextValue =
       key === 'fullName'
-        ? capitalizeWords(value)
+        ? capitalizeWordsForInput(value)
         : key === 'phone'
         ? String(value || '').replace(/\D/g, '').slice(0, 8)
         : value;
@@ -1087,7 +1096,7 @@ export default function SeniorEditProfileScreen({
                   <TextInput
                     style={styles.input}
                     value={entry.name}
-                    onChangeText={(value) => updateEmergencyEntry(index, 'name', capitalizeWords(value))}
+                    onChangeText={(value) => updateEmergencyEntry(index, 'name', capitalizeWordsForInput(value))}
                     placeholder="Enter contact name"
                     placeholderTextColor="#9CA3AF"
                   />

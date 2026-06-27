@@ -7,6 +7,8 @@ import SeniorBottomNav from '../components/SeniorBottomNav';
 
 const getSeniorName = (senior) =>
   senior?.full_name ||
+  senior?.User_Account?.full_name ||
+  senior?.user?.full_name ||
   senior?.name ||
   [senior?.first_name, senior?.last_name].filter(Boolean).join(' ') ||
   'Senior';
@@ -52,14 +54,26 @@ export default function SeniorProfileScreen({
   );
   const [fetchedConditions, setFetchedConditions] = useState([]);
   const [fetchedNoks, setFetchedNoks] = useState([]);
+  const [fetchedProfile, setFetchedProfile] = useState(null);
+  const personalDetailsKey = JSON.stringify({
+    fullName: getSeniorName(senior),
+    dob: senior?.dob || '',
+    gender: senior?.gender || '',
+    address: senior?.address || '',
+    postalCode: senior?.postal_code || '',
+    unitNumber: senior?.unit_number || senior?.unit_no || '',
+    phone: senior?.phone_number || senior?.contact || '',
+  });
 
   const medicalConditions = fetchedConditions.length ? fetchedConditions : medicalFromProp;
   const emergencyContacts = fetchedNoks.length ? fetchedNoks : nokFromProp;
+  const profileSource = fetchedProfile ? { ...senior, ...fetchedProfile } : senior;
 
   useEffect(() => {
+    setFetchedProfile(null);
     setFetchedConditions([]);
     setFetchedNoks([]);
-  }, [senior?.senior_id]);
+  }, [senior?.senior_id, personalDetailsKey]);
 
   useEffect(() => {
     if (!apiBase || !senior?.senior_id) return;
@@ -67,20 +81,23 @@ export default function SeniorProfileScreen({
 
     const fetchProfileExtras = async () => {
       try {
-        const [conditionResponse, nokResponse] = await Promise.all([
+        const [profileResponse, conditionResponse, nokResponse] = await Promise.all([
+          fetch(`${apiBase}/seniors/${senior.senior_id}`),
           fetch(`${apiBase}/seniors/${senior.senior_id}/medical-conditions`),
           fetch(`${apiBase}/seniors/${senior.senior_id}/nok`),
         ]);
 
-        if (!conditionResponse.ok || !nokResponse.ok) return;
+        if (!profileResponse.ok || !conditionResponse.ok || !nokResponse.ok) return;
 
-        const [conditionData, nokData] = await Promise.all([
+        const [profileData, conditionData, nokData] = await Promise.all([
+          profileResponse.json(),
           conditionResponse.json(),
           nokResponse.json(),
         ]);
 
         if (!isActive) return;
 
+        setFetchedProfile(profileData && typeof profileData === 'object' ? profileData : null);
         setFetchedConditions(Array.isArray(conditionData) ? conditionData : (conditionData ? [conditionData] : []));
         setFetchedNoks(Array.isArray(nokData) ? nokData : (nokData ? [nokData] : []));
       } catch (err) {
@@ -93,21 +110,21 @@ export default function SeniorProfileScreen({
     return () => {
       isActive = false;
     };
-  }, [apiBase, senior?.senior_id]);
+  }, [apiBase, senior?.senior_id, personalDetailsKey]);
 
   const details = useMemo(() => {
     const notRecorded = t('profile.notRecorded');
 
     return {
-      fullName: getSeniorName(senior),
-      dob: formatDate(senior?.dob) || notRecorded,
-      gender: senior?.gender || notRecorded,
-      address: senior?.address || notRecorded,
-      postalCode: senior?.postal_code || notRecorded,
-      unitNumber: senior?.unit_number || senior?.unit_no || notRecorded,
-      phone: senior?.phone_number || senior?.contact || notRecorded,
+      fullName: getSeniorName(profileSource),
+      dob: formatDate(profileSource?.dob) || notRecorded,
+      gender: profileSource?.gender || notRecorded,
+      address: profileSource?.address || notRecorded,
+      postalCode: profileSource?.postal_code || notRecorded,
+      unitNumber: profileSource?.unit_number || profileSource?.unit_no || notRecorded,
+      phone: profileSource?.phone_number || profileSource?.contact || notRecorded,
     };
-  }, [senior, t, i18n.language]);
+  }, [profileSource, t, i18n.language]);
 
   const renderInfoRow = (icon, label, value) => (
     <View style={styles.infoRow}>
