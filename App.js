@@ -214,6 +214,40 @@ export default function App() {
 
   const seniorName = getSeniorDisplayName(currentSenior);
 
+  const fetchSeniorWithExtras = async (senior) => {
+    if (!apiBase || !senior?.senior_id) {
+      return senior ? normalizeSenior(senior) : null;
+    }
+
+    try {
+      const [profileRes, conditionsRes, nokRes] = await Promise.all([
+        fetch(`${apiBase}/seniors/${senior.senior_id}`),
+        fetch(`${apiBase}/seniors/${senior.senior_id}/medical-conditions`),
+        fetch(`${apiBase}/seniors/${senior.senior_id}/nok`),
+      ]);
+
+      const profileData = profileRes.ok ? await profileRes.json() : null;
+      const conditionsData = conditionsRes.ok ? await conditionsRes.json() : [];
+      const nokData = nokRes.ok ? await nokRes.json() : [];
+
+      return {
+        ...normalizeSenior({
+          ...senior,
+          ...(profileData || {}),
+        }),
+        medicalConditions: Array.isArray(conditionsData) ? conditionsData : [],
+        nokContacts: Array.isArray(nokData) ? nokData : [],
+      };
+    } catch (err) {
+      console.log('Failed to fetch senior details:', err);
+      return {
+        ...normalizeSenior(senior),
+        medicalConditions: Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : [],
+        nokContacts: Array.isArray(senior?.nokContacts) ? senior.nokContacts : [],
+      };
+    }
+  };
+
   const isSeniorProfileComplete = (senior) => {
     if (!senior) return false;
     if (!senior.senior_id) return false;
@@ -342,38 +376,9 @@ export default function App() {
     console.log('=== SELECTING SENIOR ===');
     setSelectedSeniorOrigin(origin);
 
-    try {
-      if (!apiBase) throw new Error('Backend not configured');
-      const [conditionsRes, nokRes] = await Promise.all([
-        fetch(`${apiBase}/seniors/${senior.senior_id}/medical-conditions`),
-        fetch(`${apiBase}/seniors/${senior.senior_id}/nok`)
-      ]);
-
-      const conditionsData = await conditionsRes.json();
-      const conditions = Array.isArray(conditionsData) ? conditionsData : [];
-      const nokData = await nokRes.json();
-      const nokList = Array.isArray(nokData) ? nokData : [];
-
-      const enhancedSenior = {
-        ...normalizeSenior(senior),
-        medicalConditions: Array.isArray(conditions) ? conditions : [],
-        nokContacts: Array.isArray(nokList) ? nokList : []
-      };
-
-      setSelectedSenior(enhancedSenior);
-      setCurrentScreen('SeniorDetails');
-
-    } catch (err) {
-      console.log('Failed to fetch senior details:', err);
-
-      setSelectedSenior({
-        ...normalizeSenior(senior),
-        medicalConditions: [],
-        nokContacts: []
-      });
-
-      setCurrentScreen('SeniorDetails');
-    }
+    const enhancedSenior = await fetchSeniorWithExtras(senior);
+    setSelectedSenior(enhancedSenior);
+    setCurrentScreen('SeniorDetails');
   };
 
   // -------------------------
@@ -652,6 +657,18 @@ export default function App() {
               : senior
           )
         );
+      }
+
+      if (selectedSenior?.senior_id) {
+        const matchingSelectedSenior =
+          normalizedSeniors.find(
+            (senior) => String(senior.senior_id) === String(selectedSenior.senior_id)
+          ) || selectedSenior;
+        const refreshedSelectedSenior = await fetchSeniorWithExtras(matchingSelectedSenior);
+
+        if (refreshedSelectedSenior) {
+          setSelectedSenior(refreshedSelectedSenior);
+        }
       }
 
       return {

@@ -121,7 +121,7 @@ export default function CaregiverEditSeniorMenuScreen({
       }
       
       setSettingsMessage(`Check-in times saved: ${checkInTime} & ${checkInTime2}`);
-      if (onRefresh) onRefresh();
+      if (onRefresh) await onRefresh(authenticatedUser);
     } catch (err) {
       setSettingsError(err?.message || 'Failed to save. Please try again.');
     } finally {

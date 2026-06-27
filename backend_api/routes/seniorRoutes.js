@@ -339,6 +339,36 @@ router.get("/:senior_id/caregivers", (req, res) => {
   });
 });
 
+router.delete("/:senior_id/caregivers/:caregiver_id", (req, res) => {
+  const { senior_id, caregiver_id } = req.params;
+
+  if (!senior_id || Number.isNaN(Number(senior_id))) {
+    return res.status(400).json({ error: "A valid senior_id is required." });
+  }
+
+  if (!caregiver_id || Number.isNaN(Number(caregiver_id))) {
+    return res.status(400).json({ error: "A valid caregiver_id is required." });
+  }
+
+  const sql = `
+    DELETE FROM Senior_has_Caregiver
+    WHERE senior_id = ? AND caregiver_id = ?
+  `;
+
+  db.query(sql, [senior_id, caregiver_id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message || err });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "This senior is not linked to your caregiver account." });
+    }
+
+    res.json({
+      message: "Senior removed from caregiver account.",
+      senior_id: Number(senior_id),
+      caregiver_id: Number(caregiver_id),
+    });
+  });
+});
+
 /**
  * GET MEDICAL CONDITIONS
  */
