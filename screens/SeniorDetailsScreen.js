@@ -444,9 +444,10 @@ const styles = StyleSheet.create({
 
   updateBtn: {
     backgroundColor: '#111827',
-    padding: 14,
+    minHeight: 56,
     borderRadius: 18,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 14,
   },
 
@@ -458,9 +459,10 @@ const styles = StyleSheet.create({
 
   removeBtn: {
     backgroundColor: '#DC2626',
-    padding: 14,
+    minHeight: 56,
     borderRadius: 18,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 10,
   },
 
@@ -472,17 +474,17 @@ const styles = StyleSheet.create({
 
   backBtn: {
     backgroundColor: '#2563EB',
-    padding: 14,
+    minHeight: 56,
     borderRadius: 18,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#696969',
+    justifyContent: 'center',
     marginTop: 10,
   },
 
   backText: {
     fontWeight: '900',
     color: '#FFFFFF',
+    fontSize: 16,
   },
 
   conditionItem: {
