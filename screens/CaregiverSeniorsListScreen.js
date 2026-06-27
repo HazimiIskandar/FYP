@@ -20,6 +20,11 @@ export default function CaregiverSeniorsListScreen({
   const [submitMessage, setSubmitMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [removeModalVisible, setRemoveModalVisible] = useState(false);
+  const [removingSenior, setRemovingSenior] = useState(false);
+  const [seniorToRemove, setSeniorToRemove] = useState(null);
+  const [removeError, setRemoveError] = useState('');
 
   const getRawText = (value) => (value ?? '').toString();
 
@@ -150,6 +155,28 @@ export default function CaregiverSeniorsListScreen({
     }
   };
 
+  const confirmRemoveSenior = async () => {
+    if (!apiBase || !seniorToRemove?.senior_id || !authenticatedUser?.user_id) return;
+    setRemovingSenior(true);
+    setRemoveError('');
+    try {
+      const response = await fetch(`${apiBase}/seniors/${seniorToRemove.senior_id}/caregivers/${authenticatedUser.user_id}`, {
+        method: 'DELETE',
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error || 'Failed to remove senior.');
+      }
+      setRemoveModalVisible(false);
+      setSeniorToRemove(null);
+      if (onRefresh) await onRefresh(authenticatedUser);
+    } catch (err) {
+      setRemoveError(err?.message || 'Unable to remove senior.');
+    } finally {
+      setRemovingSenior(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Seniors List" subtitle="All assigned seniors" />
@@ -201,11 +228,24 @@ export default function CaregiverSeniorsListScreen({
                 <Text style={styles.rosterSub}>{item.subtitle}</Text>
               </View>
 
-              <Ionicons
-                name={item.statusTag === 'Checked In' ? 'checkmark-circle' : 'warning-outline'}
-                size={26}
-                color={item.statusTag === 'Checked In' ? '#16A34A' : '#DC2626'}
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Ionicons
+                  name={item.statusTag === 'Checked In' ? 'checkmark-circle' : 'warning-outline'}
+                  size={26}
+                  color={item.statusTag === 'Checked In' ? '#16A34A' : '#DC2626'}
+                />
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setSeniorToRemove(item.raw);
+                    setRemoveError('');
+                    setRemoveModalVisible(true);
+                  }}
+                  hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                >
+                  <Ionicons name="trash-outline" size={24} color="#DC2626" />
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
           ))
         ) : (
@@ -273,6 +313,47 @@ export default function CaregiverSeniorsListScreen({
               disabled={isSubmitting}
             >
               <Text style={styles.submitButtonText}>{isSubmitting ? 'Linking...' : 'Link Senior'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
+      {removeModalVisible ? (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={{ alignItems: 'center', marginBottom: 14 }}>
+              <View style={{
+                width: 64, height: 64, borderRadius: 32,
+                backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <Ionicons name="warning" size={32} color="#DC2626" />
+              </View>
+            </View>
+            
+            <Text style={[styles.modalTitle, { textAlign: 'center' }]}>Remove Senior?</Text>
+            <Text style={[styles.modalSubtitle, { textAlign: 'center', marginTop: 8, marginBottom: 20 }]}>
+              Are you sure you want to stop monitoring {getSeniorDisplayName(seniorToRemove)}? This action cannot be undone.
+            </Text>
+
+            {removeError ? <Text style={styles.errorText}>{removeError}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: '#DC2626', marginBottom: 12 }, removingSenior && styles.disabledButton]}
+              onPress={confirmRemoveSenior}
+              disabled={removingSenior}
+            >
+              <Text style={styles.submitButtonText}>{removingSenior ? 'Removing...' : 'Yes, Remove Senior'}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: '#EFF6FF' }]}
+              onPress={() => {
+                setRemoveModalVisible(false);
+                setSeniorToRemove(null);
+              }}
+              disabled={removingSenior}
+            >
+              <Text style={[styles.submitButtonText, { color: '#2563EB' }]}>No, Keep Monitoring</Text>
             </TouchableOpacity>
           </View>
         </View>

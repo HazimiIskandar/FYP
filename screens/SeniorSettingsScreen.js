@@ -254,30 +254,6 @@ export default function SeniorSettingsScreen({
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity
           style={styles.settingRow}
-          onPress={onEditProfile}
-          activeOpacity={0.86}
-        >
-          <View style={styles.settingIcon}>
-            <Ionicons name="person-outline" size={23} color="#2563EB" />
-          </View>
-          <Text style={styles.settingText}>{t('settings.updateProfile')}</Text>
-          <Ionicons name="chevron-forward" size={23} color="#6B7280" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.settingRow}
-          onPress={() => setActiveModal('Notification')}
-          activeOpacity={0.86}
-        >
-          <View style={styles.settingIcon}>
-            <Ionicons name="notifications-outline" size={23} color="#2563EB" />
-          </View>
-          <Text style={styles.settingText}>{t('settings.notification')}</Text>
-          <Ionicons name="chevron-forward" size={23} color="#6B7280" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.settingRow}
           onPress={openCaregiverModal}
           activeOpacity={0.86}
         >

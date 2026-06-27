@@ -32,26 +32,18 @@ const formatCheckInTime = (value) => {
   return `${hour12}:${minute} ${period}`;
 };
 
-const CHECKIN_TIMES = [
-  '5:00 AM', '5:30 AM',
-  '6:00 AM', '6:30 AM',
-  '7:00 AM', '7:30 AM',
-  '8:00 AM', '8:30 AM',
-  '9:00 AM', '9:30 AM',
-  '10:00 AM', '10:30 AM',
-  '11:00 AM', '11:30 AM',
-  '12:00 PM', '12:30 PM',
-  '1:00 PM', '1:30 PM',
-  '2:00 PM', '2:30 PM',
-  '3:00 PM', '3:30 PM',
-  '4:00 PM', '4:30 PM',
-  '5:00 PM', '5:30 PM',
-  '6:00 PM', '6:30 PM',
-  '7:00 PM', '7:30 PM',
-  '8:00 PM', '8:30 PM',
-  '9:00 PM', '9:30 PM',
-  '10:00 PM', '10:30 PM',
-  '11:00 PM', '11:30 PM',
+const MORNING_TIMES = [
+  '5:00 AM', '5:30 AM', '6:00 AM', '6:30 AM',
+  '7:00 AM', '7:30 AM', '8:00 AM', '8:30 AM',
+  '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM', '12:00 PM'
+];
+
+const EVENING_TIMES = [
+  '4:00 PM', '4:30 PM', '5:00 PM', '5:30 PM',
+  '6:00 PM', '6:30 PM', '7:00 PM', '7:30 PM',
+  '8:00 PM', '8:30 PM', '9:00 PM', '9:30 PM',
+  '10:00 PM', '10:30 PM', '11:00 PM'
 ];
 
 export default function CaregiverEditSeniorMenuScreen({
@@ -97,26 +89,9 @@ export default function CaregiverEditSeniorMenuScreen({
     return hour + minute / 60;
   };
 
-  const checkTimeGap = (t1, t2) => {
-    const v1 = getTimeValue(t1);
-    const v2 = getTimeValue(t2);
-    const gap = Math.abs(v1 - v2);
-    
-    if (gap >= 10 && gap <= 14) return true;
-    if (gap > 14) return true; 
-    
-    return false;
-  };
-
   const saveCheckInTime = async () => {
     if (!checkInTime || !checkInTime2) {
       setSettingsError('Please select both check-in times.');
-      setSettingsMessage('');
-      return;
-    }
-
-    if (!checkTimeGap(checkInTime, checkInTime2)) {
-      setSettingsError('Please ensure there is a minimum 10-hour gap between check-ins.');
       setSettingsMessage('');
       return;
     }
@@ -210,7 +185,7 @@ export default function CaregiverEditSeniorMenuScreen({
           <View style={styles.dropdownModal}>
             <Text style={styles.dropdownTitle}>Select Check-In Time</Text>
             <ScrollView style={styles.dropdownList}>
-              {CHECKIN_TIMES.map((time) => {
+              {(editingTimeIndex === 1 ? MORNING_TIMES : EVENING_TIMES).map((time) => {
                 const isSelected = editingTimeIndex === 1 ? time === checkInTime : time === checkInTime2;
                 return (
                   <TouchableOpacity
