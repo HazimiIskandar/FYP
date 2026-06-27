@@ -44,13 +44,49 @@ export default function CaregiverRosterScreen({
     );
   };
 
+  const getSeniorAge = (senior) => {
+    const dob =
+      senior?.dob ||
+      senior?.User_Account?.dob ||
+      senior?.user?.dob;
+
+    if (!dob) return null;
+
+    const birthDate = new Date(dob);
+
+    if (isNaN(birthDate.getTime())) {
+      return null;
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 &&
+        today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+
+    return age;
+  };
+
   const rosterItems = seniors.map((senior, index) => {
     const name = getSeniorDisplayName(senior);
+    const age = getSeniorAge(senior);
+
+    const displayName =
+      age !== null
+        ? `${name} (${age})`
+        : name;
 
     return {
       id: senior?.senior_id || senior?.id || index,
       raw: senior, // 👈 IMPORTANT: keep full object
-      name,
+      name: displayName,
       statusTag: getStatusTag(senior),
       subtitle: getRosterLabel(senior),
       avatarLetter: name?.charAt(0)?.toUpperCase() || '?',

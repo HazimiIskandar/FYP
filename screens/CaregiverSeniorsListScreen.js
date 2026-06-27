@@ -56,126 +56,34 @@ export default function CaregiverSeniorsListScreen({
     'Unknown Senior'
   );
 
+  // Helper to get age
+  const getSeniorAge = (senior) => {
+    if (senior?.age) return senior.age;
+    if (senior?.date_of_birth) {
+      const dob = new Date(senior.date_of_birth);
+      const diff = Date.now() - dob.getTime();
+      const ageDate = new Date(diff);
+      return Math.abs(ageDate.getUTCFullYear() - 1970);
+    }
+    return null;
+  };
+
   const rosterItems = seniors.map((senior, index) => {
     const name = getSeniorDisplayName(senior);
     const statusTag = getStatusTag(senior);
+    const age = getSeniorAge(senior);
 
     return {
       id: senior?.senior_id || senior?.id || index,
       raw: senior,
       name,
+      age,
       statusTag,
       subtitle: getRosterLabel(senior),
       avatarLetter: name?.charAt(0)?.toUpperCase() || '?',
       colorScheme: statusTag === 'Checked In' ? 'safe' : 'alert',
     };
   });
-
-  const submitLinkCode = async () => {
-    const cleanedCode = linkCode.trim().toUpperCase();
-
-    if (!/^\d{6}$/.test(cleanedCode)) {
-      setSubmitError('Please enter a valid 6-digit link code.');
-      setSubmitMessage('');
-      return;
-    }
-
-    if (!apiBase) {
-      setSubmitError('Backend server is not available yet.');
-      setSubmitMessage('');
-      return;
-    }
-
-    if (!authenticatedUser?.user_id) {
-      setSubmitError('You must be signed in as a caregiver to link a senior.');
-      setSubmitMessage('');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError('');
-    setSubmitMessage('');
-
-    try {
-      const requestBody = {
-        link_code: cleanedCode,
-        caregiver_id: authenticatedUser.user_id,
-      };
-      const endpointPaths = ['/seniors/link-caregiver', '/caregiver/link-senior'];
-      let response = null;
-      let body = null;
-      let lastError = null;
-
-      for (const path of endpointPaths) {
-        try {
-          response = await fetch(`${apiBase}${path}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-          });
-
-          body = await response.json().catch(() => null);
-          if (!response.ok && response.status === 404 && !body?.error && path !== endpointPaths[endpointPaths.length - 1]) {
-            lastError = new Error('Link endpoint was not found.');
-            response = null;
-            body = null;
-            continue;
-          }
-
-          lastError = null;
-          break;
-        } catch (fetchError) {
-          lastError = fetchError;
-        }
-      }
-
-      if (!response) {
-        throw lastError || new Error('Unable to reach the backend server.');
-      }
-
-      if (!response.ok) {
-        throw new Error(body?.error || body?.message || 'Unable to link senior.');
-      }
-
-      setSubmitMessage('Senior linked successfully.');
-      setLinkCode('');
-      try {
-        if (onRefresh) await onRefresh(authenticatedUser);
-      } catch (refreshError) {
-        console.log('Linked senior, but roster refresh failed:', refreshError);
-      }
-    } catch (error) {
-      setSubmitError(
-        error?.message === 'Failed to fetch'
-          ? `Unable to reach backend at ${apiBase}. Please restart or redeploy the backend, then try again.`
-          : error?.message || 'Unable to submit link code.'
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const confirmRemoveSenior = async () => {
-    if (!apiBase || !seniorToRemove?.senior_id || !authenticatedUser?.user_id) return;
-    setRemovingSenior(true);
-    setRemoveError('');
-    try {
-      const response = await fetch(`${apiBase}/seniors/${seniorToRemove.senior_id}/caregivers/${authenticatedUser.user_id}`, {
-        method: 'DELETE',
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(body?.error || 'Failed to remove senior.');
-      }
-      setRemoveModalVisible(false);
-      setSeniorToRemove(null);
-      if (onRefresh) await onRefresh(authenticatedUser);
-    } catch (err) {
-      setRemoveError(err?.message || 'Unable to remove senior.');
-    } finally {
-      setRemovingSenior(false);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -224,7 +132,10 @@ export default function CaregiverSeniorsListScreen({
               </View>
 
               <View style={styles.rosterCopy}>
-                <Text style={styles.rosterText}>{item.name}</Text>
+                {/* UPDATED: Show name with age in parentheses */}
+                <Text style={styles.rosterText}>
+                  {item.name}{item.age ? ` (${item.age})` : ''}
+                </Text>
                 <Text style={styles.rosterSub}>{item.subtitle}</Text>
               </View>
 
@@ -268,96 +179,6 @@ export default function CaregiverSeniorsListScreen({
         onStatus={onGoToStatus}
         onLogout={onLogout}
       />
-
-      {addModalVisible ? (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Add New Senior</Text>
-                <Text style={styles.modalSubtitle}>Enter Senior's Link Code</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setAddModalVisible(false)}
-                activeOpacity={0.86}
-              >
-                <Ionicons name="close" size={24} color="#111827" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputLabel}>Senior's Link Code</Text>
-            <TextInput
-              style={styles.codeInput}
-              value={linkCode}
-              onChangeText={(value) => {
-                setLinkCode(value.replace(/\D/g, '').slice(0, 6));
-                setSubmitError('');
-                setSubmitMessage('');
-              }}
-              placeholder="Enter 6-digit code"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="number-pad"
-              autoCapitalize="characters"
-              autoCorrect={false}
-              maxLength={6}
-            />
-
-            {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
-            {submitMessage ? <Text style={styles.successText}>{submitMessage}</Text> : null}
-
-            <TouchableOpacity
-              style={[styles.submitButton, isSubmitting && styles.disabledButton]}
-              onPress={submitLinkCode}
-              activeOpacity={0.86}
-              disabled={isSubmitting}
-            >
-              <Text style={styles.submitButtonText}>{isSubmitting ? 'Linking...' : 'Link Senior'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
-
-      {removeModalVisible ? (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={{ alignItems: 'center', marginBottom: 14 }}>
-              <View style={{
-                width: 64, height: 64, borderRadius: 32,
-                backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center'
-              }}>
-                <Ionicons name="warning" size={32} color="#DC2626" />
-              </View>
-            </View>
-            
-            <Text style={[styles.modalTitle, { textAlign: 'center' }]}>Remove Senior?</Text>
-            <Text style={[styles.modalSubtitle, { textAlign: 'center', marginTop: 8, marginBottom: 20 }]}>
-              Are you sure you want to stop monitoring {getSeniorDisplayName(seniorToRemove)}? This action cannot be undone.
-            </Text>
-
-            {removeError ? <Text style={styles.errorText}>{removeError}</Text> : null}
-
-            <TouchableOpacity
-              style={[styles.submitButton, { backgroundColor: '#DC2626', marginBottom: 12 }, removingSenior && styles.disabledButton]}
-              onPress={confirmRemoveSenior}
-              disabled={removingSenior}
-            >
-              <Text style={styles.submitButtonText}>{removingSenior ? 'Removing...' : 'Yes, Remove Senior'}</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.submitButton, { backgroundColor: '#EFF6FF' }]}
-              onPress={() => {
-                setRemoveModalVisible(false);
-                setSeniorToRemove(null);
-              }}
-              disabled={removingSenior}
-            >
-              <Text style={[styles.submitButtonText, { color: '#2563EB' }]}>No, Keep Monitoring</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
     </SafeAreaView>
   );
 }
@@ -405,90 +226,8 @@ const styles = StyleSheet.create({
   rosterCopy: { flex: 1 },
   rosterText: { color: '#111827', fontSize: 21, fontWeight: '900' },
   rosterSub: { color: '#6B7280', fontSize: 14, marginTop: 4 },
-  emptyState: {
-    marginTop: 28,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  emptyText: {
-    color: '#6B7280',
-    fontSize: 14,
-    textAlign: 'center',
-    maxWidth: 280,
-  },
-  errorText: {
-    color: '#DC2626',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 10,
-    maxWidth: 300,
-  },
-  successText: {
-    color: '#15803D',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 10,
-    fontWeight: '800',
-  },
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 20,
-    backgroundColor: 'rgba(17, 24, 39, 0.55)',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  modalTitle: { color: '#111827', fontSize: 25, fontWeight: '900' },
-  modalSubtitle: { color: '#6B7280', fontSize: 14, fontWeight: '700', marginTop: 2 },
-  closeButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inputLabel: { color: '#374151', fontSize: 14, fontWeight: '900', marginBottom: 8 },
-  codeInput: {
-    minHeight: 58,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F8FAFC',
-    color: '#111827',
-    paddingHorizontal: 16,
-    fontSize: 22,
-    fontWeight: '900',
-    textAlign: 'center',
-    letterSpacing: 2,
-  },
-  submitButton: {
-    backgroundColor: '#2563EB',
-    minHeight: 58,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-  disabledButton: { opacity: 0.6 },
-  submitButtonText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' },
+  emptyState: { alignItems: 'center', marginTop: 40 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  emptyText: { fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center' },
+  errorText: { fontSize: 14, color: '#DC2626', marginTop: 8 },
 });
