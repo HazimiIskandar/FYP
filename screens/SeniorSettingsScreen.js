@@ -274,12 +274,15 @@ export default function SeniorSettingsScreen({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={styles.logoutCard}
           onPress={() => setLogoutConfirmVisible(true)}
           activeOpacity={0.86}
         >
-          <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.logoutButtonText}>{t('settings.logOut')}</Text>
+          <View style={styles.logoutIcon}>
+            <Ionicons name="log-out-outline" size={24} color="#DC2626" />
+          </View>
+          <Text style={styles.logoutText}>{t('settings.logOut')}</Text>
+          <Ionicons name="chevron-forward" size={22} color="#DC2626" />
         </TouchableOpacity>
       </ScrollView>
 
@@ -482,17 +485,27 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   settingText: { flex: 1, color: '#111827', fontSize: 19, fontWeight: '900' },
-  logoutButton: {
-    backgroundColor: '#DC2626',
-    minHeight: 64,
-    borderRadius: 18,
+  logoutCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    minHeight: 72,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  logoutIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FEE2E2',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    marginRight: 12,
   },
-  logoutButtonText: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
+  logoutText: { flex: 1, color: '#B91C1C', fontSize: 19, fontWeight: '900' },
   modalOverlay: {
     position: 'absolute',
     top: 0,
