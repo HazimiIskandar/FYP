@@ -2,24 +2,32 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 
+// Assigned cases are derived from Escalation_Assignment, which links an AIC staff
+// member (staff_id) to an Escalation_History row (escalation_id). Each escalation
+// is tied to an Emergency_Event for a specific senior, so we join through those
+// tables to surface the underlying case details. We group by event_id so a
+// senior is not duplicated when multiple escalations exist for the same event.
 const ASSIGNED_CASES_SQL = `
         SELECT
-            shas.senior_id,
+            ee.senior_id,
             ee.event_id,
-            ee.event_type,
             ee.event_status,
             ee.escalation_level,
             ee.created_at,
-            ee.created_at AS assigned_at
-        FROM Senior_has_AIC_Staff shas
-        LEFT JOIN Emergency_Event ee
-            ON ee.event_id = (
-                SELECT MAX(ev.event_id)
-                FROM Emergency_Event ev
-                WHERE ev.senior_id = shas.senior_id
-            )
-        WHERE shas.staff_id = ?
-        ORDER BY COALESCE(ee.created_at, '1970-01-01') DESC, shas.senior_id ASC
+            MAX(eh.escalation_time) AS assigned_at
+        FROM Escalation_Assignment ea
+        JOIN Escalation_History eh
+            ON ea.escalation_id = eh.escalation_id
+        JOIN Emergency_Event ee
+            ON eh.event_id = ee.event_id
+        WHERE ea.staff_id = ?
+        GROUP BY
+            ee.event_id,
+            ee.senior_id,
+            ee.event_status,
+            ee.escalation_level,
+            ee.created_at
+        ORDER BY assigned_at DESC, ee.senior_id ASC
 `;
 
 // GET all staff
@@ -44,46 +52,23 @@ router.get('/assigned-cases/by-user/:user_id', (req, res) => {
         LIMIT 1
     `;
 
-    const respondWithCases = (staffId) => {
-        db.query(ASSIGNED_CASES_SQL, [staffId], (casesErr, casesRows) => {
-            if (casesErr) return res.status(500).json({ error: casesErr.message || casesErr });
-            res.json({ staff_id: staffId, cases: Array.isArray(casesRows) ? casesRows : [] });
-        });
-    };
-
-    const ensureStaffRowForAicUser = () => {
-        const userSql = `
-            SELECT role_id
-            FROM User_Account
-            WHERE user_id = ?
-            LIMIT 1
-        `;
-
-        db.query(userSql, [userId], (userErr, userRows) => {
-            if (userErr) return res.status(500).json({ error: userErr.message || userErr });
-
-            const roleId = Number(userRows?.[0]?.role_id);
-            if (roleId !== 3) {
-                return res.json({ staff_id: null, cases: [] });
-            }
-
-            const createStaffSql = `INSERT INTO AIC_Staff (user_id) VALUES (?)`;
-            db.query(createStaffSql, [userId], (createErr, createResult) => {
-                if (createErr) return res.status(500).json({ error: createErr.message || createErr });
-                respondWithCases(createResult.insertId);
-            });
-        });
-    };
-
     db.query(staffSql, [userId], (staffErr, staffRows) => {
         if (staffErr) return res.status(500).json({ error: staffErr.message || staffErr });
 
         if (!Array.isArray(staffRows) || !staffRows.length) {
-            return ensureStaffRowForAicUser();
+            // No AIC_Staff row linked to this user. We deliberately do NOT auto-create
+            // one here, because doing so would produce a new auto-increment staff_id
+            // that does not match any pre-existing Escalation_Assignment rows the
+            // user may have seeded manually. Returning empty cases preserves the
+            // integrity of the seeded assignment relationship.
+            return res.json({ staff_id: null, cases: [] });
         }
 
         const staffId = staffRows[0].staff_id;
-        respondWithCases(staffId);
+        db.query(ASSIGNED_CASES_SQL, [staffId], (casesErr, casesRows) => {
+            if (casesErr) return res.status(500).json({ error: casesErr.message || casesErr });
+            res.json({ staff_id: staffId, cases: Array.isArray(casesRows) ? casesRows : [] });
+        });
     });
 });
 
