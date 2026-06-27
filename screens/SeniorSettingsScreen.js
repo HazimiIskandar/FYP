@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -70,6 +70,8 @@ export default function SeniorSettingsScreen({
   onEditProfile,
   onLogout,
   onRefresh,
+  initialModal,
+  onInitialModalConsumed,
 }) {
   const { t } = useTranslation();
   const seniorName = getSeniorName(senior);
@@ -96,6 +98,13 @@ export default function SeniorSettingsScreen({
   const [linkSaving, setLinkSaving] = useState(false);
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
   const [timeSaving, setTimeSaving] = useState(false);
+
+  useEffect(() => {
+    if (!initialModal) return;
+
+    setActiveModal(initialModal);
+    if (onInitialModalConsumed) onInitialModalConsumed();
+  }, [initialModal, onInitialModalConsumed]);
 
   // --- Notification permission helpers (kept for future use) ---
   // const requestNotificationPermission = async () => {

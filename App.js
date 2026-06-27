@@ -41,6 +41,7 @@ export default function App() {
   const [authenticatedUser, setAuthenticatedUser] = useState(null);
   const [loginError, setLoginError] = useState(null);
   const [registerError, setRegisterError] = useState(null);
+  const [openCaregiverLinkOnSettings, setOpenCaregiverLinkOnSettings] = useState(false);
 
   const REMOTE_API_BASE = 'https://fyp-senior-connect.onrender.com';
   const getHostFromUri = (uri) => {
@@ -283,7 +284,8 @@ export default function App() {
       } else if (roleId === 2 || roleName.includes('caregiver')) {
         setCurrentScreen('CaregiverHome');
       } else if (!isSeniorProfileComplete(loggedInSenior)) {
-        setCurrentScreen('SeniorEditProfile');
+        setOpenCaregiverLinkOnSettings(true);
+        setCurrentScreen('SeniorSettings');
       } else {
         setCurrentScreen('Home');
       }
@@ -834,6 +836,8 @@ export default function App() {
         <SeniorSettingsScreen
           senior={currentSenior}
           apiBase={apiBase}
+          initialModal={openCaregiverLinkOnSettings ? 'Caregiver' : null}
+          onInitialModalConsumed={() => setOpenCaregiverLinkOnSettings(false)}
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
