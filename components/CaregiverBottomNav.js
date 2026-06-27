@@ -18,7 +18,7 @@ export default function CaregiverBottomNav({ activeTab, onHome, onSeniors, onSta
         <Text style={[styles.navText, { color: activeTab === 'Status' ? '#2563EB' : '#6B7280' }]}>Status</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.navItem} onPress={onSettings}>
-        <Ionicons name="settings-outline" size={26} color={activeTab === 'Settings' ? '#2563EB' : '#6B7280'} />
+        <Ionicons name="settings" size={26} color={activeTab === 'Settings' ? '#2563EB' : '#6B7280'} />
         <Text style={[styles.navText, { color: activeTab === 'Settings' ? '#2563EB' : '#6B7280' }]}>Settings</Text>
       </TouchableOpacity>
     </View>

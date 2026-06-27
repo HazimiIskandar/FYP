@@ -60,7 +60,7 @@
     "generating": "生成中...",
     "shareCode": "将此代码分享给您的看护者。",
     "logOutTitle": "退出登录？",
-    "logOutMessage": "请确认后再离开您的年长者账户。",
+    "logOutMessage": "您确定要结束您的会话吗？",
     "yesLogOut": "是的，退出登录",
     "no": "不",
     "timesSaved": "签到时间已保存：{{t1}} 和 {{t2}}",

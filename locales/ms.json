@@ -60,7 +60,7 @@
     "generating": "Menghasilkan...",
     "shareCode": "Kongsi kod ini dengan penjaga anda.",
     "logOutTitle": "Log keluar?",
-    "logOutMessage": "Sila sahkan sebelum meninggalkan akaun warga emas anda.",
+    "logOutMessage": "Adakah anda pasti mahu menamatkan sesi anda?",
     "yesLogOut": "Ya, Log Keluar",
     "no": "Tidak",
     "timesSaved": "Waktu daftar masuk disimpan: {{t1}} & {{t2}}",
