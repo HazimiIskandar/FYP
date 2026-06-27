@@ -2,11 +2,13 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 
-// Assigned cases are derived from Escalation_Assignment, which links an AIC staff
-// member (staff_id) to an Escalation_History row (escalation_id). Each escalation
-// is tied to an Emergency_Event for a specific senior, so we join through those
-// tables to surface the underlying case details. We group by event_id so a
-// senior is not duplicated when multiple escalations exist for the same event.
+// Assigned cases flow through Escalation_History -> Emergency_Event -> Senior.
+// We LEFT JOIN Escalation_Assignment so that escalations with NO explicit
+// staff assignment still surface in the AIC portal as part of the triage
+// queue. The placeholder is the AIC staff `staff_id` (or NULL when no
+// AIC_Staff row is linked to the logged-in user):
+//   - ea.staff_id IS NULL  => unassigned, shown to every AIC staff
+//   - ea.staff_id = ?       => explicitly assigned to this staff
 const ASSIGNED_CASES_SQL = `
         SELECT
             ee.senior_id,
@@ -15,12 +17,12 @@ const ASSIGNED_CASES_SQL = `
             ee.escalation_level,
             ee.created_at,
             MAX(eh.escalation_time) AS assigned_at
-        FROM Escalation_Assignment ea
-        JOIN Escalation_History eh
-            ON ea.escalation_id = eh.escalation_id
+        FROM Escalation_History eh
         JOIN Emergency_Event ee
             ON eh.event_id = ee.event_id
-        WHERE ea.staff_id = ?
+        LEFT JOIN Escalation_Assignment ea
+            ON eh.escalation_id = ea.escalation_id
+        WHERE ea.staff_id IS NULL OR ea.staff_id = ?
         GROUP BY
             ee.event_id,
             ee.senior_id,
@@ -55,16 +57,12 @@ router.get('/assigned-cases/by-user/:user_id', (req, res) => {
     db.query(staffSql, [userId], (staffErr, staffRows) => {
         if (staffErr) return res.status(500).json({ error: staffErr.message || staffErr });
 
-        if (!Array.isArray(staffRows) || !staffRows.length) {
-            // No AIC_Staff row linked to this user. We deliberately do NOT auto-create
-            // one here, because doing so would produce a new auto-increment staff_id
-            // that does not match any pre-existing Escalation_Assignment rows the
-            // user may have seeded manually. Returning empty cases preserves the
-            // integrity of the seeded assignment relationship.
-            return res.json({ staff_id: null, cases: [] });
-        }
+        // If the user has no AIC_Staff row yet, fall back to passing NULL.
+        // The lenient SQL returns any unassigned escalations in that case
+        // (ea.staff_id IS NULL) so newly-seeded cases still surface in the portal.
+        const staffId =
+            Array.isArray(staffRows) && staffRows.length ? staffRows[0].staff_id : null;
 
-        const staffId = staffRows[0].staff_id;
         db.query(ASSIGNED_CASES_SQL, [staffId], (casesErr, casesRows) => {
             if (casesErr) return res.status(500).json({ error: casesErr.message || casesErr });
             res.json({ staff_id: staffId, cases: Array.isArray(casesRows) ? casesRows : [] });
