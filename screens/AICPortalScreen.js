@@ -3,6 +3,18 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 
+const fetchJsonOrEmpty = async (url) => {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return [];
+        const body = await response.json().catch(() => null);
+        return Array.isArray(body) ? body : [];
+    } catch (err) {
+        console.log('fetchJsonOrEmpty error:', url, err);
+        return [];
+    }
+};
+
 const getSeniorId = (senior, fallback) => senior?.senior_id || senior?.id || fallback + 1;
 
 const findSeniorById = (seniors, seniorId) =>
@@ -182,6 +194,7 @@ export default function AICPortalScreen({
         caseItem={selectedCase}
         onBack={() => setSelectedCaseId(null)}
         onLogout={onLogout}
+        apiBase={apiBase}
       />
     );
   }
@@ -253,11 +266,48 @@ export default function AICPortalScreen({
   );
 }
 
-function CaseDetailView({ caseItem, onBack, onLogout }) {
+function CaseDetailView({ caseItem, onBack, onLogout, apiBase }) {
   const [seniorDetailsVisible, setSeniorDetailsVisible] = useState(false);
+  // Medical condition + NOK arrays fetched on demand for the viewed senior.
+  // App.js only hydrates these for the logged-in user; AIC staff have no
+  // senior_id, so we hit /seniors/:id/medical-conditions and /seniors/:id/nok
+  // ourselves (the same endpoints the caregiver profile uses).
+  const [extras, setExtras] = useState({ conditions: [], nokContacts: [] });
   const senior = caseItem.senior || {};
-  const conditions = Array.isArray(senior.medicalConditions) ? senior.medicalConditions : [];
-  const nokContacts = Array.isArray(senior.nokContacts) ? senior.nokContacts : [];
+  const seniorId = caseItem?.seniorId || senior?.senior_id;
+
+  useEffect(() => {
+    if (!apiBase || !seniorId) return undefined;
+
+    let isCancelled = false;
+
+    Promise.all([
+      fetchJsonOrEmpty(`${apiBase}/seniors/${seniorId}/medical-conditions`),
+      fetchJsonOrEmpty(`${apiBase}/seniors/${seniorId}/nok`),
+    ])
+      .then(([conditions, nokContacts]) => {
+        if (isCancelled) return;
+        setExtras({ conditions, nokContacts });
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        console.log('Failed to load senior extras:', err);
+        setExtras({ conditions: [], nokContacts: [] });
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [apiBase, seniorId]);
+
+  // Use the freshly fetched arrays when present; otherwise fall back to
+  // anything already on the senior prop (handles the brief pre-fetch frame).
+  const conditions = extras.conditions.length
+    ? extras.conditions
+    : (senior.medicalConditions || []);
+  const nokContacts = extras.nokContacts.length
+    ? extras.nokContacts
+    : (senior.nokContacts || []);
   const firstCondition = conditions[0] || {};
   const firstNok = nokContacts[0] || {};
 
