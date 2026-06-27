@@ -319,15 +319,14 @@ function CaseDetailView({ caseItem, onBack, onLogout, apiBase }) {
         <View style={styles.detailHeroCard}>
           <View style={styles.detailHeroCopy}>
             <Text style={styles.detailSeniorName}>{caseItem.seniorName}</Text>
-            <Text style={styles.detailCaseId}>{caseItem.caseId}</Text>
+            <TouchableOpacity
+              style={styles.viewSeniorButton}
+              onPress={() => setSeniorDetailsVisible(true)}
+              activeOpacity={0.86}
+            >
+              <Text style={styles.viewSeniorText}>View Senior Details</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.viewSeniorButton}
-            onPress={() => setSeniorDetailsVisible(true)}
-            activeOpacity={0.86}
-          >
-            <Text style={styles.viewSeniorText}>View Senior Details</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.infoCard}>
@@ -515,25 +514,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#696969',
     padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 14,
   },
-  detailHeroCopy: { flex: 1 },
+  detailHeroCopy: { width: '100%' },
   detailSeniorName: { color: '#111827', fontSize: 28, fontWeight: '900' },
   detailCaseId: { color: '#6B7280', fontSize: 14, fontWeight: '800', marginTop: 3 },
   viewSeniorButton: {
-    width: 82,
-    minHeight: 58,
-    borderRadius: 29,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
+    minWidth: 80,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#4056b8',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    alignSelf: 'flex-start',
+    marginTop: 12,
   },
-  viewSeniorText: { color: '#374151', fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  viewSeniorText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   infoCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
