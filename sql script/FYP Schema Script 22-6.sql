@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`User_Account` (
     ON DELETE RESTRICT
     ON UPDATE CASCADE)
 ENGINE = InnoDB
-AUTO_INCREMENT = 11
+AUTO_INCREMENT = 31
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`AIC_Staff` (
     ON DELETE CASCADE
     ON UPDATE CASCADE)
 ENGINE = InnoDB
-AUTO_INCREMENT = 3
+AUTO_INCREMENT = 7
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Senior` (
     ON DELETE RESTRICT
     ON UPDATE CASCADE)
 ENGINE = InnoDB
-AUTO_INCREMENT = 11
+AUTO_INCREMENT = 30
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Community_Hub` (
     FOREIGN KEY (`senior_id`)
     REFERENCES `senior_connect_curiousago`.`Senior` (`senior_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 5
+AUTO_INCREMENT = 16
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Reward_Streak` (
     FOREIGN KEY (`senior_id`)
     REFERENCES `senior_connect_curiousago`.`Senior` (`senior_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 13
+AUTO_INCREMENT = 32
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Daily_CheckIn` (
     FOREIGN KEY (`reward_id`)
     REFERENCES `senior_connect_curiousago`.`Reward_Streak` (`reward_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 4
+AUTO_INCREMENT = 20
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -267,11 +267,9 @@ COLLATE = utf8mb4_0900_ai_ci;
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Medical_Condition` (
   `condition_id` INT NOT NULL AUTO_INCREMENT,
   `condition_name` VARCHAR(100) NOT NULL,
-  `severity_level` VARCHAR(50) NOT NULL,
-  `medication_required` VARCHAR(10) NOT NULL,
   PRIMARY KEY (`condition_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 13
+AUTO_INCREMENT = 15
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -286,7 +284,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`NOK` (
   `relationship_to_senior` VARCHAR(50) NOT NULL,
   PRIMARY KEY (`nok_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 10
+AUTO_INCREMENT = 20
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -480,7 +478,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Sensor_Reading` (
     FOREIGN KEY (`sensor_id`)
     REFERENCES `senior_connect_curiousago`.`Sensor` (`sensor_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 2
+AUTO_INCREMENT = 4
 DEFAULT CHARACTER SET = utf8mb4;
 
 
