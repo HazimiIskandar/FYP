@@ -58,15 +58,32 @@ export const formatDateTime = (value, fallback = '') => {
   if (isMissing(value)) return fallback;
   const date = toDate(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  return date.toLocaleString('en-SG', {
+
+  // 12-hour format (e.g. "28 Jun 2026, 02:04 PM"). We compute the date and
+  // time parts separately and append a HARD-CODED uppercase AM/PM marker
+  // because Hermes/ICU's en-SG 12-hour renderer can emit lowercase "pm"
+  // depending on the engine, and ICU option shapes for force-uppercase
+  // markers aren't universally supported on every React Native runtime.
+  const datePart = new Intl.DateTimeFormat('en-SG', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+    timeZone: SGT_TIMEZONE,
+  }).format(date);
+
+  const timeParts = new Intl.DateTimeFormat('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
     timeZone: SGT_TIMEZONE,
-  });
+  }).formatToParts(date);
+  const get = (t) => timeParts.find((p) => p.type === t)?.value || '';
+  const hour24 = Number(get('hour'));
+  const minute = get('minute');
+  const hour12 = String((hour24 % 12) || 12).padStart(2, '0');
+  const ampm = hour24 < 12 ? 'AM' : 'PM';
+
+  return `${datePart}, ${hour12}:${minute} ${ampm}`;
 };
 
 export const formatTime = (value, fallback = '') => {

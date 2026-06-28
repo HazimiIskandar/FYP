@@ -134,7 +134,7 @@ export default function AICPortalScreen({
 
       return {
         id: eventId || `assigned-${index}`,
-        caseId: eventId ? `CASE-${eventId}` : `CASE-${String(index + 1).padStart(3, '0')}`,
+        caseId: eventId ? `${eventId}` : String(index + 1),
         title: eventId ? `Case ${eventId}` : `Case ${index + 1}`,
         senior,
         seniorId,
