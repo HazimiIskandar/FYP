@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
+import { formatDate } from '../utils/time';
 
 const getSeniorName = (senior) =>
   senior?.full_name ||
@@ -12,17 +13,6 @@ const getSeniorName = (senior) =>
   senior?.name ||
   [senior?.first_name, senior?.last_name].filter(Boolean).join(' ') ||
   'Senior';
-
-const formatDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-};
 
 const CONDITION_OTHER = 'Others';
 const RELATIONSHIPS = ['Son', 'Daughter', 'Spouse', 'Sibling', 'Friend', 'Neighbor', CONDITION_OTHER];

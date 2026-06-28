@@ -3,36 +3,17 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
+import {
+  normalizeDateString,
+  parseDateParts,
+  formatDateForDB,
+} from '../utils/time';
 
 const getSeniorName = (senior) =>
   senior?.full_name ||
   senior?.name ||
   [senior?.first_name, senior?.last_name].filter(Boolean).join(' ') ||
   'Senior';
-
-const formatDate = (value) => {
-  if (!value) return '';
-  const stringValue = `${value}`.trim();
-
-  const isoMatch = stringValue.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
-  if (isoMatch) {
-    return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
-  }
-
-  const slashYmdMatch = stringValue.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  if (slashYmdMatch) {
-    return `${slashYmdMatch[3]}/${slashYmdMatch[2]}/${slashYmdMatch[1]}`;
-  }
-
-  const displayMatch = stringValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (displayMatch) {
-    return stringValue;
-  }
-
-  const date = new Date(stringValue);
-  if (Number.isNaN(date.getTime())) return value;
-  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-};
 
 const CONDITION_OTHER = 'Others';
 
@@ -57,63 +38,9 @@ const MONTHS = [
 const DAYS = Array.from({ length: 31 }, (_, i) => ({ label: String(i + 1).padStart(2, '0'), value: String(i + 1).padStart(2, '0') }));
 const YEARS = Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => String(new Date().getFullYear() - i));
 
-const parseDateParts = (value) => {
-  if (!value) return { day: '', month: '', year: '' };
-
-  const normalized = `${value}`.trim();
-
-  const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
-  if (isoMatch) {
-    return { day: isoMatch[3], month: isoMatch[2], year: isoMatch[1] };
-  }
-
-  const dbMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dbMatch) {
-    return { day: dbMatch[3], month: dbMatch[2], year: dbMatch[1] };
-  }
-
-  const dbSlashMatch = normalized.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  if (dbSlashMatch) {
-    return { day: dbSlashMatch[3], month: dbSlashMatch[2], year: dbSlashMatch[1] };
-  }
-
-  const displayMatch = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (displayMatch) {
-    return { day: displayMatch[1], month: displayMatch[2], year: displayMatch[3] };
-  }
-
-  const dashDisplayMatch = normalized.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (dashDisplayMatch) {
-    return { day: dashDisplayMatch[1], month: dashDisplayMatch[2], year: dashDisplayMatch[3] };
-  }
-
-  return { day: '', month: '', year: '' };
-};
-
 const buildDateValue = (day, month, year) => {
   if (!day || !month || !year) return '';
   return `${day}/${month.padStart(2, '0')}/${year}`;
-};
-
-const formatDateForDB = (value) => {
-  if (!value) return null;
-  const normalized = `${value}`.trim();
-
-  const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
-  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-
-  const dbMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dbMatch) return value;
-
-  const dashDisplayMatch = normalized.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (dashDisplayMatch) {
-    return `${dashDisplayMatch[3]}-${dashDisplayMatch[2]}-${dashDisplayMatch[1]}`;
-  }
-
-  const parts = normalized.split('/');
-  if (parts.length !== 3) return null;
-  const [day, month, year] = parts;
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
 
 const capitalizeWords = (str) =>
@@ -158,8 +85,7 @@ const getAgeFromDBDate = (value) => {
 const buildMedicalEntry = (condition = {}) => {
   const conditionName = condition?.condition_name || '';
   const hasKnownConditionId = Number.isInteger(Number(condition?.condition_id));
-  const isCustomCondition = Boolean(conditionName) && !hasKnownConditionId;
-  const diagnosedParts = parseDateParts(formatDate(condition?.diagnosed_date));
+  const isCustomCondition = Boolean(conditionName) && !hasKnownConditionId;    const diagnosedParts = parseDateParts(normalizeDateString(condition?.diagnosed_date));
 
   return {
     condition: isCustomCondition ? CONDITION_OTHER : conditionName,
@@ -216,7 +142,7 @@ export default function SeniorEditProfileScreen({
     nokContacts: seniorNokContacts,
   });
   const initialDetails = useMemo(() => {
-    const dobParts = parseDateParts(formatDate(senior?.dob));
+    const dobParts = parseDateParts(normalizeDateString(senior?.dob));
 
     return {
       fullName: getSeniorName(senior),
@@ -531,18 +457,18 @@ export default function SeniorEditProfileScreen({
         ...current,
         fullName: getSeniorName(profileData),
         dob: buildDateValue(
-          parseDateParts(formatDate(profileData?.dob)).day,
-          parseDateParts(formatDate(profileData?.dob)).month,
-          parseDateParts(formatDate(profileData?.dob)).year,
+          parseDateParts(normalizeDateString(profileData?.dob)).day,
+          parseDateParts(normalizeDateString(profileData?.dob)).month,
+          parseDateParts(normalizeDateString(profileData?.dob)).year,
         ),
         dobDate: buildDateValue(
-          parseDateParts(formatDate(profileData?.dob)).day,
-          parseDateParts(formatDate(profileData?.dob)).month,
-          parseDateParts(formatDate(profileData?.dob)).year,
+          parseDateParts(normalizeDateString(profileData?.dob)).day,
+          parseDateParts(normalizeDateString(profileData?.dob)).month,
+          parseDateParts(normalizeDateString(profileData?.dob)).year,
         ),
-        dobDay: parseDateParts(formatDate(profileData?.dob)).day,
-        dobMonth: parseDateParts(formatDate(profileData?.dob)).month,
-        dobYear: parseDateParts(formatDate(profileData?.dob)).year,
+        dobDay: parseDateParts(normalizeDateString(profileData?.dob)).day,
+        dobMonth: parseDateParts(normalizeDateString(profileData?.dob)).month,
+        dobYear: parseDateParts(normalizeDateString(profileData?.dob)).year,
         gender: profileData?.gender || '',
         address: profileData?.address || '',
         postalCode: profileData?.postal_code || '',

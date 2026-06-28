@@ -4,6 +4,7 @@ import i18n from './i18n';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform, StyleSheet, View } from 'react-native';
+import { getSgtDateKey } from './utils/time';
 
 // Screens
 import LanguageScreen from './screens/LanguageScreen';
@@ -440,16 +441,10 @@ export default function App() {
   const getStreakValue = (item) =>
     item?.current_streak ?? item?.streak ?? item?.days ?? 0;
 
-  const getDateKey = (value) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-  };
+  // SGT-strip a JS Date / ISO string to a YYYY-MM-DD key (Asia/Singapore).
+  // Used everywhere "today" / "this check-in day" / streak math needs to
+  // bucket by the SGT calendar day, not the device-local one.
+  const getDateKey = (value) => getSgtDateKey(value);
 
   const calculateCheckInStreak = (seniorId) => {
     if (!seniorId) return 0;
@@ -476,8 +471,10 @@ export default function App() {
     // Sort dates in descending order (most recent first)
     const orderedDates = allEngagementDates.sort((left, right) => right.localeCompare(left));
     const todayKey = getDateKey(new Date());
-    const mostRecentDate = new Date(`${orderedDates[0]}T00:00:00`);
-    const today = new Date(`${todayKey}T00:00:00`);
+    // Anchor to SGT midnight (UTC+08:00) so day-diff math is consistent
+    // regardless of where the runtime is hosted.
+    const mostRecentDate = new Date(`${orderedDates[0]}T00:00:00+08:00`);
+    const today = new Date(`${todayKey}T00:00:00+08:00`);
     const daysSinceLastEngagement = Math.round((today - mostRecentDate) / (24 * 60 * 60 * 1000));
 
     if (daysSinceLastEngagement > 1) return 0;
@@ -486,7 +483,7 @@ export default function App() {
     let previousDate = mostRecentDate;
 
     for (let index = 1; index < orderedDates.length; index += 1) {
-      const currentDate = new Date(`${orderedDates[index]}T00:00:00`);
+      const currentDate = new Date(`${orderedDates[index]}T00:00:00+08:00`);
       const differenceInDays = Math.round((previousDate - currentDate) / (24 * 60 * 60 * 1000));
 
       if (differenceInDays === 0) {
@@ -514,7 +511,10 @@ export default function App() {
     getStreakValue(currentRewardRow) ||
     getStreakValue(currentSenior);
 
-  const todayString = new Date().toDateString();
+  // SGT-aware "today" bucket — used for both the global checked-in count
+  // and the per-senior "checked in today" boolean so these are stable on
+  // UTC laptops and SGT phones alike.
+  const todayKey = getDateKey(new Date());
 
   const checkedInCount = Array.from(
     new Set(
@@ -524,7 +524,7 @@ export default function App() {
         )
         .filter((c) =>
           !c?.checkin_timestamp ||
-          new Date(c.checkin_timestamp).toDateString() === todayString
+          getDateKey(c.checkin_timestamp) === todayKey
         )
         .map((c) => c.senior_id)
     )
@@ -535,7 +535,7 @@ export default function App() {
     ? checkIns.some((c) =>
         String(c?.senior_id) === String(currentSenior.senior_id) &&
         (c?.checkin_status || '').toLowerCase().includes('completed') &&
-        (!c.checkin_timestamp || new Date(c.checkin_timestamp).toDateString() === todayString)
+        (!c.checkin_timestamp || getDateKey(c.checkin_timestamp) === todayKey)
       )
     : false;
 

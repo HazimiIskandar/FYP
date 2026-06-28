@@ -3,6 +3,7 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import AICBottomNav from '../components/AICBottomNav';
+import { formatDate, formatDateTime } from '../utils/time';
 
 const fetchJsonOrEmpty = async (url) => {
     try {
@@ -27,29 +28,7 @@ const getSeniorName = (senior) =>
   senior?.user?.full_name ||
   'Unknown Senior';
 
-const formatDate = (value) => {
-  if (!value) return 'Not recorded';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Not recorded';
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-};
 
-const formatDateTime = (value) => {
-  if (!value) return 'Not recorded';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Not recorded';
-  return date.toLocaleString('en-SG', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
 
 const getRawStatus = (senior, missedCount, hasEscalation) => {
   const raw = `${senior?.status || senior?.checkin_status || senior?.health_status || ''}`.toLowerCase();

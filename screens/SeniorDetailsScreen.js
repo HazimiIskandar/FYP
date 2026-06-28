@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Ale
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
+import { formatDate } from '../utils/time';
+
 
 export default function SeniorDetailsScreen({
   senior,
@@ -48,15 +50,6 @@ export default function SeniorDetailsScreen({
         { text: "Confirm", style: "destructive", onPress: () => console.log("Emergency sent") }
       ]
     );
-  };
-
-  const formatDate = (date) => {
-    if (!date) return 'Not recorded';
-    return new Date(date).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
   };
 
   // prefer explicit prop, fall back to `senior.medicalConditions` set by App
@@ -124,7 +117,7 @@ export default function SeniorDetailsScreen({
           <View style={styles.row}>
             <Ionicons name="calendar-outline" size={18} color="#6B7280" />
             <Text style={styles.rowText}>
-              Date-of-Birth: {formatDate(senior?.dob)}
+              Date-of-Birth: {formatDate(senior?.dob, 'Not recorded')}
             </Text>
           </View>
 
@@ -196,7 +189,7 @@ export default function SeniorDetailsScreen({
                 <View style={styles.row}>
                   <Ionicons name="calendar-outline" size={18} color="#6B7280" />
                   <Text style={styles.rowText}>
-                    Diagnosed: {formatDate(condition.diagnosed_date)}
+                    Diagnosed: {formatDate(condition.diagnosed_date, 'Not recorded')}
                   </Text>
                 </View>
                 
