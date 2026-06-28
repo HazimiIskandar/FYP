@@ -71,7 +71,9 @@ router.post("/", (req, res) => {
               const totalPoints = Number(currentPoints || 0);
               const updateRewardSql = `
                 UPDATE Reward_Streak
-                SET current_streak = ?
+                SET current_streak = ?,
+                    last_checkin = CURDATE(),
+                    \`timestamp\` = CURRENT_TIMESTAMP
                 WHERE reward_id = ?
               `;
 

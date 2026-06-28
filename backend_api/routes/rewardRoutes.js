@@ -26,8 +26,11 @@ const ensureRewardColumns = async () => {
     if (!columnNames.has("daily_points_date")) {
       alterations.push("ADD COLUMN daily_points_date DATE NULL");
     }
-    if (!columnNames.has("last_checkin_date")) {
-      alterations.push("ADD COLUMN last_checkin_date DATE NULL");
+    if (!columnNames.has("last_checkin")) {
+      alterations.push("ADD COLUMN `last_checkin` DATE NULL");
+    }
+    if (!columnNames.has("timestamp")) {
+      alterations.push("ADD COLUMN `timestamp` TIMESTAMP NULL");
     }
 
     for (const alteration of alterations) {

@@ -126,7 +126,8 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Reward_Streak` (
   `total_points` INT NOT NULL,
   `daily_points` INT NOT NULL DEFAULT '0',
   `daily_points_date` DATE NULL DEFAULT NULL,
-  `last_checkin_date` DATE NULL DEFAULT NULL,
+  `last_checkin` DATE NULL DEFAULT NULL,
+  `timestamp` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`reward_id`),
   INDEX `senior_id` (`senior_id` ASC) VISIBLE,
   CONSTRAINT `Reward_Streak_ibfk_1`
