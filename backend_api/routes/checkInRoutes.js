@@ -70,14 +70,20 @@ router.post("/", (req, res) => {
               const currentStreak = calculateCurrentStreak([...historyRows, ...communityRows]);
               const totalPoints = Number(currentPoints || 0);
               const updateRewardSql = `
-                UPDATE Reward_Streak
-                SET current_streak = ?,
-                    last_checkin = CURDATE(),
-                    \`timestamp\` = CURRENT_TIMESTAMP
-                WHERE reward_id = ?
+                UPDATE Reward_Streak rs
+                JOIN (
+                  SELECT senior_id, MAX(checkin_timestamp) AS latest
+                  FROM Daily_CheckIn
+                  WHERE senior_id = ?
+                ) dc
+                  ON dc.senior_id = rs.senior_id
+                SET rs.current_streak = ?,
+                    rs.last_checkin = DATE(dc.latest),
+                    rs.\`timestamp\` = dc.latest
+                WHERE rs.reward_id = ?
               `;
 
-              db.query(updateRewardSql, [currentStreak, rewardId], (updateErr) => {
+              db.query(updateRewardSql, [senior_id, currentStreak, rewardId], (updateErr) => {
                 if (updateErr) return res.status(500).json({ error: updateErr.message || updateErr });
 
                 res.json({
