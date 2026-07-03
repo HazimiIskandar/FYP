@@ -14,6 +14,12 @@ const getSeniorName = (senior) =>
 const formatCheckInTime = (value) => {
   const raw = String(value || '').trim();
 
+  // If it's already a range (e.g. '9:00 AM - 10:00 AM'), return it directly
+  if (raw.includes('-')) {
+    return raw;
+  }
+
+  // Fallback if somehow it's a single time (from older data)
   if (/^(1[0-2]|[1-9]):[0-5]\d\s?(AM|PM)$/i.test(raw)) {
     return raw.replace(/\s?(AM|PM)$/i, (match) => ` ${match.trim().toUpperCase()}`);
   }
@@ -21,7 +27,7 @@ const formatCheckInTime = (value) => {
   const match = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
 
   if (!match) {
-    return '9:00 AM';
+    return '9:00 AM - 10:00 AM';
   }
 
   const hour24 = Number(match[1]);
@@ -33,17 +39,23 @@ const formatCheckInTime = (value) => {
 };
 
 const MORNING_TIMES = [
-  '5:00 AM', '5:30 AM', '6:00 AM', '6:30 AM',
-  '7:00 AM', '7:30 AM', '8:00 AM', '8:30 AM',
-  '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM',
-  '11:00 AM', '11:30 AM', '12:00 PM'
+  '5:00 AM - 6:00 AM',
+  '6:00 AM - 7:00 AM',
+  '7:00 AM - 8:00 AM',
+  '8:00 AM - 9:00 AM',
+  '9:00 AM - 10:00 AM',
+  '10:00 AM - 11:00 AM',
+  '11:00 AM - 12:00 PM'
 ];
 
 const EVENING_TIMES = [
-  '4:00 PM', '4:30 PM', '5:00 PM', '5:30 PM',
-  '6:00 PM', '6:30 PM', '7:00 PM', '7:30 PM',
-  '8:00 PM', '8:30 PM', '9:00 PM', '9:30 PM',
-  '10:00 PM', '10:30 PM', '11:00 PM'
+  '4:00 PM - 5:00 PM',
+  '5:00 PM - 6:00 PM',
+  '6:00 PM - 7:00 PM',
+  '7:00 PM - 8:00 PM',
+  '8:00 PM - 9:00 PM',
+  '9:00 PM - 10:00 PM',
+  '10:00 PM - 11:00 PM'
 ];
 
 export default function CaregiverEditSeniorMenuScreen({
@@ -60,11 +72,11 @@ export default function CaregiverEditSeniorMenuScreen({
 }) {
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
-    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM, 7:00 PM';
+    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM - 10:00 AM, 7:00 PM - 8:00 PM';
     const parts = String(raw).split(',').map(s => s.trim());
     return {
-      t1: formatCheckInTime(parts[0] || '9:00 AM'),
-      t2: formatCheckInTime(parts[1] || '7:00 PM'),
+      t1: formatCheckInTime(parts[0] || '9:00 AM - 10:00 AM'),
+      t2: formatCheckInTime(parts[1] || '7:00 PM - 8:00 PM'),
     };
   };
 

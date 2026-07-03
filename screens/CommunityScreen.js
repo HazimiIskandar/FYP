@@ -36,14 +36,25 @@ const shuffle = (items) => {
 
 const LUCKY_CARD = { key: 'lucky', icon: 'star', color: '#EAB308', background: '#FEF08A', id: 'lucky-card' };
 
-const createDeck = () => {
-  const selectedItems = shuffle(MEMORY_ITEMS).slice(0, 4);
+const createDeck = (difficulty = 'Easy') => {
+  let pairCount = 4;
+  let useLucky = true;
+
+  if (difficulty === 'Easy') {
+    pairCount = 2;
+    useLucky = false;
+  } else if (difficulty === 'Hard') {
+    pairCount = 8;
+    useLucky = false;
+  }
+
+  const selectedItems = shuffle(MEMORY_ITEMS).slice(0, pairCount);
   const pairedItems = selectedItems.flatMap((item) => [
     { ...item, id: `${item.key}-a` },
     { ...item, id: `${item.key}-b` },
   ]);
 
-  return shuffle([...pairedItems, LUCKY_CARD]);
+  return shuffle(useLucky ? [...pairedItems, LUCKY_CARD] : pairedItems);
 };
 
 const getTodayKey = () => {
@@ -106,7 +117,8 @@ const saveStoredRewards = (seniorId, totalPoints, dailyEarned) => {
 
 export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfile, onSettings, onRefresh }) {
   const { t } = useTranslation();
-  const [cards, setCards] = useState(createDeck);
+  const [difficulty, setDifficulty] = useState('Easy');
+  const [cards, setCards] = useState(() => createDeck('Easy'));
   const [flippedIds, setFlippedIds] = useState([]);
   const [matchedKeys, setMatchedKeys] = useState([]);
   const [attempts, setAttempts] = useState(0);
@@ -120,8 +132,9 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
   const recordedActivityKeyRef = useRef(null);
   const seniorId = senior?.senior_id;
 
+  const targetPairs = difficulty === 'Easy' ? 2 : (difficulty === 'Hard' ? 8 : 4);
   const pairsFoundCount = matchedKeys.filter(k => k !== 'lucky').length;
-  const gameComplete = pairsFoundCount === 4;
+  const gameComplete = pairsFoundCount === targetPairs;
   const pointsToKopi = Math.max(0, KOPI_COST - totalRewardPoints);
   const canRedeemKopi = totalRewardPoints >= KOPI_COST;
 
@@ -132,7 +145,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
         : t('community.messages.gameCompleteReward');
     }
 
-    return t('community.pairsFound', { count: pairsFoundCount, total: 4 });
+    return t('community.pairsFound', { count: pairsFoundCount, total: targetPairs });
   }, [dailyRewardPoints, gameComplete, pairsFoundCount, t]);
 
   const setGameMessage = (key, options = {}) => {
@@ -279,8 +292,9 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
     }
   };
 
-  const resetGame = () => {
-    setCards(createDeck());
+  const resetGame = (newDifficulty = difficulty) => {
+    setDifficulty(newDifficulty);
+    setCards(createDeck(newDifficulty));
     setFlippedIds([]);
     setMatchedKeys([]);
     setAttempts(0);
@@ -418,15 +432,30 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
           </View>
         </View>
 
+        <View style={styles.difficultyContainer}>
+          {['Easy', 'Normal', 'Hard'].map((lvl) => (
+            <TouchableOpacity
+              key={lvl}
+              style={[styles.difficultyButton, difficulty === lvl && styles.difficultyButtonActive]}
+              onPress={() => resetGame(lvl)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.difficultyText, difficulty === lvl && styles.difficultyTextActive]}>{lvl}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <View style={styles.memoryGrid}>
           {cards.map((card) => {
             const isFaceUp = flippedIds.includes(card.id) || matchedKeys.includes(card.key);
+            const cardWidth = difficulty === 'Easy' ? '48%' : (difficulty === 'Hard' ? '23%' : '31%');
 
             return (
               <TouchableOpacity
                 key={card.id}
                 style={[
                   styles.memoryCard,
+                  { width: cardWidth },
                   isFaceUp ? { backgroundColor: card.background, borderColor: card.color } : styles.memoryCardBack,
                   matchedKeys.includes(card.key) ? styles.memoryCardMatched : null,
                 ]}
@@ -532,7 +561,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   memoryCard: {
-    width: '31%',
     aspectRatio: 0.92,
     borderRadius: 13,
     borderWidth: 2,
@@ -580,4 +608,33 @@ const styles = StyleSheet.create({
   kopiCopy: { flex: 1, marginLeft: 12 },
   kopiButtonText: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
   kopiButtonSubtext: { color: '#DCFCE7', fontSize: 13, fontWeight: '700', marginTop: 3 },
+  difficultyContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  difficultyButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  difficultyButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  difficultyText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  difficultyTextActive: {
+    color: '#111827',
+  },
 });

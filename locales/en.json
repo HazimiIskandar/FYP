@@ -61,7 +61,7 @@
     "shareCode": "Share this code with your caregiver.",
     "logOutTitle": "Log out?",
     "logOutMessage": "Are you sure you want to end your session?",
-    "yesLogOut": "Yes, Log Out",
+    "yesLogOut": "Yes",
     "no": "No",
     "timesSaved": "Check-in times saved: {{t1}} & {{t2}}",
     "pleaseSelectBoth": "Please select both check-in times.",

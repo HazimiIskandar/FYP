@@ -70,7 +70,7 @@ export default function CaregiverHomeScreen({
           <View style={styles.infoCard}>
             <View>
               <Text style={styles.cardEyebrow}>Priority senior</Text>
-              <Text style={styles.name}>{`${seniorName}${seniorAge ? `, ${seniorAge}` : ''}`}</Text>
+              <Text style={styles.name}>{`${seniorName}${seniorAge ? ` Age: ${seniorAge}` : ''}`}</Text>
               <Text style={styles.meta}>{`Unit ${seniorUnit} | ${contactName}`}</Text>
             </View>
             <View style={styles.statusBadge}>
