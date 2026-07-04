@@ -141,7 +141,15 @@ function subtractMinutesFromTime(timeValue, minutesToSubtract) {
 }
 
 function parseCheckInTime(value) {
-  const match = String(value || '').trim().match(/^(1[0-2]|[1-9]):([0-5]\d)\s?(AM|PM)$/i);
+  // Accept either a single time ('9:00 AM') or a range
+  // ('9:00 AM - 10:00 AM'). For ranges we use the START time so the
+  // daily reminder fires 30 and 15 minutes before the senior's check-in
+  // window opens.
+  const trimmed = String(value || '').trim();
+  const startTime = trimmed.includes('-')
+    ? trimmed.split('-')[0].trim()
+    : trimmed;
+  const match = startTime.match(/^(1[0-2]|[1-9]):([0-5]\d)\s?(AM|PM)$/i);
 
   if (!match) {
     return null;

@@ -19,6 +19,13 @@ const getSeniorName = (senior) =>
 const formatCheckInTime = (value) => {
   const raw = String(value || '').trim();
 
+  // Pass through ranges like '9:00 AM - 10:00 AM' as-is, mirroring the
+  // CaregiverEditSeniorMenuScreen behavior so the senior side stays
+  // consistent with the DB default.
+  if (raw.includes('-')) {
+    return raw;
+  }
+
   if (/^(1[0-2]|[1-9]):[0-5]\d\s?(AM|PM)$/i.test(raw)) {
     return raw.replace(/\s?(AM|PM)$/i, (match) => ` ${match.trim().toUpperCase()}`);
   }
@@ -26,7 +33,7 @@ const formatCheckInTime = (value) => {
   const match = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
 
   if (!match) {
-    return '9:00 AM';
+    return '9:00 AM - 10:00 AM';
   }
 
   const hour24 = Number(match[1]);
@@ -76,11 +83,11 @@ export default function SeniorSettingsScreen({
   const { t } = useTranslation();
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
-    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM, 5:00 PM';
+    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM - 10:00 AM, 5:00 PM - 6:00 PM';
     const parts = String(raw).split(',').map(s => s.trim());
     return {
-      t1: formatCheckInTime(parts[0] || '9:00 AM'),
-      t2: formatCheckInTime(parts[1] || '5:00 PM'),
+      t1: formatCheckInTime(parts[0] || '9:00 AM - 10:00 AM'),
+      t2: formatCheckInTime(parts[1] || '5:00 PM - 6:00 PM'),
     };
   };
 
@@ -130,8 +137,15 @@ export default function SeniorSettingsScreen({
   //   await scheduleCheckInReminders(seniorName, checkInTime);
   // };
 
+  // Extract the START of either a single-time string ('9:00 AM') or a
+  // range string ('9:00 AM - 10:00 AM'). Used by the gap check so a
+  // senior who saved ranges still gets a valid numeric comparison.
   const getTimeValue = (timeStr) => {
-    const match = String(timeStr || '').trim().match(/^(1[0-2]|[1-9]):([0-5]\d)\s?(AM|PM)$/i);
+    const trimmed = String(timeStr || '').trim();
+    const startTime = trimmed.includes('-')
+      ? trimmed.split('-')[0].trim()
+      : trimmed;
+    const match = startTime.match(/^(1[0-2]|[1-9]):([0-5]\d)\s?(AM|PM)$/i);
     if (!match) return 0;
     let hour = Number(match[1]);
     const minute = Number(match[2]);

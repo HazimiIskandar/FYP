@@ -83,7 +83,7 @@ DEFAULT CHARACTER SET = utf8mb4;
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Senior` (
   `senior_id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
-  `preferred_checkin_time` VARCHAR(255) NULL DEFAULT NULL,
+  `preferred_checkin_time` VARCHAR(255) NULL DEFAULT '9:00 AM - 10:00 AM, 5:00 PM - 6:00 PM',
   PRIMARY KEY (`senior_id`),
   INDEX `fk_Senior_User_Account` (`user_id` ASC) VISIBLE,
   CONSTRAINT `fk_Senior_User_Account`
