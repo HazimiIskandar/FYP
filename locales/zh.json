@@ -62,7 +62,7 @@
     "logOutTitle": "退出登录？",
     "logOutMessage": "您确定要结束您的会话吗？",
     "yesLogOut": "是的，退出登录",
-    "no": "不",
+    "no": "取消",
     "timesSaved": "签到时间已保存：{{t1}} 和 {{t2}}",
     "pleaseSelectBoth": "请选择两个签到时间。",
     "minimumGap": "请确保签到时间之间至少有10小时间隔。",

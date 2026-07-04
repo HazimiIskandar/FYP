@@ -62,7 +62,7 @@
     "logOutTitle": "Log out?",
     "logOutMessage": "Are you sure you want to end your session?",
     "yesLogOut": "Yes",
-    "no": "No",
+    "no": "Cancel",
     "timesSaved": "Check-in times saved: {{t1}} & {{t2}}",
     "pleaseSelectBoth": "Please select both check-in times.",
     "minimumGap": "Please ensure there is a minimum 10-hour gap between check-ins.",

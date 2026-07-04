@@ -62,7 +62,7 @@
     "logOutTitle": "Log keluar?",
     "logOutMessage": "Adakah anda pasti mahu menamatkan sesi anda?",
     "yesLogOut": "Ya, Log Keluar",
-    "no": "Tidak",
+    "no": "Batal",
     "timesSaved": "Waktu daftar masuk disimpan: {{t1}} & {{t2}}",
     "pleaseSelectBoth": "Sila pilih kedua-dua waktu daftar masuk.",
     "minimumGap": "Sila pastikan ada jarak minimum 10 jam antara daftar masuk.",

@@ -218,7 +218,7 @@ export default function StaffSettingsScreen({
               onPress={() => setLogoutConfirmVisible(false)}
               activeOpacity={0.86}
             >
-              <Text style={styles.cancelButtonText}>No</Text>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
