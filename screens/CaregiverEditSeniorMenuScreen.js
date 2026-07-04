@@ -72,11 +72,11 @@ export default function CaregiverEditSeniorMenuScreen({
 }) {
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
-    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM - 10:00 AM, 7:00 PM - 8:00 PM';
+    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM - 10:00 AM, 5:00 PM - 6:00 PM';
     const parts = String(raw).split(',').map(s => s.trim());
     return {
       t1: formatCheckInTime(parts[0] || '9:00 AM - 10:00 AM'),
-      t2: formatCheckInTime(parts[1] || '7:00 PM - 8:00 PM'),
+      t2: formatCheckInTime(parts[1] || '5:00 PM - 6:00 PM'),
     };
   };
 

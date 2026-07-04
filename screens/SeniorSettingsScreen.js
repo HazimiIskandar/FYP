@@ -76,11 +76,11 @@ export default function SeniorSettingsScreen({
   const { t } = useTranslation();
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
-    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM, 7:00 PM';
+    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM, 5:00 PM';
     const parts = String(raw).split(',').map(s => s.trim());
     return {
       t1: formatCheckInTime(parts[0] || '9:00 AM'),
-      t2: formatCheckInTime(parts[1] || '7:00 PM'),
+      t2: formatCheckInTime(parts[1] || '5:00 PM'),
     };
   };
 
@@ -145,14 +145,13 @@ export default function SeniorSettingsScreen({
     const v1 = getTimeValue(t1);
     const v2 = getTimeValue(t2);
     const gap = Math.abs(v1 - v2);
-    
-    // We want the two check-ins to be spaced out by at least 10 hours during the day.
-    // We check if the direct difference is >= 10.
-    // If the difference is very large (e.g., 5 AM to 11 PM is 18 hours), we also allow it
-    // because it just means the "night" gap is 6 hours, which is fine as long as the daytime gap is >= 10.
-    if (gap >= 10 && gap <= 14) return true;
+
+    // We want the two check-ins to be spaced out by at least 6 hours during the day
+    // so that seniors have meaningful separation between the morning and evening
+    // check-in windows (e.g. 9 AM & 5 PM = 8 hour gap, which is valid).
+    if (gap >= 6 && gap <= 14) return true;
     if (gap > 14) return true; // Allows 5 AM & 11 PM (18 hours gap)
-    
+
     return false;
   };
 
@@ -164,7 +163,7 @@ export default function SeniorSettingsScreen({
     }
 
     if (!checkTimeGap(checkInTime, checkInTime2)) {
-      setSettingsError('Please ensure there is a minimum 10-hour gap between check-ins.');
+      setSettingsError('Please ensure there is a minimum 6-hour gap between check-ins.');
       setSettingsMessage('');
       return;
     }

@@ -577,18 +577,30 @@ export default function App() {
     };
 
     const fetchAllData = async () => {
+      // Each fetch is independent — failing one endpoint never blocks the
+      // others (Promise.allSettled instead of Promise.all). Seniors stays
+      // empty until an authenticated user triggers a role-aware refreshAll.
+      const safeFetch = async (url) => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) return [];
+          return await response.json();
+        } catch (err) {
+          console.log(`safeFetch failed for ${url}:`, err?.message || err);
+          return [];
+        }
+      };
+
       try {
-        const [seniorsData, usersData, checkInsData, emergencyData, rewardsData, communitiesData] =
+        const [usersData, checkInsData, emergencyData, rewardsData, communitiesData] =
           await Promise.all([
-            Promise.resolve([]),
-            fetchJson(`${apiBase}/users`),
-            fetchJson(`${apiBase}/checkins`),
-            fetchJson(`${apiBase}/emergency-events`),
-            fetchJson(`${apiBase}/rewards`),
-            fetchJson(`${apiBase}/community/activities/all`).catch(() => []),
+            safeFetch(`${apiBase}/users`),
+            safeFetch(`${apiBase}/checkins`),
+            safeFetch(`${apiBase}/emergency-events`),
+            safeFetch(`${apiBase}/rewards`),
+            safeFetch(`${apiBase}/community/activities/all`),
           ]);
 
-        console.log('=== FETCHED SENIORS DATA ===');
         console.log('=== FETCHED USERS DATA ===');
         console.log('=== USING API BASE ===', apiBase);
 
@@ -597,14 +609,9 @@ export default function App() {
         );
 
         setUsers(Array.isArray(usersData) ? usersData : []);
-        setSeniors(
-          Array.isArray(seniorsData)
-            ? seniorsData
-                .map((senior) => normalizeSenior(senior, userMap))
-                .filter((normalizedSenior) => normalizedSenior.full_name !== 'Unknown Senior')
-            : []
-        );
-
+        // Seniors left empty until refreshAll (role-aware) — do NOT fall back
+        // to fetching all seniors here so caregivers never see unfiltered data.
+        setSeniors([]);
         setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
         setCommunityActivities(Array.isArray(communitiesData) ? communitiesData : []);
         setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
@@ -633,29 +640,69 @@ export default function App() {
     if (!apiBase) return;
     try {
       const effectiveUser = userOverride || authenticatedUser;
+
+      // Bullet-proof caregiver detection: accept either numeric role_id === 2
+      // OR a role name string containing "caregiver" (case-insensitive, ignoring
+      // leading/trailing whitespace). Falls through to /seniors for everyone
+      // else (AIC staff, seniors, etc.).
       const effectiveRoleName = String(
         effectiveUser?.role || effectiveUser?.role_name || effectiveUser?.roleName || ''
-      ).toLowerCase();
+      ).toLowerCase().trim();
       const effectiveRoleId = Number(effectiveUser?.role_id);
-      const isCaregiver =
-        effectiveRoleId === 2 || effectiveRoleName.includes('caregiver');
+      const isCaregiver = Number.isFinite(effectiveRoleId) && effectiveRoleId === 2
+        ? true
+        : effectiveRoleName.includes('caregiver');
       const seniorsUrl =
         isCaregiver && effectiveUser?.user_id
           ? `${apiBase}/caregiver/${effectiveUser.user_id}/seniors`
           : `${apiBase}/seniors`;
-      const [seniorsRes, usersRes, checkinsRes, rewardsRes, communityRes] = await Promise.all([
-        fetch(seniorsUrl),
-        fetch(`${apiBase}/users`),
-        fetch(`${apiBase}/checkins`),
-        fetch(`${apiBase}/rewards`),
-        fetch(`${apiBase}/community/activities/all`),
-      ]);
-      if (!seniorsRes.ok || !usersRes.ok || !checkinsRes.ok || !rewardsRes.ok) return;
-      const seniorsData = await seniorsRes.json();
-      const usersData = await usersRes.json();
-      const checkinsData = await checkinsRes.json();
-      const rewardsData = await rewardsRes.json();
-      const communityData = communityRes.ok ? await communityRes.json() : [];
+
+      // Diagnostic: confirm the caregiver path is exercised in the browser console.
+      console.log(
+        '[refreshAll] caregiver path ->',
+        JSON.stringify({
+          user_id: effectiveUser?.user_id,
+          role_id: effectiveUser?.role_id,
+          role_name: effectiveRoleName,
+          isCaregiver,
+          seniorsUrl,
+        })
+      );
+
+      // Each endpoint fetched independently so one failing endpoint never
+      // drops the seniors data that the user is actually waiting on.
+      const safeJson = async (url) => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            console.log(`[refreshAll] non-OK ${response.status} for ${url}`);
+            return [];
+          }
+          return await response.json();
+        } catch (err) {
+          console.log(`[refreshAll] fetch failed for ${url}:`, err?.message || err);
+          return [];
+        }
+      };
+
+      const [seniorsData, usersData, checkinsData, rewardsData, communityData] =
+        await Promise.all([
+          safeJson(seniorsUrl),
+          safeJson(`${apiBase}/users`),
+          safeJson(`${apiBase}/checkins`),
+          safeJson(`${apiBase}/rewards`),
+          safeJson(`${apiBase}/community/activities/all`),
+        ]);
+
+      console.log(
+        '[refreshAll] result ->',
+        JSON.stringify({
+          seniorsUrl,
+          seniorsCount: Array.isArray(seniorsData) ? seniorsData.length : 0,
+          usersCount: Array.isArray(usersData) ? usersData.length : 0,
+        })
+      );
+
       const userMap = new Map(
         (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
       );
