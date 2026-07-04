@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
@@ -27,6 +38,67 @@ export default function CaregiverSeniorsListScreen({
   const [removeError, setRemoveError] = useState('');
 
   const getRawText = (value) => (value ?? '').toString();
+
+  const closeAddModal = () => {
+    if (isSubmitting) return;
+    setAddModalVisible(false);
+    setLinkCode('');
+    setSubmitError('');
+    setSubmitMessage('');
+  };
+
+  const handleLinkSenior = async () => {
+    const caregiverId = authenticatedUser?.user_id;
+    const normalizedCode = getRawText(linkCode).trim().toUpperCase();
+
+    setSubmitError('');
+    setSubmitMessage('');
+
+    if (!caregiverId) {
+      setSubmitError('Unable to identify caregiver account. Please sign in again.');
+      return;
+    }
+
+    if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
+      setSubmitError('Please enter a valid 6-character link code.');
+      return;
+    }
+
+    if (!apiBase) {
+      setSubmitError('Unable to connect to server. Please try again.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${apiBase}/caregiver/link-senior`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caregiver_id: caregiverId,
+          link_code: normalizedCode,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setSubmitError(payload?.error || 'Unable to add senior. Please verify the code and try again.');
+        return;
+      }
+
+      setSubmitMessage('Senior linked successfully.');
+      setLinkCode('');
+
+      if (onRefresh) {
+        await onRefresh(authenticatedUser);
+      }
+    } catch (err) {
+      setSubmitError(err?.message || 'Network error while adding senior. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const getStatusTag = (senior) => {
     const raw = getRawText(
@@ -172,6 +244,58 @@ export default function CaregiverSeniorsListScreen({
         )}
       </ScrollView>
 
+      <Modal
+        visible={addModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAddModal}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={closeAddModal} />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Add New Senior</Text>
+            <Text style={styles.modalDescription}>
+              Enter the 6-character link code provided by the senior.
+            </Text>
+
+            <TextInput
+              value={linkCode}
+              onChangeText={(value) => setLinkCode(getRawText(value).toUpperCase())}
+              placeholder="Enter link code"
+              autoCapitalize="characters"
+              maxLength={6}
+              style={styles.codeInput}
+              editable={!isSubmitting}
+            />
+
+            {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+            {submitMessage ? <Text style={styles.successText}>{submitMessage}</Text> : null}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={closeAddModal}
+                style={[styles.modalActionButton, styles.cancelButton]}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleLinkSenior}
+                style={[styles.modalActionButton, styles.submitButton]}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Add Senior</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <CaregiverBottomNav
         activeTab="Seniors"
         onHome={onGoToHome}
@@ -230,4 +354,65 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
   emptyText: { fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center' },
   errorText: { fontSize: 14, color: '#DC2626', marginTop: 8 },
+  successText: { fontSize: 14, color: '#15803D', marginTop: 8 },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(17, 24, 39, 0.35)',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 18,
+  },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: '#111827' },
+  modalDescription: { fontSize: 14, color: '#4B5563', marginTop: 6, marginBottom: 14 },
+  codeInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: '#111827',
+    backgroundColor: '#F9FAFB',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+  },
+  modalActionButton: {
+    minHeight: 44,
+    minWidth: 110,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+  },
+  cancelButtonText: {
+    color: '#374151',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  submitButton: {
+    backgroundColor: '#2563EB',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
 });
