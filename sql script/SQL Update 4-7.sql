@@ -83,7 +83,7 @@ DEFAULT CHARACTER SET = utf8mb4;
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Senior` (
   `senior_id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
-  `preferred_checkin_time` VARCHAR(20) NULL DEFAULT '9:00 AM',
+  `preferred_checkin_time` VARCHAR(255) NULL DEFAULT NULL,
   PRIMARY KEY (`senior_id`),
   INDEX `fk_Senior_User_Account` (`user_id` ASC) VISIBLE,
   CONSTRAINT `fk_Senior_User_Account`
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Community_Hub` (
     FOREIGN KEY (`senior_id`)
     REFERENCES `senior_connect_curiousago`.`Senior` (`senior_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 16
+AUTO_INCREMENT = 20
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -126,8 +126,9 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Reward_Streak` (
   `total_points` INT NOT NULL,
   `daily_points` INT NOT NULL DEFAULT '0',
   `daily_points_date` DATE NULL DEFAULT NULL,
-  `last_checkin` DATE NULL DEFAULT NULL,
+  `last_checkin` TIMESTAMP NULL DEFAULT NULL,
   `timestamp` TIMESTAMP NULL DEFAULT NULL,
+  `last_checkin_date` DATE NULL DEFAULT NULL,
   PRIMARY KEY (`reward_id`),
   INDEX `senior_id` (`senior_id` ASC) VISIBLE,
   CONSTRAINT `Reward_Streak_ibfk_1`
@@ -159,7 +160,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Daily_CheckIn` (
     FOREIGN KEY (`reward_id`)
     REFERENCES `senior_connect_curiousago`.`Reward_Streak` (`reward_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 20
+AUTO_INCREMENT = 29
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -174,7 +175,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Sensor` (
   `installed_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`sensor_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 2
+AUTO_INCREMENT = 3
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -193,7 +194,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Sensor_Alert` (
     FOREIGN KEY (`sensor_id`)
     REFERENCES `senior_connect_curiousago`.`Sensor` (`sensor_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 2
+AUTO_INCREMENT = 3
 DEFAULT CHARACTER SET = utf8mb4;
 
 
@@ -409,6 +410,7 @@ DEFAULT CHARACTER SET = utf8mb4;
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Senior_has_AIC_Staff` (
   `senior_id` INT NOT NULL,
   `staff_id` INT NOT NULL,
+  PRIMARY KEY (`senior_id`, `staff_id`),
   INDEX `fk_Senior_has_AIC_Staff_AIC_Staff1_idx` (`staff_id` ASC) VISIBLE,
   INDEX `fk_Senior_has_AIC_Staff_Senior1_idx` (`senior_id` ASC) VISIBLE,
   CONSTRAINT `fk_Senior_has_AIC_Staff_AIC_Staff1`
@@ -479,7 +481,7 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Sensor_Reading` (
     FOREIGN KEY (`sensor_id`)
     REFERENCES `senior_connect_curiousago`.`Sensor` (`sensor_id`))
 ENGINE = InnoDB
-AUTO_INCREMENT = 4
+AUTO_INCREMENT = 7
 DEFAULT CHARACTER SET = utf8mb4;
 
 
