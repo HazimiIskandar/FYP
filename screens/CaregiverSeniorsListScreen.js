@@ -368,6 +368,10 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
+    alignSelf: 'center',
+    width: '50%',
+    maxWidth: 300,
+    minWidth: 300,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -389,7 +393,8 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 10,
     marginTop: 16,
   },
