@@ -171,8 +171,8 @@ export default function CaregiverSeniorsListScreen({
           }}
           activeOpacity={0.86}
         >
-          <Ionicons name="add-circle" size={26} color="#FFFFFF" />
-          <Text style={styles.addSeniorButtonText}>Add New Senior</Text>
+          <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+          <Text style={styles.addSeniorButtonText} numberOfLines={1}>Add New Senior</Text>
         </TouchableOpacity>
 
         {rosterItems.length > 0 ? (
@@ -312,15 +312,17 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20, paddingBottom: 28 },
   addSeniorButton: {
     backgroundColor: '#2563EB',
-    minHeight: 62,
-    borderRadius: 18,
+    minHeight: 54,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
+    width: '100%',
+    paddingHorizontal: 18,
   },
-  addSeniorButtonText: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
+  addSeniorButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900', flexShrink: 1 },
   rosterCard: {
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',

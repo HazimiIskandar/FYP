@@ -580,7 +580,7 @@ export default function App() {
       try {
         const [seniorsData, usersData, checkInsData, emergencyData, rewardsData, communitiesData] =
           await Promise.all([
-            fetchJson(`${apiBase}/seniors`),
+            Promise.resolve([]),
             fetchJson(`${apiBase}/users`),
             fetchJson(`${apiBase}/checkins`),
             fetchJson(`${apiBase}/emergency-events`),
@@ -633,9 +633,14 @@ export default function App() {
     if (!apiBase) return;
     try {
       const effectiveUser = userOverride || authenticatedUser;
+      const effectiveRoleName = String(
+        effectiveUser?.role || effectiveUser?.role_name || effectiveUser?.roleName || ''
+      ).toLowerCase();
       const effectiveRoleId = Number(effectiveUser?.role_id);
+      const isCaregiver =
+        effectiveRoleId === 2 || effectiveRoleName.includes('caregiver');
       const seniorsUrl =
-        effectiveRoleId === 2 && effectiveUser?.user_id
+        isCaregiver && effectiveUser?.user_id
           ? `${apiBase}/caregiver/${effectiveUser.user_id}/seniors`
           : `${apiBase}/seniors`;
       const [seniorsRes, usersRes, checkinsRes, rewardsRes, communityRes] = await Promise.all([
@@ -777,6 +782,8 @@ export default function App() {
     setAuthenticatedUser(null);
     setSelectedSenior(null);
     setLoginError(null);
+    setSeniors([]);
+    setSelectedSeniorOrigin('Status');
     setCurrentScreen('Login');
   };
 
