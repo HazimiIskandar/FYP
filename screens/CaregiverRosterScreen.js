@@ -85,7 +85,7 @@ export default function CaregiverRosterScreen({
 
     return {
       id: senior?.senior_id || senior?.id || index,
-      raw: senior, // 👈 IMPORTANT: keep full object
+      raw: senior, // IMPORTANT: keep full object
       name: displayName,
       statusTag: getStatusTag(senior),
       subtitle: getRosterLabel(senior),
