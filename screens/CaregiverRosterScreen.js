@@ -80,7 +80,7 @@ export default function CaregiverRosterScreen({
 
     const displayName =
       age !== null
-        ? `${name} (${age})`
+        ? `${name} (Age: ${age})`
         : name;
 
     return {

@@ -132,9 +132,9 @@ export default function CaregiverSeniorsListScreen({
               </View>
 
               <View style={styles.rosterCopy}>
-                {/* UPDATED: Show name with age in parentheses */}
+                {/* UPDATED: Show name with age in (Age: __) format */}
                 <Text style={styles.rosterText}>
-                  {item.name}{item.age ? ` Age: ${item.age}` : ''}
+                  {item.name}{item.age ? ` (Age: ${item.age})` : ''}
                 </Text>
                 <Text style={styles.rosterSub}>{item.subtitle}</Text>
               </View>

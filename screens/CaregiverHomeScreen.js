@@ -36,8 +36,31 @@ export default function CaregiverHomeScreen({
     return 'Monitor';
   };
 
+  const getSeniorAge = (senior) => {
+    if (!senior) return null;
+    if (senior?.age !== undefined && senior?.age !== null) return senior.age;
+    if (senior?.age_range) return senior.age_range;
+
+    const dob = senior?.dob;
+    if (!dob) return null;
+
+    const birthDate = new Date(dob);
+    if (isNaN(birthDate.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+    return age;
+  };
+
   const seniorName = getDisplayName(prioritySenior);
-  const seniorAge = prioritySenior?.age || prioritySenior?.age_range || '';
+  const seniorAge = getSeniorAge(prioritySenior) ?? '';
   const seniorUnit = getUnitLabel(prioritySenior);
   const contactName = getContactName(prioritySenior);
   const statusBadgeText = getStatusBadge(prioritySenior);
@@ -70,7 +93,7 @@ export default function CaregiverHomeScreen({
           <View style={styles.infoCard}>
             <View>
               <Text style={styles.cardEyebrow}>Priority senior</Text>
-              <Text style={styles.name}>{`${seniorName}${seniorAge ? ` Age: ${seniorAge}` : ''}`}</Text>
+              <Text style={styles.name}>{`${seniorName}${seniorAge ? ` (Age: ${seniorAge})` : ''}`}</Text>
               <Text style={styles.meta}>{`Unit ${seniorUnit} | ${contactName}`}</Text>
             </View>
             <View style={styles.statusBadge}>
