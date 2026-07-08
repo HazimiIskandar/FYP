@@ -14,17 +14,22 @@ router.post("/", (req, res) => {
     return res.status(400).json({ error: "senior_id is required" });
   }
 
+  const currentHour = new Date().getHours();
+  const isMorning = currentHour < 16;
+  
   const findTodaySql = `
     SELECT checkin_id
     FROM Daily_CheckIn
-    WHERE senior_id = ? AND DATE(checkin_timestamp) = CURDATE()
+    WHERE senior_id = ? 
+      AND DATE(checkin_timestamp) = CURDATE()
+      AND HOUR(checkin_timestamp) ${isMorning ? '< 16' : '>= 16'}
     LIMIT 1
   `;
 
   db.query(findTodaySql, [senior_id], (todayErr, todayRows) => {
     if (todayErr) return res.status(500).json({ error: todayErr.message || todayErr });
     if (todayRows.length > 0) {
-      return res.json({ message: "Already checked in today" });
+      return res.json({ message: isMorning ? "Already checked in for the morning" : "Already checked in for the evening" });
     }
 
     const findRewardSql = `

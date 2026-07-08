@@ -72,11 +72,13 @@ export default function CaregiverEditSeniorMenuScreen({
 }) {
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
-    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM - 10:00 AM, 5:00 PM - 6:00 PM';
+    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '8:00 AM - 9:00 AM, 11:00 AM - 12:00 PM, 4:00 PM - 5:00 PM, 8:00 PM - 9:00 PM';
     const parts = String(raw).split(',').map(s => s.trim());
     return {
-      t1: formatCheckInTime(parts[0] || '9:00 AM - 10:00 AM'),
-      t2: formatCheckInTime(parts[1] || '5:00 PM - 6:00 PM'),
+      t1: formatCheckInTime(parts[0] || '8:00 AM - 9:00 AM'),
+      t2: formatCheckInTime(parts[1] || '11:00 AM - 12:00 PM'),
+      t3: formatCheckInTime(parts[2] || '4:00 PM - 5:00 PM'),
+      t4: formatCheckInTime(parts[3] || '8:00 PM - 9:00 PM'),
     };
   };
 
@@ -84,6 +86,8 @@ export default function CaregiverEditSeniorMenuScreen({
   const [activeModal, setActiveModal] = useState(null);
   const [checkInTime, setCheckInTime] = useState(initialTimes.t1);
   const [checkInTime2, setCheckInTime2] = useState(initialTimes.t2);
+  const [checkInTime3, setCheckInTime3] = useState(initialTimes.t3);
+  const [checkInTime4, setCheckInTime4] = useState(initialTimes.t4);
   const [timeDropdownVisible, setTimeDropdownVisible] = useState(false);
   const [editingTimeIndex, setEditingTimeIndex] = useState(1);
   const [settingsMessage, setSettingsMessage] = useState('');
@@ -102,8 +106,8 @@ export default function CaregiverEditSeniorMenuScreen({
   };
 
   const saveCheckInTime = async () => {
-    if (!checkInTime || !checkInTime2) {
-      setSettingsError('Please select both check-in times.');
+    if (!checkInTime || !checkInTime2 || !checkInTime3 || !checkInTime4) {
+      setSettingsError('Please select all four check-in times.');
       setSettingsMessage('');
       return;
     }
@@ -119,7 +123,7 @@ export default function CaregiverEditSeniorMenuScreen({
     setSettingsMessage('');
 
     try {
-      const combinedTimes = `${checkInTime}, ${checkInTime2}`;
+      const combinedTimes = `${checkInTime}, ${checkInTime2}, ${checkInTime3}, ${checkInTime4}`;
       const response = await fetch(`${apiBase}/seniors/${senior.senior_id}/checkin-time`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -132,7 +136,7 @@ export default function CaregiverEditSeniorMenuScreen({
         throw new Error(body?.error || 'Failed to save check-in times.');
       }
       
-      setSettingsMessage(`Check-in times saved: ${checkInTime} & ${checkInTime2}`);
+      setSettingsMessage('Check-in times saved successfully.');
       if (onRefresh) await onRefresh(authenticatedUser);
     } catch (err) {
       setSettingsError(err?.message || 'Failed to save. Please try again.');
@@ -197,18 +201,23 @@ export default function CaregiverEditSeniorMenuScreen({
           <View style={styles.dropdownModal}>
             <Text style={styles.dropdownTitle}>Select Check-In Time</Text>
             <ScrollView style={styles.dropdownList}>
-              {(editingTimeIndex === 1 ? MORNING_TIMES : EVENING_TIMES).map((time) => {
-                const isSelected = editingTimeIndex === 1 ? time === checkInTime : time === checkInTime2;
+              {((editingTimeIndex === 1 || editingTimeIndex === 2) ? MORNING_TIMES : EVENING_TIMES).map((time) => {
+                const isSelected = 
+                  (editingTimeIndex === 1 && time === checkInTime) ||
+                  (editingTimeIndex === 2 && time === checkInTime2) ||
+                  (editingTimeIndex === 3 && time === checkInTime3) ||
+                  (editingTimeIndex === 4 && time === checkInTime4);
+                  
                 return (
                   <TouchableOpacity
                     key={time}
                     style={styles.dropdownItem}
                     onPress={() => {
-                      if (editingTimeIndex === 1) {
-                        setCheckInTime(time);
-                      } else {
-                        setCheckInTime2(time);
-                      }
+                      if (editingTimeIndex === 1) setCheckInTime(time);
+                      else if (editingTimeIndex === 2) setCheckInTime2(time);
+                      else if (editingTimeIndex === 3) setCheckInTime3(time);
+                      else if (editingTimeIndex === 4) setCheckInTime4(time);
+                      
                       setTimeDropdownVisible(false);
                       setSettingsMessage('');
                       setSettingsError('');
@@ -250,11 +259,11 @@ export default function CaregiverEditSeniorMenuScreen({
             <View style={styles.noticeBox}>
               <Ionicons name="notifications-outline" size={22} color="#2563EB" />
               <Text style={styles.noticeText}>
-                The system expects {seniorName} to check in at these two times.
+                The system expects {seniorName} to check in twice a day. You can set a primary and backup time window for both morning and evening.
               </Text>
             </View>
 
-            <Text style={styles.inputLabel}>Morning Check-In Time</Text>
+            <Text style={styles.inputLabel}>Morning Check-In Time (Window 1)</Text>
             <TouchableOpacity
               style={styles.selectBox}
               onPress={() => { setEditingTimeIndex(1); setTimeDropdownVisible(true); }}
@@ -264,13 +273,33 @@ export default function CaregiverEditSeniorMenuScreen({
               <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
             </TouchableOpacity>
 
-            <Text style={[styles.inputLabel, { marginTop: 16 }]}>Evening Check-In Time</Text>
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Morning Check-In Time (Window 2)</Text>
             <TouchableOpacity
               style={styles.selectBox}
               onPress={() => { setEditingTimeIndex(2); setTimeDropdownVisible(true); }}
               activeOpacity={0.8}
             >
               <Text style={styles.selectBoxText}>{checkInTime2}</Text>
+              <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
+            </TouchableOpacity>
+
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Evening Check-In Time (Window 1)</Text>
+            <TouchableOpacity
+              style={styles.selectBox}
+              onPress={() => { setEditingTimeIndex(3); setTimeDropdownVisible(true); }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.selectBoxText}>{checkInTime3}</Text>
+              <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
+            </TouchableOpacity>
+            
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Evening Check-In Time (Window 2)</Text>
+            <TouchableOpacity
+              style={styles.selectBox}
+              onPress={() => { setEditingTimeIndex(4); setTimeDropdownVisible(true); }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.selectBoxText}>{checkInTime4}</Text>
               <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
             </TouchableOpacity>
 

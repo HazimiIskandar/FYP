@@ -530,12 +530,21 @@ export default function App() {
     )
   ).length;
 
-  // determine if the current senior has a completed check-in for today
-  const isCheckedInToday = currentSenior?.senior_id
+  const hasCheckedInMorning = currentSenior?.senior_id
     ? checkIns.some((c) =>
         String(c?.senior_id) === String(currentSenior.senior_id) &&
         (c?.checkin_status || '').toLowerCase().includes('completed') &&
-        (!c.checkin_timestamp || getDateKey(c.checkin_timestamp) === todayKey)
+        (!c.checkin_timestamp || getDateKey(c.checkin_timestamp) === todayKey) &&
+        (new Date(c.checkin_timestamp).getHours() < 16)
+      )
+    : false;
+
+  const hasCheckedInEvening = currentSenior?.senior_id
+    ? checkIns.some((c) =>
+        String(c?.senior_id) === String(currentSenior.senior_id) &&
+        (c?.checkin_status || '').toLowerCase().includes('completed') &&
+        (!c.checkin_timestamp || getDateKey(c.checkin_timestamp) === todayKey) &&
+        (new Date(c.checkin_timestamp).getHours() >= 16)
       )
     : false;
 
@@ -816,7 +825,7 @@ export default function App() {
         })
       });
 
-      setHasCheckedIn(true);
+      // Removed local setHasCheckedIn state to rely on backend refresh
       await refreshAll(authenticatedUser);
       cancelMissedCheckInReminders();
 
@@ -917,7 +926,8 @@ export default function App() {
         <SeniorHomeScreen
           senior={currentSenior}
           seniorName={seniorName}
-          hasCheckedIn={isCheckedInToday}
+          hasCheckedInMorning={hasCheckedInMorning}
+          hasCheckedInEvening={hasCheckedInEvening}
           currentStreak={currentStreak}
           onCheckIn={handleCheckIn}
           onSOS={() => setCurrentScreen('Emergency')}

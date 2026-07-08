@@ -6,7 +6,10 @@ import i18n from '../i18n';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
-export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn, onSOS, onCommunity, onProfile, onSettings, currentStreak }) {
+export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, hasCheckedInEvening, onCheckIn, onSOS, onCommunity, onProfile, onSettings, currentStreak }) {
+  const currentHour = new Date().getHours();
+  const isMorning = currentHour < 16;
+  const hasCheckedIn = isMorning ? hasCheckedInMorning : hasCheckedInEvening;
   const { t } = useTranslation();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -50,7 +53,7 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
     <SafeAreaView style={styles.container}>
       <Header
         title={seniorName ? t('home.goodMorningName', { name: seniorName }) : t('home.goodMorning')}
-        subtitle={t('home.tapToCheckIn')}
+        subtitle={isMorning ? "Morning Check-In" : "Evening Check-In"}
         rightContent={(
           <TouchableOpacity
             style={styles.languageButton}
@@ -95,7 +98,7 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedIn, onCheckIn,
           {hasCheckedIn ? (
             <Animated.View style={[styles.giantCircle, styles.checkedCircle, { transform: [{ scale: scaleAnim }] }]}>
               <Ionicons name="checkmark" size={128} color="#FFFFFF" />
-              <Text style={styles.checkedText}>{t('home.done')}</Text>
+              <Text style={styles.checkedText}>{isMorning ? 'Done for Morning' : 'Done for Evening'}</Text>
             </Animated.View>
           ) : (
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
   checkedCircle: { backgroundColor: '#16A34A' },
   giantCircleText: { color: '#FFFFFF', fontSize: 42, fontWeight: '900', textAlign: 'center', lineHeight: 48 },
   giantCircleSubtext: { color: '#DCFCE7', fontSize: 18, fontWeight: '800', marginTop: 8 },
-  checkedText: { color: '#FFFFFF', fontSize: 26, fontWeight: '900', marginTop: -8 },
+  checkedText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: -8, textAlign: 'center' },
   sosButton: {
     backgroundColor: '#DC2626',
     width: '100%',
