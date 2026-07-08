@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
@@ -13,14 +13,14 @@ const DAILY_REWARD_STORAGE_KEY = 'haloappDailyRewardProgress';
 const memoryStorage = {};
 
 const MEMORY_ITEMS = [
-  { key: 'kopi', icon: 'cafe', color: '#92400E', background: '#FEF3C7' },
-  { key: 'radio', icon: 'radio', color: '#1D4ED8', background: '#DBEAFE' },
-  { key: 'home', icon: 'home', color: '#166534', background: '#DCFCE7' },
-  { key: 'music', icon: 'musical-notes', color: '#7C2D12', background: '#FFEDD5' },
-  { key: 'photo', icon: 'images', color: '#6D28D9', background: '#EDE9FE' },
-  { key: 'book', icon: 'book', color: '#BE123C', background: '#FFE4E6' },
-  { key: 'phone', icon: 'call', color: '#0F766E', background: '#CCFBF1' },
-  { key: 'news', icon: 'newspaper', color: '#4338CA', background: '#E0E7FF' },
+  { key: 'kopi', source: require('../assets/kopi.png'), color: '#92400E', background: '#FEF3C7' },
+  { key: 'radio', source: require('../assets/radio.png'), color: '#1D4ED8', background: '#DBEAFE' },
+  { key: 'home', source: require('../assets/home.png'), color: '#166534', background: '#DCFCE7' },
+  { key: 'music', source: require('../assets/music.png'), color: '#7C2D12', background: '#FFEDD5' },
+  { key: 'photo', source: require('../assets/photo.png'), color: '#6D28D9', background: '#EDE9FE' },
+  { key: 'book', source: require('../assets/book.png'), color: '#BE123C', background: '#FFE4E6' },
+  { key: 'phone', source: require('../assets/phone.png'), color: '#0F766E', background: '#CCFBF1' },
+  { key: 'news', source: require('../assets/news.png'), color: '#4338CA', background: '#E0E7FF' },
 ];
 
 const shuffle = (items) => {
@@ -464,7 +464,11 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
               >
                 {isFaceUp ? (
                   <>
-                    <Ionicons name={card.icon} size={30} color={card.color} />
+                    {card.key === 'lucky' ? (
+                      <Ionicons name={card.icon} size={difficulty === 'Easy' ? 50 : (difficulty === 'Normal' ? 40 : 30)} color={card.color} />
+                    ) : (
+                      <Image source={card.source} style={{ width: '55%', height: '55%', resizeMode: 'contain' }} />
+                    )}
                     <Text style={[styles.cardLabel, { color: card.color }]}>{t(`community.memoryItems.${card.key}`)}</Text>
                   </>
                 ) : (
