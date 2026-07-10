@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Ignore literal nul shadow files on Windows (Windows reserved device name nul shadows them from standard deletion APIs)
+nul
