@@ -24,10 +24,10 @@ export default function CaregiverHomeScreen({
   };
 
   const getUnitLabel = (senior) =>
-    senior?.unit_number || senior?.unit_no || senior?.unit || senior?.unitLabel || '#04-12';
+    senior?.unit_number || senior?.unit_no || senior?.unit || senior?.unitLabel || 'Not recorded';
 
   const getContactName = (senior) =>
-    senior?.emergency_contact || senior?.next_of_kin || senior?.next_of_kin_name || 'Adrian Tan';
+    senior?.emergency_contact || senior?.next_of_kin || senior?.next_of_kin_name || 'Not recorded';
 
   const getStatusBadge = (senior) => {
     const raw = `${senior?.status || senior?.checkin_status || senior?.health_status || ''}`.toLowerCase();
@@ -111,10 +111,10 @@ export default function CaregiverHomeScreen({
           </View>
 
           <View style={styles.infoCard}>
-            <View>
+            <View style={styles.infoCopy}>
               <Text style={styles.cardEyebrow}>Priority senior</Text>
-              <Text style={styles.name}>{`${seniorName}${seniorAge ? ` (Age: ${seniorAge})` : ''}`}</Text>
-              <Text style={styles.meta}>{`Unit ${seniorUnit} | ${contactName}`}</Text>
+              <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{`${seniorName}${seniorAge ? ` (Age: ${seniorAge})` : ''}`}</Text>
+              <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{`Unit ${seniorUnit} | ${contactName}`}</Text>
             </View>
             <View style={styles.statusBadge}>
               <Text style={styles.statusBadgeText}>{statusBadgeText}</Text>
@@ -226,8 +226,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardEyebrow: { color: '#6B7280', fontSize: 13, fontWeight: '800', marginBottom: 4 },
-  name: { color: '#111827', fontSize: 24, fontWeight: '900' },
-  meta: { color: '#4B5563', fontSize: 15, marginTop: 4 },
+  // Long names used to expand this inner View and push the status badge
+  // (and the call button below it) off-screen. Constrain it with flex:1
+  // + minWidth:0 so a long name ellipsizes inside the row instead.
+  infoCopy: { flex: 1, flexShrink: 1, minWidth: 0 },
+  name: { color: '#111827', fontSize: 24, fontWeight: '900', flexShrink: 1 },
+  meta: { color: '#4B5563', fontSize: 15, marginTop: 4, flexShrink: 1 },
   statusBadge: { backgroundColor: '#FEF3C7', borderRadius: 16, paddingVertical: 7, paddingHorizontal: 10 },
   statusBadgeText: { color: '#92400E', fontSize: 13, fontWeight: '900' },
   ticketActive: {
@@ -249,6 +253,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 10,
+    paddingHorizontal: 12,
+    alignSelf: 'stretch',
   },
-  callButtonText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' },
+  callButtonText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', flexShrink: 1 },
 });
