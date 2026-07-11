@@ -4,10 +4,13 @@ const db = require("../config/db");
 
 // ESCALATION ENGINE
 const escalateCheckIn = (senior_id) => {
+    // Schema note: Emergency_Event does NOT have an `event_type` column
+    // (see SQL Update 4-7.sql). We fold the event description into
+    // `escalation_level` instead — e.g. "Level 1 — Missed Check-In".
     const createEvent = `
-        INSERT INTO Emergency_Event 
-        (senior_id, event_type, event_status, escalation_level)
-        VALUES (?, 'Missed Check-In', 'Open', 'Level 1')
+        INSERT INTO Emergency_Event
+        (senior_id, event_status, escalation_level)
+        VALUES (?, 'Open', 'Level 1 — Missed Check-In')
     `;
 
     db.query(createEvent, [senior_id], (err, result) => {
