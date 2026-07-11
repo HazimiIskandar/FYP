@@ -343,18 +343,22 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
+  // Avatar on the profile card matches the rest of the caregiver-side
+  // navigation (Senior list, Roster): light grey background with dark
+  // grey initial letter. Keeps the visual system consistent instead of
+  // dropping a bright red circle into an otherwise neutral screen.
   avatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
 
   avatarText: {
-    color: '#B91C1C',
+    color: '#374151',
     fontSize: 22,
     fontWeight: '900',
   },

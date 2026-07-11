@@ -106,28 +106,33 @@ export default function CaregiverRosterScreen({
     { All: 0, Urgent: 0, Pending: 0, Missed: 0, Checked: 0 }
   );
 
+  // Filter list uses explicit { key, label } pairs so the active filter
+  // compares against the SAME canonical string that getStatusTag returns
+  // (e.g. "Checked In"). The previous version parsed the label by taking
+  // its first word, which dropped the "In" from "Checked In" and caused
+  // that filter to show zero rows.
   const filters = [
-    `All (${counts.All})`,
-    `🚨 Urgent (${counts.Urgent})`,
-    `⚠️ Pending (${counts.Pending})`,
-    `❌ Missed (${counts.Missed})`,
-    `✅ Checked In (${counts.Checked})`,
+    { key: 'All', label: `All (${counts.All})` },
+    { key: 'Urgent', label: `🚨 Urgent (${counts.Urgent})` },
+    { key: 'Pending', label: `⚠️ Pending (${counts.Pending})` },
+    { key: 'Missed', label: `❌ Missed (${counts.Missed})` },
+    { key: 'Checked In', label: `✅ Checked In (${counts.Checked})` },
   ];
 
-  const [activeFilter, setActiveFilter] = useState(filters[0]);
-
-  const activeFilterKey =
-    activeFilter.replace(/[^A-Za-z ]/g, '').trim().split(' ')[0] || 'All';
+  const [activeFilter, setActiveFilter] = useState(filters[0].key);
 
   const visibleRoster =
-    activeFilterKey === 'All'
+    activeFilter === 'All'
       ? rosterItems
-      : rosterItems.filter((item) => item.statusTag === activeFilterKey);
+      : rosterItems.filter((item) => item.statusTag === activeFilter);
 
+  // Only show the urgent banner for a genuine Urgent status. The previous
+  // fallback to `rosterItems[0]` would surface a red "Fall detected" card
+  // for a Checked In or Pending senior whenever no Urgent senior existed,
+  // which was misleading. With this tightened logic, the card silently
+  // disappears when nothing is actually urgent.
   const topUrgent =
-    rosterItems.find((item) => item.statusTag === 'Urgent') ||
-    rosterItems[0] ||
-    null;
+    rosterItems.find((item) => item.statusTag === 'Urgent') || null;
 
   const filterScrollRef = useRef(null);
   const filterScrollX = useRef(0);
@@ -173,21 +178,21 @@ export default function CaregiverRosterScreen({
         >
           {filters.map((filter) => (
             <TouchableOpacity
-              key={filter}
+              key={filter.key}
               style={[
                 styles.filterPill,
-                activeFilter === filter && styles.filterPillActive,
+                activeFilter === filter.key && styles.filterPillActive,
               ]}
-              onPress={() => setActiveFilter(filter)}
+              onPress={() => setActiveFilter(filter.key)}
               activeOpacity={0.86}
             >
               <Text
                 style={[
                   styles.filterText,
-                  activeFilter === filter && styles.filterTextActive,
+                  activeFilter === filter.key && styles.filterTextActive,
                 ]}
               >
-                {filter}
+                {filter.label}
               </Text>
             </TouchableOpacity>
           ))}

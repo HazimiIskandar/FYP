@@ -31,8 +31,9 @@ export default function CaregiverHomeScreen({
 
   const getStatusBadge = (senior) => {
     const raw = `${senior?.status || senior?.checkin_status || senior?.health_status || ''}`.toLowerCase();
-    if (/urgent|critical|fall|missed/.test(raw)) return 'Monitor';
-    if (/checked|safe|ok/.test(raw)) return 'Stable';
+    if (/urgent|critical|fall/.test(raw)) return 'Monitor';
+    if (/pending|waiting|follow/.test(raw)) return 'Pending';
+    if (/checked|safe|ok|stable/.test(raw)) return 'Stable';
     return 'Monitor';
   };
 

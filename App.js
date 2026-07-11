@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import './i18n';
 import i18n from './i18n';
 import * as Notifications from 'expo-notifications';
@@ -454,7 +454,15 @@ export default function App() {
     setSelectedSeniorOrigin(origin);
 
     const enhancedSenior = await fetchSeniorWithExtras(senior);
-    setSelectedSenior(enhancedSenior);
+    // Decorate the selected senior with the same derived status used in
+    // decoratedSeniors so the detail screen mirrors what the roster showed
+    // when the caregiver tapped the row.
+    const derivedStatus = getDerivedStatus(
+      enhancedSenior,
+      getDateKey(new Date())
+    );
+
+    setSelectedSenior({ ...(enhancedSenior || {}), status: derivedStatus });
     setCurrentScreen('SeniorDetails');
   };
 
@@ -468,6 +476,43 @@ export default function App() {
   // Used everywhere "today" / "this check-in day" / streak math needs to
   // bucket by the SGT calendar day, not the device-local one.
   const getDateKey = (value) => getSgtDateKey(value);
+
+  // Derive the caregiver-facing status of a senior from the live
+  // Daily_CheckIn + Emergency_Event state. Returns one of:
+  //   "Urgent"     — non-resolved Emergency_Event exists.
+  //   "Checked In" — any 'Completed' Daily_CheckIn for this senior today.
+  //   "Pending"    — neither of the above.
+  //
+  // The /caregiver/:id/seniors endpoint only returns Senior + User_Account
+  // columns (no status), so caregiver screens rely on this helper to show
+  // any status value at all instead of silently falling through to
+  // 'Pending'.
+  const getDerivedStatus = (senior, todayKeyValue) => {
+    const seniorId = String(senior?.senior_id || '');
+
+    const hasUrgentEvent =
+      Array.isArray(emergencyEvents) &&
+      emergencyEvents.some((event) => {
+        if (String(event?.senior_id) !== seniorId) return false;
+        const eventStatus = String(event?.event_status || '').trim();
+        if (!eventStatus) return false;
+        return !/^(resolved|closed|cancelled)$/i.test(eventStatus);
+      });
+    if (hasUrgentEvent) return 'Urgent';
+
+    const hasCheckedInToday =
+      Array.isArray(checkIns) &&
+      checkIns.some(
+        (entry) =>
+          String(entry?.senior_id) === seniorId &&
+          (entry?.checkin_status || '').toLowerCase().includes('completed') &&
+          (!entry?.checkin_timestamp ||
+            getDateKey(entry?.checkin_timestamp) === todayKeyValue)
+      );
+    if (hasCheckedInToday) return 'Checked In';
+
+    return 'Pending';
+  };
 
   const calculateCheckInStreak = (seniorId) => {
     if (!seniorId) return 0;
@@ -717,13 +762,14 @@ export default function App() {
         }
       };
 
-      const [seniorsData, usersData, checkinsData, rewardsData, communityData] =
+      const [seniorsData, usersData, checkinsData, rewardsData, communityData, emergencyData] =
         await Promise.all([
           safeJson(seniorsUrl),
           safeJson(`${apiBase}/users`),
           safeJson(`${apiBase}/checkins`),
           safeJson(`${apiBase}/rewards`),
           safeJson(`${apiBase}/community/activities/all`),
+          safeJson(`${apiBase}/emergency-events`),
         ]);
 
       console.log(
@@ -748,6 +794,7 @@ export default function App() {
       setCheckIns(Array.isArray(checkinsData) ? checkinsData : []);
       setCommunityActivities(Array.isArray(communityData) ? communityData : []);
       setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
+      setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
       // if someone is authenticated, update their cached user object too
       let updatedSeniorWithExtras = null;
       if (effectiveUser && effectiveUser.user_id) {
@@ -898,6 +945,27 @@ export default function App() {
       console.log('saveLanguagePreference failed:', err?.message || err);
     });
   };
+
+  // -------------------------
+  // DERIVED STATUS (caregiver-side status fix)
+  // -------------------------
+  // /caregiver/:id/seniors only returns Senior + User_Account columns — there
+  // is no "status" field on the row. The actual check-in records live in
+  // Daily_CheckIn and emergency events in Emergency_Event. Decorate every
+  // senior with a derived `status` ("Urgent" | "Checked In" | "Pending") so
+  // the caregiver screens can read senior.status like a normal property and
+  // correctly reflect today's reality instead of always falling through to
+  // "Pending".
+  const decoratedSeniors = useMemo(
+    () =>
+      seniors.map((senior) => ({
+        ...senior,
+        status: getDerivedStatus(senior, getDateKey(new Date())),
+      })),
+    // getDerivedStatus reads emergencyEvents + checkIns at call time; list
+    // them in the deps so the memo invalidates when either changes.
+    [seniors, checkIns, emergencyEvents]
+  );
 
   // -------------------------
   // SCREEN ROUTING
@@ -1052,14 +1120,21 @@ export default function App() {
     }
 
     if (currentScreen === 'CaregiverHome') {
+      // Pick the most-urgent senior for the priority card rather than just
+      // the alphabetically-first row — otherwise an Urgent senior could be
+      // hidden behind a Checked In senior with a name starting 'A'.
+      const topPrioritySenior =
+        decoratedSeniors.find((s) => s.status === 'Urgent') ||
+        decoratedSeniors.find((s) => s.status === 'Pending') ||
+        decoratedSeniors[0];
       return (
         <CaregiverHomeScreen
           summary={{
-            total: seniors.length,
+            total: decoratedSeniors.length,
             checkedIn: checkedInCount,
-            urgent: 0
+            urgent: decoratedSeniors.filter((s) => s.status === 'Urgent').length
           }}
-          prioritySenior={seniors[0]}
+          prioritySenior={topPrioritySenior}
           activeTicket={emergencyEvents?.[0]}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
@@ -1071,7 +1146,7 @@ export default function App() {
     if (currentScreen === 'CaregiverSeniorsList') {
       return (
         <CaregiverSeniorsListScreen
-          seniors={seniors}
+          seniors={decoratedSeniors}
           apiBase={apiBase}
           authenticatedUser={authenticatedUser}
           onRefresh={refreshAll}
@@ -1087,7 +1162,7 @@ export default function App() {
     if (currentScreen === 'CaregiverRoster') {
       return (
         <CaregiverRosterScreen
-          seniors={seniors}
+          seniors={decoratedSeniors}
           onGoToHome={() => setCurrentScreen('CaregiverHome')}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onSettings={() => setCurrentScreen('StaffSettings')}
@@ -1113,9 +1188,14 @@ export default function App() {
     }
 
     if (currentScreen === 'AICPortal') {
+      // Pass decoratedSeniors (not raw `seniors`) so AIC staff see the
+      // same derived Urgent / Checked In / Missing status that the
+      // caregiver screens do. AICPortalScreen already reads
+      // senior?.status as the first source in its getRawStatus helper,
+      // so no screen-side change is required.
       return (
         <AICPortalScreen
-          seniors={seniors}
+          seniors={decoratedSeniors}
           checkIns={checkIns}
           emergencyEvents={emergencyEvents}
           authenticatedUser={authenticatedUser}

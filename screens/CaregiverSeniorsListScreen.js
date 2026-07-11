@@ -31,11 +31,6 @@ export default function CaregiverSeniorsListScreen({
   const [submitMessage, setSubmitMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [removeModalVisible, setRemoveModalVisible] = useState(false);
-  const [removingSenior, setRemovingSenior] = useState(false);
-  const [seniorToRemove, setSeniorToRemove] = useState(null);
-  const [removeError, setRemoveError] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -102,27 +97,6 @@ export default function CaregiverSeniorsListScreen({
     }
   };
 
-  const getStatusTag = (senior) => {
-    const raw = getRawText(
-      senior?.status || senior?.checkin_status || senior?.health_status || ''
-    ).toLowerCase();
-
-    if (/urgent|critical|fall|emergency|alert/.test(raw)) return 'Urgent';
-    if (/missed|overdue/.test(raw)) return 'Missed';
-    if (/pending|waiting|follow/.test(raw)) return 'Pending';
-    if (/checked|ok|safe|completed/.test(raw)) return 'Checked In';
-    return 'Pending';
-  };
-
-  const getRosterLabel = (senior) => {
-    const status = getStatusTag(senior);
-
-    if (status === 'Urgent') return 'Fall detected';
-    if (status === 'Missed') return 'Missed check-in';
-    if (status === 'Checked In') return 'Checked in today';
-    return 'Pending follow up';
-  };
-
   const getSeniorDisplayName = (senior) => (
     senior?.User_Account?.full_name ||
     senior?.user?.full_name ||
@@ -144,18 +118,19 @@ export default function CaregiverSeniorsListScreen({
 
   const rosterItems = seniors.map((senior, index) => {
     const name = getSeniorDisplayName(senior);
-    const statusTag = getStatusTag(senior);
     const age = getSeniorAge(senior);
 
+    // Card layout is intentionally minimal — just the senior's name and
+    // age. Status / "Checked in today" / "Pending follow up" subtitles
+    // were removed because the user wants the list to act as a roster of
+    // names only. Caregivers can drill into a senior's profile to see
+    // their full status.
     return {
       id: senior?.senior_id || senior?.id || index,
       raw: senior,
       name,
       age,
-      statusTag,
-      subtitle: getRosterLabel(senior),
       avatarLetter: name?.charAt(0)?.toUpperCase() || '?',
-      colorScheme: statusTag === 'Checked In' ? 'safe' : 'alert',
     };
   }).filter((item) => {
     if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -212,47 +187,17 @@ export default function CaregiverSeniorsListScreen({
                 }
               }}
             >
-              <View
-                style={[
-                  styles.avatar,
-                  item.colorScheme === 'safe' && styles.safeAvatar,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.avatarText,
-                    item.colorScheme === 'safe' && styles.safeAvatarText,
-                  ]}
-                >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
                   {item.avatarLetter}
                 </Text>
               </View>
 
               <View style={styles.rosterCopy}>
-                {/* UPDATED: Show name with age in (Age: __) format */}
+                {/* Minimal card: only name + age, no status subtitle. */}
                 <Text style={styles.rosterText}>
                   {item.name}{item.age ? ` (Age: ${item.age})` : ''}
                 </Text>
-                <Text style={styles.rosterSub}>{item.subtitle}</Text>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Ionicons
-                  name={item.statusTag === 'Checked In' ? 'checkmark-circle' : 'warning-outline'}
-                  size={26}
-                  color={item.statusTag === 'Checked In' ? '#16A34A' : '#DC2626'}
-                />
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setSeniorToRemove(item.raw);
-                    setRemoveError('');
-                    setRemoveModalVisible(true);
-                  }}
-                  hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-                >
-                  <Ionicons name="trash-outline" size={24} color="#DC2626" />
-                </TouchableOpacity>
               </View>
             </TouchableOpacity>
           ))
@@ -362,21 +307,18 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: '#B91C1C',
+    color: '#374151',
     fontSize: 20,
     fontWeight: '900',
   },
-  safeAvatar: { backgroundColor: '#DCFCE7' },
-  safeAvatarText: { color: '#166534' },
   rosterCopy: { flex: 1 },
   rosterText: { color: '#111827', fontSize: 21, fontWeight: '900' },
-  rosterSub: { color: '#6B7280', fontSize: 14, marginTop: 4 },
   emptyState: { alignItems: 'center', marginTop: 40 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
   emptyText: { fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center' },
