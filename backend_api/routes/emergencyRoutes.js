@@ -10,13 +10,9 @@ router.post("/trigger", (req, res) => {
     return res.status(400).json({ error: "senior_id is required" });
   }
 
-  // Schema note: Emergency_Event does NOT have an `event_type` column
-  // (see SQL Update 4-7.sql). `event_type='SOS'` is folded into
-  // `escalation_level` for the row, matching the convention used in
-  // services/emergencyService.js.
   const sql = `
-    INSERT INTO Emergency_Event (senior_id, event_status, escalation_level)
-    VALUES (?, 'Open', 'Level 1 — SOS')
+    INSERT INTO Emergency_Event (senior_id, event_type, event_status, escalation_level)
+    VALUES (?, 'SOS', 'Open', 'Level 1')
   `;
 
   db.query(sql, [senior_id], (err, result) => {

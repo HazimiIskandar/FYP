@@ -2,71 +2,6 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const { calculateCurrentStreak } = require("../services/rewardService");
-const { triggerCheckIn } = require("../services/servicenow");
-const { notifyCheckIn } = require("../services/telegramService");
-
-// JOINs Senior → User_Account so we pass the senior's display name into
-// both the ServiceNow trigger and the Telegram fan-out. Used inside
-// fireCheckInIntegrations() below.
-const seniorFullNameSql = `
-  SELECT ua.full_name
-  FROM Senior s
-  JOIN User_Account ua ON ua.user_id = s.user_id
-  WHERE s.senior_id = ?
-  LIMIT 1
-`;
-
-// Detached side-effects fired the moment the MySQL Daily_CheckIn row
-// lands. Both ServiceNow POST and Telegram fan-out run AFTER the
-// MySQL commit, and are BEST-EFFORT — neither failure ever blocks
-// the 200 response to the mobile app.
-//
-// Order is sequential (await chain) on purpose: we send the Telegram
-// notifications first, capture how many of each role got pinged (even
-// if the network actually fails — counts are computed before the send),
-// then POST the SN record WITH those counts so the
-// aic_staff_count / nok_count / caregiver_count columns reflect who
-// we tried to notify.
-//
-// Both helpers never throw; the .catch() here is purely defensive.
-function fireCheckInIntegrations(senior_id) {
-  const checkinTimestampIso = new Date().toISOString();
-
-  db.query(seniorFullNameSql, [senior_id], (nameErr, nameRows) => {
-    const seniorFullName =
-      nameRows && nameRows[0] && nameRows[0].full_name
-        ? nameRows[0].full_name
-        : `Senior #${senior_id}`;
-
-    // "I'm Okay" press implies OK. The escalation hook is here so that
-    // if a future mood toggle ever flips im_okay, we automatically
-    // widen the recipient bucket to also page the next-of-kin.
-    const imOkay = true;
-    const workflowRoute = imOkay ? "caregiver_aic" : "caregiver_nok_aic";
-
-    const basePayload = {
-      seniorId: senior_id,
-      seniorFullName,
-      imOkay,
-      eventType: "Daily Check-in",
-      workflowRoute,
-      checkinTimestamp: checkinTimestampIso,
-    };
-
-    notifyCheckIn(workflowRoute, basePayload)
-      .then((counts) =>
-        triggerCheckIn({
-          ...basePayload,
-          aic_staff_count: counts.aic_staff_count,
-          caregiver_count: counts.caregiver_count,
-          nok_count: counts.nok_count,
-        })
-      )
-      .catch((err) => {
-        console.error("[checkin] integration chain failed:", err);
-      });
-  });
-}
 
 // POST /checkin - daily check-in for a senior.
 router.post("/", (req, res) => {
@@ -116,10 +51,6 @@ router.post("/", (req, res) => {
 
         db.query(insertCheckInSql, [senior_id, rewardId], (insertErr) => {
           if (insertErr) return res.status(500).json({ error: insertErr.message || insertErr });
-
-          // MySQL committed — fire ServiceNow + Telegram side-effects
-          // in parallel (fire-and-forget, never blocks res.json below).
-          fireCheckInIntegrations(senior_id);
 
           const checkInHistorySql = `
             SELECT checkin_timestamp, checkin_status
