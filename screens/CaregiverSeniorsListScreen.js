@@ -37,6 +37,9 @@ export default function CaregiverSeniorsListScreen({
   const [seniorToRemove, setSeniorToRemove] = useState(null);
   const [removeError, setRemoveError] = useState('');
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All'); // 'All', 'Action Needed', 'Checked In'
+
   const getRawText = (value) => (value ?? '').toString();
 
   const closeAddModal = () => {
@@ -155,6 +158,13 @@ export default function CaregiverSeniorsListScreen({
       avatarLetter: name?.charAt(0)?.toUpperCase() || '?',
       colorScheme: statusTag === 'Checked In' ? 'safe' : 'alert',
     };
+  }).filter((item) => {
+    if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    if (statusFilter === 'Action Needed' && item.colorScheme === 'safe') return false;
+    if (statusFilter === 'Checked In' && item.colorScheme === 'alert') return false;
+    return true;
   });
 
   return (
@@ -162,6 +172,36 @@ export default function CaregiverSeniorsListScreen({
       <Header title="Seniors List" subtitle="All assigned seniors" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.filterSection}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search senior by name..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.chipsContainer}>
+            {['All', 'Action Needed', 'Checked In'].map((filter) => (
+              <TouchableOpacity
+                key={filter}
+                style={[styles.chip, statusFilter === filter && styles.chipActive]}
+                onPress={() => setStatusFilter(filter)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, statusFilter === filter && styles.chipTextActive]}>{filter}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         <TouchableOpacity
           style={styles.addSeniorButton}
           onPress={() => {
@@ -421,5 +461,58 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+  },
+  errorText: {
+    color: '#DC2626',
+    marginTop: 12,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  filterSection: {
+    marginBottom: 16,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#111827',
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  chipActive: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
+  },
+  chipText: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  chipTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '600',
   },
 });

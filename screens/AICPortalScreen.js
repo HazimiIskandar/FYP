@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import AICBottomNav from '../components/AICBottomNav';
@@ -160,10 +160,19 @@ export default function AICPortalScreen({
     { key: 'Resolved', label: `Resolved (${assignedCases.filter((item) => item.currentStatus === 'Resolved').length})` },
   ];
 
-  const visibleCases =
-    activeFilter === 'All'
-      ? assignedCases
-      : assignedCases.filter((item) => item.riskLevel === activeFilter || item.currentStatus === activeFilter);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const visibleCases = assignedCases.filter((item) => {
+    if (searchQuery && !item.seniorName.toLowerCase().includes(searchQuery.toLowerCase()) && !item.caseId.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    if (activeFilter !== 'All') {
+      if (item.riskLevel !== activeFilter && item.currentStatus !== activeFilter) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   const highRiskCount = assignedCases.filter((item) => item.riskLevel === 'High').length;
   const openCount = assignedCases.filter((item) => item.currentStatus !== 'Resolved').length;
@@ -183,8 +192,8 @@ export default function AICPortalScreen({
     <SafeAreaView style={styles.container}>
       <Header title="Assigned Cases" subtitle="Sort by urgency and follow up quickly" />
 
-      <View style={styles.filterArea}>
-        <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.filterContent}>
+      <View style={[styles.filterArea, { width: '100%' }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={styles.filterContent} style={{ flexGrow: 0 }}>
           {filterOptions.map((filter) => (
             <TouchableOpacity
               key={filter.key}
@@ -198,6 +207,24 @@ export default function AICPortalScreen({
             </TouchableOpacity>
           ))}
         </ScrollView>
+      </View>
+
+      <View style={styles.searchSection}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by senior name or case ID..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -596,4 +623,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalScrollContent: { padding: 14, paddingBottom: 4 },
+  searchSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#111827',
+  },
 });
