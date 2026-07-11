@@ -38,7 +38,6 @@ export default function CaregiverSeniorsListScreen({
   const [removeError, setRemoveError] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All'); // 'All', 'Action Needed', 'Checked In'
 
   const getRawText = (value) => (value ?? '').toString();
 
@@ -162,8 +161,6 @@ export default function CaregiverSeniorsListScreen({
     if (searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
-    if (statusFilter === 'Action Needed' && item.colorScheme === 'safe') return false;
-    if (statusFilter === 'Checked In' && item.colorScheme === 'alert') return false;
     return true;
   });
 
@@ -187,18 +184,6 @@ export default function CaregiverSeniorsListScreen({
                 <Ionicons name="close-circle" size={20} color="#9CA3AF" />
               </TouchableOpacity>
             )}
-          </View>
-          <View style={styles.chipsContainer}>
-            {['All', 'Action Needed', 'Checked In'].map((filter) => (
-              <TouchableOpacity
-                key={filter}
-                style={[styles.chip, statusFilter === filter && styles.chipActive]}
-                onPress={() => setStatusFilter(filter)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.chipText, statusFilter === filter && styles.chipTextActive]}>{filter}</Text>
-              </TouchableOpacity>
-            ))}
           </View>
         </View>
 
@@ -489,30 +474,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#111827',
-  },
-  chipsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  chipActive: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#3B82F6',
-  },
-  chipText: {
-    fontSize: 14,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
-  chipTextActive: {
-    color: '#1D4ED8',
-    fontWeight: '600',
   },
 });
