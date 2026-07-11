@@ -65,6 +65,13 @@ export default function CaregiverHomeScreen({
   const seniorUnit = getUnitLabel(prioritySenior);
   const contactName = getContactName(prioritySenior);
   const statusBadgeText = getStatusBadge(prioritySenior);
+  // The priority card only carries weight when something actually needs
+  // attention. If the top-priority senior is Checked In, swap the red
+  // alarm for a calmer "everyone is accounted for" card so the caregiver
+  // isn't staring at a red banner when there's nothing to act on.
+  const priorityStatus = (prioritySenior?.status || '').toString().trim();
+  const isCalm =
+    priorityStatus === 'Checked In' || !prioritySenior?.senior_id;
   const ticketTitle = activeTicket?.title || activeTicket?.event_name || 'Missed check-in';
   const ticketId = activeTicket?.id || activeTicket?.ticket_id || activeTicket?.event_id || 'INC0016767';
   const ticketUpdate = activeTicket?.last_update || activeTicket?.updated_at || activeTicket?.time || '10 minutes ago';
@@ -85,6 +92,18 @@ export default function CaregiverHomeScreen({
           </View>
         </View>
 
+        {isCalm ? (
+          <View style={styles.calmCard}>
+            <View style={styles.calmHeader}>
+              <Ionicons name="checkmark-circle" size={48} color="#16A34A" />
+            </View>
+            <Text style={styles.calmTitle}>
+              {summary.total > 0
+                ? 'Every senior has checked in today'
+                : 'No seniors assigned yet'}
+            </Text>
+          </View>
+        ) : (
         <View style={styles.priorityCard}>
           <View style={styles.priorityHeader}>
             <Ionicons name="alert-circle" size={26} color="#DC2626" />
@@ -116,6 +135,7 @@ export default function CaregiverHomeScreen({
             <Text style={styles.callButtonText}>Call emergency contact</Text>
           </TouchableOpacity>
         </View>
+        )}
       </ScrollView>
 
       <CaregiverBottomNav
@@ -154,6 +174,38 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
+  },
+  // Calm state — green border + large green checkmark + calm copy.
+  // Replaces the red priority card when nothing is urgent and the top
+  // senior has checked in (or no seniors are linked yet).
+  calmCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 50,
+    paddingHorizontal: 26,
+    borderWidth: 1,
+    borderColor: '#5ac392',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#065F46',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+  },
+  calmHeader: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  calmTitle: {
+    color: '#065F46',
+    fontSize: 22,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   priorityHeader: {
     flexDirection: 'row',
