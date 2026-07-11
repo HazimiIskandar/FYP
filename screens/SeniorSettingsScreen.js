@@ -45,28 +45,6 @@ const formatCheckInTime = (value) => {
   return `${hour12}:${minute} ${period}`;
 };
 
-const CHECKIN_TIMES = [
-  '5:00 AM', '5:30 AM',
-  '6:00 AM', '6:30 AM',
-  '7:00 AM', '7:30 AM',
-  '8:00 AM', '8:30 AM',
-  '9:00 AM', '9:30 AM',
-  '10:00 AM', '10:30 AM',
-  '11:00 AM', '11:30 AM',
-  '12:00 PM', '12:30 PM',
-  '1:00 PM', '1:30 PM',
-  '2:00 PM', '2:30 PM',
-  '3:00 PM', '3:30 PM',
-  '4:00 PM', '4:30 PM',
-  '5:00 PM', '5:30 PM',
-  '6:00 PM', '6:30 PM',
-  '7:00 PM', '7:30 PM',
-  '8:00 PM', '8:30 PM',
-  '9:00 PM', '9:30 PM',
-  '10:00 PM', '10:30 PM',
-  '11:00 PM', '11:30 PM',
-];
-
 const generateLinkCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
 export default function SeniorSettingsScreen({
@@ -84,21 +62,7 @@ export default function SeniorSettingsScreen({
   const { t } = useTranslation();
   const { fontScale, setFontScale } = useFontScale();
   const seniorName = getSeniorName(senior);
-  const getInitialTimes = (seniorData) => {
-    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM - 10:00 AM, 5:00 PM - 6:00 PM';
-    const parts = String(raw).split(',').map(s => s.trim());
-    return {
-      t1: formatCheckInTime(parts[0] || '9:00 AM - 10:00 AM'),
-      t2: formatCheckInTime(parts[1] || '5:00 PM - 6:00 PM'),
-    };
-  };
-
-  const initialTimes = useMemo(() => getInitialTimes(senior), [senior]);
   const [activeModal, setActiveModal] = useState(null);
-  const [checkInTime, setCheckInTime] = useState(initialTimes.t1);
-  const [checkInTime2, setCheckInTime2] = useState(initialTimes.t2);
-  const [timeDropdownVisible, setTimeDropdownVisible] = useState(false);
-  const [editingTimeIndex, setEditingTimeIndex] = useState(1);
   const [settingsMessage, setSettingsMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [linkCode, setLinkCode] = useState('');
@@ -106,7 +70,6 @@ export default function SeniorSettingsScreen({
   const [linkStatusError, setLinkStatusError] = useState('');
   const [linkSaving, setLinkSaving] = useState(false);
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
-  const [timeSaving, setTimeSaving] = useState(false);
 
   useEffect(() => {
     if (!initialModal) return;
@@ -138,92 +101,6 @@ export default function SeniorSettingsScreen({
   //   if (!hasPermission) return;
   //   await scheduleCheckInReminders(seniorName, checkInTime);
   // };
-
-  // Extract the START of either a single-time string ('9:00 AM') or a
-  // range string ('9:00 AM - 10:00 AM'). Used by the gap check so a
-  // senior who saved ranges still gets a valid numeric comparison.
-  const getTimeValue = (timeStr) => {
-    const trimmed = String(timeStr || '').trim();
-    const startTime = trimmed.includes('-')
-      ? trimmed.split('-')[0].trim()
-      : trimmed;
-    const match = startTime.match(/^(1[0-2]|[1-9]):([0-5]\d)\s?(AM|PM)$/i);
-    if (!match) return 0;
-    let hour = Number(match[1]);
-    const minute = Number(match[2]);
-    const period = match[3].toUpperCase();
-    if (period === 'AM' && hour === 12) hour = 0;
-    if (period === 'PM' && hour !== 12) hour += 12;
-    return hour + minute / 60;
-  };
-
-  const checkTimeGap = (t1, t2) => {
-    const v1 = getTimeValue(t1);
-    const v2 = getTimeValue(t2);
-    const gap = Math.abs(v1 - v2);
-
-    // We want the two check-ins to be spaced out by at least 6 hours during the day
-    // so that seniors have meaningful separation between the morning and evening
-    // check-in windows (e.g. 9 AM & 5 PM = 8 hour gap, which is valid).
-    if (gap >= 6 && gap <= 14) return true;
-    if (gap > 14) return true; // Allows 5 AM & 11 PM (18 hours gap)
-
-    return false;
-  };
-
-  const saveCheckInTime = async () => {
-    if (!checkInTime || !checkInTime2) {
-      setSettingsError('Please select both check-in times.');
-      setSettingsMessage('');
-      return;
-    }
-
-    if (!checkTimeGap(checkInTime, checkInTime2)) {
-      setSettingsError('Please ensure there is a minimum 6-hour gap between check-ins.');
-      setSettingsMessage('');
-      return;
-    }
-
-    if (!apiBase || !senior?.senior_id) {
-      setSettingsError('Unable to save — no connection to server.');
-      setSettingsMessage('');
-      return;
-    }
-
-    setTimeSaving(true);
-    setSettingsError('');
-    setSettingsMessage('');
-
-    try {
-      // Send comma separated string for both times
-      const combinedTimes = `${checkInTime}, ${checkInTime2}`;
-      const response = await fetch(`${apiBase}/seniors/${senior.senior_id}/checkin-time`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preferred_checkin_time: combinedTimes }),
-      });
-
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error || 'Failed to save check-in times.');
-      }
-      
-      // Update local scheduling service silently
-      try {
-        await scheduleCheckInReminders(seniorName, checkInTime, checkInTime2);
-      } catch (err) {
-        console.log('Error scheduling local notifications:', err);
-      }
-
-      setSettingsMessage(`Check-in times saved: ${checkInTime} & ${checkInTime2}`);
-      if (onRefresh) onRefresh();
-    } catch (err) {
-      setSettingsError(err?.message || 'Failed to save. Please try again.');
-    } finally {
-      setTimeSaving(false);
-    }
-  };
 
   const openCaregiverModal = () => {
     setLinkCode('');
@@ -321,105 +198,7 @@ export default function SeniorSettingsScreen({
         onSettings={() => {}}
       />
 
-      {timeDropdownVisible ? (
-        <Modal visible={timeDropdownVisible} transparent animationType="fade">
-          <View style={styles.dropdownOverlay}>
-            <Pressable
-              style={styles.dropdownBackdrop}
-              onPress={() => setTimeDropdownVisible(false)}
-            />
-            <View style={styles.dropdownModal}>
-              <Text style={styles.dropdownTitle}>Select Check-In Time</Text>
-              <ScrollView style={styles.dropdownList}>
-                {CHECKIN_TIMES.map((time) => (
-                  <TouchableOpacity
-                    key={time}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      if (editingTimeIndex === 1) {
-                        setCheckInTime(time);
-                      } else {
-                        setCheckInTime2(time);
-                      }
-                      setTimeDropdownVisible(false);
-                      setSettingsMessage('');
-                      setSettingsError('');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownItemText,
-                        checkInTime === time && styles.dropdownItemTextSelected,
-                      ]}
-                    >
-                      {time}
-                    </Text>
-                    {checkInTime === time && (
-                      <Ionicons name="checkmark" size={20} color="#2563EB" />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-      ) : null}
 
-      {activeModal === 'Times' ? (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{t('settings.notificationTitle')}</Text>
-                <Text style={styles.modalSubtitle}>{t('settings.notificationSubtitle')}</Text>
-              </View>
-              <TouchableOpacity style={styles.closeButton} onPress={() => setActiveModal(null)}>
-                <Ionicons name="close" size={24} color="#111827" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.noticeBox}>
-              <Ionicons name="notifications-outline" size={22} color="#2563EB" />
-              <Text style={styles.noticeText}>
-                {t('settings.notificationDesc')}
-              </Text>
-            </View>
-
-            <Text style={styles.inputLabel}>{t('settings.morningCheckIn')}</Text>
-            <TouchableOpacity
-              style={styles.selectBox}
-              onPress={() => { setEditingTimeIndex(1); setTimeDropdownVisible(true); }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.selectBoxText}>{checkInTime}</Text>
-              <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
-            </TouchableOpacity>
-
-            <Text style={[styles.inputLabel, { marginTop: 16 }]}>{t('settings.eveningCheckIn')}</Text>
-            <TouchableOpacity
-              style={styles.selectBox}
-              onPress={() => { setEditingTimeIndex(2); setTimeDropdownVisible(true); }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.selectBoxText}>{checkInTime2}</Text>
-              <Ionicons name="chevron-down-outline" size={18} color="#6B7280" />
-            </TouchableOpacity>
-
-            {settingsError ? <Text style={styles.errorText}>{settingsError}</Text> : null}
-            {settingsMessage ? <Text style={styles.savedText}>{settingsMessage}</Text> : null}
-
-            <TouchableOpacity
-              style={[styles.primaryButton, timeSaving && { opacity: 0.6 }]}
-              onPress={saveCheckInTime}
-              activeOpacity={0.86}
-              disabled={timeSaving}
-            >
-              <Text style={styles.primaryButtonText}>{timeSaving ? t('settings.saving') : t('settings.saveCheckInTime')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
 
       {activeModal === 'Caregiver' ? (
         <View style={styles.modalOverlay}>
