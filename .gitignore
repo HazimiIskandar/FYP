@@ -32,6 +32,21 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+.env.*
+# Explicit allow-list entry so deployable .env.example templates can still be tracked.
+!*.env.example
+
+# ============================================================
+# Secrets & runtime artefacts (added for Telegram bot integration)
+# ============================================================
+# Telegram bot token-bearing files (curl payloads, recipient maps, etc.)
+body.json
+*token*.json
+telegram_recipients*.json
+# Backend-specific snapshot/style files that occasionally surface secrets
+backend_api/.env
+backend_api/**/.env
 
 # typescript
 *.tsbuildinfo
