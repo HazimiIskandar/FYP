@@ -35,7 +35,10 @@
     "iAmOkay": "I am okay",
     "checkInNow": "Check in now",
     "sosEmergency": "SOS Emergency",
-    "language": "Language"
+    "language": "Language",
+    "checkInMorning": "Morning Check-In",
+    "doneForMorning": "Done for Morning",
+    "doneForEvening": "Done for Evening"
   },
   "settings": {
     "title": "Settings",
@@ -66,7 +69,12 @@
     "timesSaved": "Check-in times saved: {{t1}} & {{t2}}",
     "pleaseSelectBoth": "Please select both check-in times.",
     "minimumGap": "Please ensure there is a minimum 10-hour gap between check-ins.",
-    "noConnection": "Unable to save — no connection to server."
+    "noConnection": "Unable to save — no connection to server.",
+    "changeFontSize": "Change Font Size",
+    "adjustTextSize": "Adjust the text size for readability",
+    "standard": "Standard",
+    "large": "Large",
+    "extraLarge": "Extra Large"
   },
   "profile": {
     "title": "Profile",

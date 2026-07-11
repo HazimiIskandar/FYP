@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 // import * as Notifications from 'expo-notifications'; // kept for future use
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
+import { useFontScale } from '../context/FontSizeContext';
 // import {
 //   isValidCheckInTime,
 //   scheduleCheckInReminders,
@@ -81,6 +82,7 @@ export default function SeniorSettingsScreen({
   onInitialModalConsumed,
 }) {
   const { t } = useTranslation();
+  const { fontScale, setFontScale } = useFontScale();
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
     const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '9:00 AM - 10:00 AM, 5:00 PM - 6:00 PM';
@@ -273,17 +275,29 @@ export default function SeniorSettingsScreen({
     <SafeAreaView style={styles.container}>
       <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <TouchableOpacity
           style={styles.settingRow}
-          onPress={openCaregiverModal}
+          onPress={() => setActiveModal('Caregiver')}
           activeOpacity={0.86}
         >
           <View style={styles.settingIcon}>
-            <Ionicons name="people-outline" size={23} color="#2563EB" />
+            <Ionicons name="heart-outline" size={24} color="#2563EB" />
           </View>
-          <Text style={styles.settingText}>{t('settings.caregiver')}</Text>
-          <Ionicons name="chevron-forward" size={23} color="#6B7280" />
+          <Text style={[styles.settingText, { fontSize: 19 * fontScale }]}>{t('settings.caregiver')}</Text>
+          <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.settingRow}
+          onPress={() => setActiveModal('FontSize')}
+          activeOpacity={0.86}
+        >
+          <View style={styles.settingIcon}>
+            <Ionicons name="text-outline" size={24} color="#2563EB" />
+          </View>
+          <Text style={[styles.settingText, { fontSize: 19 * fontScale }]}>{t('settings.changeFontSize')}</Text>
+          <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -294,7 +308,7 @@ export default function SeniorSettingsScreen({
           <View style={styles.logoutIcon}>
             <Ionicons name="log-out-outline" size={24} color="#DC2626" />
           </View>
-          <Text style={styles.logoutText}>{t('settings.logOut')}</Text>
+          <Text style={[styles.logoutText, { fontSize: 19 * fontScale }]}>{t('settings.logOut')}</Text>
           <Ionicons name="chevron-forward" size={22} color="#DC2626" />
         </TouchableOpacity>
       </ScrollView>
@@ -352,7 +366,7 @@ export default function SeniorSettingsScreen({
         </Modal>
       ) : null}
 
-      {activeModal === 'Notification' ? (
+      {activeModal === 'Times' ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
@@ -432,7 +446,7 @@ export default function SeniorSettingsScreen({
                   activeOpacity={0.86}
                   disabled={linkSaving}
                 >
-                  <Text style={styles.primaryButtonText}>{linkSaving ? t('settings.generating') : t('settings.generateNewCode')}</Text>
+                  <Text style={[styles.primaryButtonText, { fontSize: 18 * fontScale }]} adjustsFontSizeToFit numberOfLines={1}>{linkSaving ? t('settings.generating') : t('settings.generateNewCode')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -443,12 +457,55 @@ export default function SeniorSettingsScreen({
                   activeOpacity={0.86}
                   disabled={linkSaving}
                 >
-                  <Text style={styles.generateButtonText}>{linkSaving ? t('settings.generating') : t('settings.generateLinkCode')}</Text>
+                  <Text style={[styles.generateButtonText, { fontSize: 22 * fontScale }]} adjustsFontSizeToFit numberOfLines={2}>{linkSaving ? t('settings.generating') : t('settings.generateLinkCode')}</Text>
                 </TouchableOpacity>
                 {linkStatusError ? <Text style={styles.errorText}>{linkStatusError}</Text> : null}
                 {linkStatusMessage ? <Text style={styles.savedText}>{linkStatusMessage}</Text> : null}
               </View>
             )}
+          </View>
+        </View>
+      ) : null}
+
+      {activeModal === 'FontSize' ? (
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setActiveModal(null)} />
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { fontSize: 25 * fontScale }]}>{t('settings.changeFontSize')}</Text>
+                <Text style={[styles.modalSubtitle, { fontSize: 14 * fontScale }]}>{t('settings.adjustTextSize')}</Text>
+              </View>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setActiveModal(null)}>
+                <Ionicons name="close" size={24} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginTop: 20 }}>
+              {[
+                { label: t('settings.standard'), value: 1 },
+                { label: t('settings.large'), value: 1.2 },
+                { label: t('settings.extraLarge'), value: 1.4 },
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.label}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 18,
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#F3F4F6',
+                  }}
+                  onPress={() => setFontScale(opt.value)}
+                >
+                  <Text style={{ fontSize: 18 * opt.value, color: fontScale === opt.value ? '#2563EB' : '#374151', fontWeight: fontScale === opt.value ? '900' : '600' }}>
+                    {opt.label}
+                  </Text>
+                  {fontScale === opt.value && <Ionicons name="checkmark-circle" size={24} color="#2563EB" />}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       ) : null}

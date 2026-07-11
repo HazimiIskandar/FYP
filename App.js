@@ -33,6 +33,8 @@ import {
   setupCheckInNotifications,
 } from './services/checkInNotifications';
 
+import { FontSizeProvider } from './context/FontSizeContext';
+
 // Locales shipped in /locales + the languages listed in
 // screens/LanguageScreen.js. Mirrored server-side in
 // backend_api/routes/userAccountRoutes.js as SUPPORTED_LANGUAGES so the
@@ -1219,12 +1221,14 @@ function PhonePreview({ children }) {
   if (Platform.OS !== 'web') return children;
 
   return (
-    <View style={styles.previewBackground}>
-      <View style={styles.phoneShell}>
-        <View style={styles.speaker} />
-        <View style={styles.phoneScreen}>{children}</View>
+    <FontSizeProvider>
+      <View style={styles.previewBackground}>
+        <View style={styles.phoneShell}>
+          <View style={styles.speaker} />
+          <View style={styles.phoneScreen}>{children}</View>
+        </View>
       </View>
-    </View>
+    </FontSizeProvider>
   );
 }
 

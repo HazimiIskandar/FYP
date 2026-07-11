@@ -35,7 +35,10 @@
     "iAmOkay": "我没事",
     "checkInNow": "现在签到",
     "sosEmergency": "紧急求助",
-    "language": "语言"
+    "language": "语言",
+    "checkInMorning": "早上签到",
+    "doneForMorning": "早上已完成",
+    "doneForEvening": "晚上已完成"
   },
   "settings": {
     "title": "设置",
@@ -66,7 +69,12 @@
     "timesSaved": "签到时间已保存：{{t1}} 和 {{t2}}",
     "pleaseSelectBoth": "请选择两个签到时间。",
     "minimumGap": "请确保签到时间之间至少有10小时间隔。",
-    "noConnection": "无法保存 — 未连接到服务器。"
+    "noConnection": "无法保存 — 未连接到服务器。",
+    "changeFontSize": "更改字体大小",
+    "adjustTextSize": "调整文字大小以便阅读",
+    "standard": "标准",
+    "large": "大",
+    "extraLarge": "特大"
   },
   "profile": {
     "title": "个人资料",

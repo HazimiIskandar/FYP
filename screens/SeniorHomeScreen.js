@@ -1,15 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Animated, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
+import { useFontScale } from '../context/FontSizeContext';
 
 export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, hasCheckedInEvening, onCheckIn, onSOS, onCommunity, onProfile, onSettings, currentStreak, onSelectLanguage }) {
+  const { t } = useTranslation();
+  const { fontScale } = useFontScale();
   const currentHour = new Date().getHours();
   const isMorning = currentHour < 16;
   const hasCheckedIn = isMorning ? hasCheckedInMorning : hasCheckedInEvening;
-  const { t } = useTranslation();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -52,7 +54,7 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, has
     <SafeAreaView style={styles.container}>
       <Header
         title={seniorName ? t('home.goodMorningName', { name: seniorName }) : t('home.goodMorning')}
-        subtitle={isMorning ? "Morning Check-In" : "Evening Check-In"}
+        subtitle={isMorning ? t('home.checkInMorning') : t('home.checkInEvening')}
         rightContent={(
           <TouchableOpacity
             style={styles.languageButton}
@@ -64,16 +66,16 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, has
         )}
       />
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.contentScroll} showsVerticalScrollIndicator={false}>
         <View style={styles.statusCard}>
           <View style={styles.statusIcon}>
             <Ionicons name={hasCheckedIn ? 'checkmark-circle' : 'sunny'} size={30} color={hasCheckedIn ? '#16A34A' : '#F59E0B'} />
           </View>
           <View style={styles.statusCopy}>
-            <Text style={styles.statusTitle}>
+            <Text style={[styles.statusTitle, { fontSize: 18 * fontScale }]}>
               {hasCheckedIn ? t('home.checkedInToday') : t('home.checkInReady')}
             </Text>
-            <Text style={styles.statusSubtitle}>
+            <Text style={[styles.statusSubtitle, { fontSize: 14 * fontScale }]}>
               {hasCheckedIn ? t('home.streakDays', { streak: displayStreak }) : t('home.familyWillSee')}
             </Text>
           </View>
@@ -97,13 +99,20 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, has
           {hasCheckedIn ? (
             <Animated.View style={[styles.giantCircle, styles.checkedCircle, { transform: [{ scale: scaleAnim }] }]}>
               <Ionicons name="checkmark" size={128} color="#FFFFFF" />
-              <Text style={styles.checkedText}>{isMorning ? 'Done for Morning' : 'Done for Evening'}</Text>
+              <Text style={[styles.checkedText, { fontSize: 28 * fontScale }]} adjustsFontSizeToFit numberOfLines={2}>
+                {isMorning ? t('home.doneForMorning') : t('home.doneForEvening')}
+              </Text>
             </Animated.View>
           ) : (
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
               <TouchableOpacity style={styles.giantCircle} onPress={onCheckIn} activeOpacity={0.86}>
-                <Text style={styles.giantCircleText}>{t('home.iAmOkay')}</Text>
-                <Text style={styles.giantCircleSubtext}>{t('home.checkInNow')}</Text>
+                <Ionicons name="hand-right" size={96} color="#2563EB" />
+                <Text style={[styles.giantCircleText, { fontSize: 32 * fontScale }]} adjustsFontSizeToFit numberOfLines={2}>
+                  {t('home.iAmOkay')}
+                </Text>
+                <Text style={[styles.giantCircleSubtext, { fontSize: 16 * fontScale }]} adjustsFontSizeToFit numberOfLines={2}>
+                  {t('home.checkInNow')}
+                </Text>
               </TouchableOpacity>
             </Animated.View>
           )}
@@ -111,9 +120,9 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, has
 
         <TouchableOpacity style={styles.sosButton} onPress={onSOS} activeOpacity={0.86}>
           <Ionicons name="alert-circle" size={28} color="#FFFFFF" />
-          <Text style={styles.sosText}>{t('home.sosEmergency')}</Text>
+          <Text style={[styles.sosText, { fontSize: 28 * fontScale }]} adjustsFontSizeToFit numberOfLines={1}>{t('home.sosEmergency')}</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       <SeniorBottomNav activeTab="Home" onHome={() => {}} onCommunity={onCommunity} onProfile={onProfile} onSettings={onSettings} />
 
@@ -130,9 +139,6 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, has
                 key={lang.code}
                 style={styles.modalLanguageOption}
                 onPress={() => {
-                  // Routing the change through App.js so the parent can
-                  // persist the choice to User_Account.preferred_language
-                  // via saveLanguagePreference.
                   if (typeof onSelectLanguage === 'function') {
                     onSelectLanguage(lang.code);
                   }
@@ -159,7 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   languageButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
-  content: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 12 },
+  contentScroll: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20 },
   statusCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
@@ -182,7 +188,7 @@ const styles = StyleSheet.create({
   },
   statusCopy: { flex: 1 },
   statusTitle: { color: '#111827', fontSize: 18, fontWeight: '900' },
-  statusSubtitle: { color: '#4B5563', fontSize: 14, lineHeight: 19, marginTop: 2 },
+  statusSubtitle: { color: '#4B5563', fontSize: 14, marginTop: 2 },
   stampCard: {
     width: '100%',
     backgroundColor: '#EFF6FF',
@@ -199,7 +205,7 @@ const styles = StyleSheet.create({
   stampEmpty: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#BFDBFE' },
   stampNumber: { color: '#6B7280', fontSize: 13, fontWeight: '800' },
   stampLabel: { color: '#4B5563', fontSize: 9, fontWeight: '700', marginTop: 4 },
-  mainActionArea: { flex: 1, justifyContent: 'center', paddingVertical: 8 },
+  mainActionArea: { flexGrow: 1, justifyContent: 'center', paddingVertical: 16 },
   giantCircle: {
     width: 294,
     height: 294,
@@ -209,11 +215,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 8,
     borderColor: '#BBF7D0',
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 12,
   },
-  checkedCircle: { backgroundColor: '#16A34A' },
-  giantCircleText: { color: '#FFFFFF', fontSize: 42, fontWeight: '900', textAlign: 'center', lineHeight: 48 },
+  checkedCircle: { backgroundColor: '#16A34A', shadowColor: '#16A34A' },
+  giantCircleText: { color: '#FFFFFF', fontSize: 42, fontWeight: '900', textAlign: 'center' },
   giantCircleSubtext: { color: '#DCFCE7', fontSize: 18, fontWeight: '800', marginTop: 8 },
-  checkedText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: -8, textAlign: 'center' },
+  checkedText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: -8, textAlign: 'center', paddingBottom: 8 },
   sosButton: {
     backgroundColor: '#DC2626',
     width: '100%',

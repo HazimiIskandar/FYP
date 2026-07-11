@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
+import { useFontScale } from '../context/FontSizeContext';
 import { formatDate } from '../utils/time';
 
 const getSeniorName = (senior) =>
@@ -34,6 +35,7 @@ export default function SeniorProfileScreen({
   onSettings,
 }) {
   const { t, i18n } = useTranslation();
+  const { fontScale } = useFontScale();
   const medicalFromProp = useMemo(
     () => (Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : []),
     [senior?.medicalConditions]
@@ -120,8 +122,8 @@ export default function SeniorProfileScreen({
     <View style={styles.infoRow}>
       <Ionicons name={icon} size={19} color="#6B7280" />
       <View style={styles.infoCopy}>
-        <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
+        <Text style={[styles.infoLabel, { fontSize: 15 * fontScale }]}>{label}</Text>
+        <Text style={[styles.infoValue, { fontSize: 16 * fontScale }]}>{value}</Text>
       </View>
     </View>
   );
@@ -132,7 +134,7 @@ export default function SeniorProfileScreen({
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('profile.personalDetails')}</Text>
+          <Text style={[styles.cardTitle, { fontSize: 18 * fontScale }]}>{t('profile.personalDetails')}</Text>
           {renderInfoRow('person-outline', t('profile.fullName'), details.fullName)}
           {renderInfoRow('calendar-outline', t('profile.dateOfBirth'), details.dob)}
           {renderInfoRow('male-female-outline', t('profile.gender'), details.gender)}
@@ -143,11 +145,11 @@ export default function SeniorProfileScreen({
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('profile.medicalConditions')}</Text>
+          <Text style={[styles.cardTitle, { fontSize: 18 * fontScale }]}>{t('profile.medicalConditions')}</Text>
           {medicalConditions.length ? (
             medicalConditions.map((condition, index) => (
               <View key={`condition-${condition?.condition_id || index}`} style={styles.groupBlock}>
-                <Text style={styles.groupTitle}>{t('profile.conditionNumber', { number: index + 1 })}</Text>
+                <Text style={[styles.groupTitle, { fontSize: 16 * fontScale }]}>{t('profile.conditionNumber', { number: index + 1 })}</Text>
                 {renderInfoRow('fitness-outline', t('profile.condition'), condition?.condition_name || t('profile.notRecorded'))}
                 {renderInfoRow('warning-outline', t('profile.severity'), condition?.severity_level || t('profile.notRecorded'))}
                 {renderInfoRow('medical-outline', t('profile.medicationRequired'), condition?.medication_required || t('profile.notRecorded'))}
@@ -155,12 +157,12 @@ export default function SeniorProfileScreen({
               </View>
             ))
           ) : (
-            <Text style={styles.emptyText}>{t('profile.noMedicalConditions')}</Text>
+            <Text style={[styles.emptyText, { fontSize: 15 * fontScale }]}>{t('profile.noMedicalConditions')}</Text>
           )}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('profile.emergencyContacts')}</Text>
+          <Text style={[styles.cardTitle, { fontSize: 18 * fontScale }]}>{t('profile.emergencyContacts')}</Text>
           {emergencyContacts.length ? (
             emergencyContacts.map((contact, index) => {
               const relationship = contact?.relationship_to_senior || '';
@@ -170,7 +172,7 @@ export default function SeniorProfileScreen({
 
               return (
                 <View key={`nok-${contact?.nok_id || index}`} style={styles.groupBlock}>
-                  <Text style={styles.groupTitle}>{t('profile.contactNumber', { number: index + 1 })}</Text>
+                  <Text style={[styles.groupTitle, { fontSize: 16 * fontScale }]}>{t('profile.contactNumber', { number: index + 1 })}</Text>
                   {renderInfoRow('person-outline', t('profile.name'), contact?.full_name || t('profile.notRecorded'))}
                   {renderInfoRow('people-outline', t('profile.relationship'), displayRelationship)}
                   {renderInfoRow('call-outline', t('profile.phone'), contact?.phone_number || t('profile.notRecorded'))}
@@ -179,7 +181,7 @@ export default function SeniorProfileScreen({
               );
             })
           ) : (
-            <Text style={styles.emptyText}>{t('profile.noEmergencyContacts')}</Text>
+            <Text style={[styles.emptyText, { fontSize: 15 * fontScale }]}>{t('profile.noEmergencyContacts')}</Text>
           )}
         </View>
       </ScrollView>

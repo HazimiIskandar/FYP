@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
+import { useFontScale } from '../context/FontSizeContext';
 
 const DAILY_REWARD_CAP = 50;
 const KOPI_COST = 1500;
@@ -117,6 +118,7 @@ const saveStoredRewards = (seniorId, totalPoints, dailyEarned) => {
 
 export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfile, onSettings, onRefresh }) {
   const { t } = useTranslation();
+  const { fontScale } = useFontScale();
   const [difficulty, setDifficulty] = useState('Easy');
   const [cards, setCards] = useState(() => createDeck('Easy'));
   const [flippedIds, setFlippedIds] = useState([]);
@@ -395,29 +397,39 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title={t('community.memoryMatch')} subtitle={t('community.memorySubtitle')} />
+      <View style={styles.headerArea}>
+        <Text style={[styles.title, { fontSize: 34 * fontScale }]}>{t('community.title')}</Text>
+      </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.scoreRow}>
-          <View style={styles.scoreTile}>
-            <Text style={styles.scoreNumber}>{score}</Text>
-            <Text style={styles.scoreLabel}>{t('community.gameScore')}</Text>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="game-controller" size={28} color="#2563EB" />
+          <View style={styles.sectionTitleBox}>
+            <Text style={[styles.sectionTitle, { fontSize: 22 * fontScale }]}>{t('community.memoryMatch')}</Text>
+            <Text style={[styles.sectionSubtitle, { fontSize: 14 * fontScale }]}>{t('community.memorySubtitle')}</Text>
           </View>
-          <View style={styles.scoreTile}>
-            <Text style={styles.scoreNumber}>{totalRewardPoints}</Text>
-            <Text style={styles.scoreLabel}>{t('community.kopiPoints')}</Text>
+        </View>
+
+        <View style={styles.scoreBoardRow}>
+          <View style={styles.scoreBox}>
+            <Text style={[styles.scoreNumber, { fontSize: 28 * fontScale }]}>{score}</Text>
+            <Text style={[styles.scoreLabel, { fontSize: 14 * fontScale }]}>{t('community.gameScore')}</Text>
+          </View>
+          <View style={styles.scoreBox}>
+            <Text style={[styles.scoreNumber, { fontSize: 28 * fontScale, color: '#2563EB' }]}>{totalRewardPoints}</Text>
+            <Text style={[styles.scoreLabel, { fontSize: 14 * fontScale }]}>{t('community.kopiPoints')}</Text>
           </View>
         </View>
 
         <View style={styles.rewardCard}>
           <View style={styles.rewardHeader}>
-            <Text style={styles.rewardTitle}>{t('community.kopiRewardProgress')}</Text>
-            <Text style={styles.rewardMeta}>{t('community.todayPoints', { points: dailyRewardPoints, cap: DAILY_REWARD_CAP })}</Text>
+            <Text style={[styles.rewardTitle, { fontSize: 17 * fontScale }]}>{t('community.kopiRewardProgress')}</Text>
+            <Text style={[styles.rewardMeta, { fontSize: 13 * fontScale }]}>{t('community.todayPoints', { points: dailyRewardPoints, cap: DAILY_REWARD_CAP })}</Text>
           </View>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${Math.min(100, (totalRewardPoints / KOPI_COST) * 100)}%` }]} />
           </View>
-          <Text style={styles.rewardText}>
+          <Text style={[styles.rewardText, { fontSize: 14 * fontScale }]}>
             {canRedeemKopi
               ? t('community.enoughPoints')
               : t('community.morePoints', { points: pointsToKopi })}
@@ -427,8 +439,8 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
         <View style={styles.messageCard}>
           <Ionicons name={gameComplete ? 'trophy' : 'albums'} size={24} color="#2563EB" />
           <View style={styles.messageCopy}>
-            <Text style={styles.messageTitle}>{gameComplete ? t('community.gameComplete') : progressText}</Text>
-            <Text style={styles.messageText}>{gameComplete ? progressText : t(message.key, message.options)}</Text>
+            <Text style={[styles.messageTitle, { fontSize: 18 * fontScale }]}>{gameComplete ? t('community.gameComplete') : progressText}</Text>
+            <Text style={[styles.messageText, { fontSize: 14 * fontScale }]}>{gameComplete ? progressText : t(message.key, message.options)}</Text>
           </View>
         </View>
 
@@ -440,7 +452,7 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
               onPress={() => resetGame(lvl)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.difficultyText, difficulty === lvl && styles.difficultyTextActive]}>{lvl}</Text>
+              <Text style={[styles.difficultyText, difficulty === lvl && styles.difficultyTextActive, { fontSize: 14 * fontScale }]}>{lvl}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -469,24 +481,24 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
                     ) : (
                       <Image source={card.source} style={{ width: '55%', height: '55%', resizeMode: 'contain' }} />
                     )}
-                    <Text style={[styles.cardLabel, { color: card.color }]}>{t(`community.memoryItems.${card.key}`)}</Text>
+                    <Text style={[styles.cardLabel, { color: card.color, fontSize: 11 * fontScale }]}>{t(`community.memoryItems.${card.key}`)}</Text>
                   </>
                 ) : (
-                  <>
-                    <Ionicons name="help" size={36} color="#FFFFFF" />
-                    <Text style={styles.cardBackText}>{t('community.tap')}</Text>
-                  </>
+                    <View style={styles.cardBack}>
+                      <Ionicons name="help" size={difficulty === 'Easy' ? 36 : 24} color="#DBEAFE" />
+                      {difficulty === 'Easy' && <Text style={[styles.cardBackText, { fontSize: 11 * fontScale }]}>{t('community.tap')}</Text>}
+                    </View>
                 )}
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={styles.attemptText}>{t('community.attempts', { count: attempts })}</Text>
+        <Text style={[styles.attemptText, { fontSize: 14 * fontScale }]}>{t('community.attempts', { count: attempts })}</Text>
 
         <TouchableOpacity style={styles.resetButton} onPress={resetGame} activeOpacity={0.86}>
           <Ionicons name="refresh" size={22} color="#FFFFFF" />
-          <Text style={styles.resetButtonText}>{gameComplete ? t('community.playAgain') : t('community.restartGame')}</Text>
+          <Text style={[styles.resetButtonText, { fontSize: 18 * fontScale }]}>{gameComplete ? t('community.playAgain') : t('community.restartGame')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -497,8 +509,8 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
         >
           <Ionicons name="cafe" size={26} color="#FFFFFF" />
           <View style={styles.kopiCopy}>
-            <Text style={styles.kopiButtonText}>{canRedeemKopi ? t('community.redeemFreeKopi') : t('community.kopiCost')}</Text>
-            <Text style={styles.kopiButtonSubtext}>{t('community.dailyEarnLimit')}</Text>
+            <Text style={[styles.kopiButtonText, { fontSize: 20 * fontScale }]}>{canRedeemKopi ? t('community.redeemFreeKopi') : t('community.kopiCost')}</Text>
+            <Text style={[styles.kopiButtonSubtext, { fontSize: 13 * fontScale }]}>{t('community.dailyEarnLimit')}</Text>
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -511,17 +523,24 @@ export default function CommunityScreen({ senior = {}, apiBase, onHome, onProfil
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 18 },
-  scoreRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  scoreTile: {
+  headerArea: { paddingHorizontal: 20, paddingTop: 20 },
+  title: { color: '#111827', fontWeight: '900' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 },
+  sectionTitleBox: { flex: 1 },
+  sectionTitle: { color: '#111827', fontWeight: '900' },
+  sectionSubtitle: { color: '#6B7280', fontWeight: '700', marginTop: 2 },
+  scoreBoardRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, gap: 12 },
+  scoreBox: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  scoreNumber: { color: '#111827', fontSize: 28, fontWeight: '900' },
-  scoreLabel: { color: '#6B7280', fontSize: 14, fontWeight: '800', marginTop: 2 },
+  scoreNumber: { color: '#111827', fontWeight: '900' },
+  scoreLabel: { color: '#6B7280', fontWeight: '800', marginTop: 2 },
   rewardCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,

@@ -1,13 +1,16 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useFontScale } from '../context/FontSizeContext';
 
 export default function Header({ title = 'Haloapp', subtitle, backgroundColor = '#FFFFFF', rightContent }) {
+  const { fontScale } = useFontScale();
+  
   return (
     <View style={[styles.header, { backgroundColor }]}>
       <View style={styles.headerRow}>
         <View style={styles.copy}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text style={[styles.title, { fontSize: 28 * fontScale }]}>{title}</Text>
+          {subtitle ? <Text style={[styles.subtitle, { fontSize: 15 * fontScale }]}>{subtitle}</Text> : null}
         </View>
         {rightContent ? <View style={styles.rightContent}>{rightContent}</View> : null}
       </View>

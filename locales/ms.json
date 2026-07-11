@@ -35,7 +35,10 @@
     "iAmOkay": "Saya okay",
     "checkInNow": "Daftar masuk sekarang",
     "sosEmergency": "Kecemasan SOS",
-    "language": "Bahasa"
+    "language": "Bahasa",
+    "checkInMorning": "Daftar Masuk Pagi",
+    "doneForMorning": "Selesai Pagi",
+    "doneForEvening": "Selesai Petang"
   },
   "settings": {
     "title": "Tetapan",
@@ -66,7 +69,12 @@
     "timesSaved": "Waktu daftar masuk disimpan: {{t1}} & {{t2}}",
     "pleaseSelectBoth": "Sila pilih kedua-dua waktu daftar masuk.",
     "minimumGap": "Sila pastikan ada jarak minimum 10 jam antara daftar masuk.",
-    "noConnection": "Tidak dapat menyimpan — tiada sambungan ke pelayan."
+    "noConnection": "Tidak dapat menyimpan — tiada sambungan ke pelayan.",
+    "changeFontSize": "Tukar Saiz Fon",
+    "adjustTextSize": "Laraskan saiz teks untuk kebolehbacaan",
+    "standard": "Standard",
+    "large": "Besar",
+    "extraLarge": "Sangat Besar"
   },
   "profile": {
     "title": "Profil",
