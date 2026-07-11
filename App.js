@@ -33,6 +33,13 @@ import {
   setupCheckInNotifications,
 } from './services/checkInNotifications';
 
+// Locales shipped in /locales + the languages listed in
+// screens/LanguageScreen.js. Mirrored server-side in
+// backend_api/routes/userAccountRoutes.js as SUPPORTED_LANGUAGES so the
+// mobile app never sends — and the server never stores — anything outside
+// this allowlist.
+const APP_LANGUAGE_CODES = ['en', 'zh', 'ms', 'ta'];
+
 export default function App() {
 
   const [currentScreen, setCurrentScreen] = useState('Language');
@@ -327,6 +334,13 @@ export default function App() {
         throw new Error(message);
       }
 
+      // Apply the user's saved UI locale BEFORE navigation so the senior
+      // sees their language on the Home screen on first paint (no flash
+      // of the default 'en').
+      if (body?.preferred_language && APP_LANGUAGE_CODES.includes(body.preferred_language)) {
+        i18n.changeLanguage(body.preferred_language);
+      }
+
       setAuthenticatedUser(body);
       setLoginError(null);
       let refreshed = await refreshAll(body);
@@ -396,6 +410,12 @@ export default function App() {
     }
 
     try {
+      // Carry the locale the senior just picked (or the current default)
+      // through registration so the next login re-applies it automatically.
+      const currentLanguage = APP_LANGUAGE_CODES.includes(i18n.language)
+        ? i18n.language
+        : 'en';
+
       const response = await fetchWithTimeout(`${activeBase}/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -405,6 +425,7 @@ export default function App() {
           password,
           phone_number: '',
           role: role || 'Senior',
+          preferred_language: currentLanguage,
         }),
       }, 12000);
 
@@ -840,7 +861,40 @@ export default function App() {
     setLoginError(null);
     setSeniors([]);
     setSelectedSeniorOrigin('Status');
+    // Intentionally do NOT reset i18n.language here — the senior is going
+    // back to the Login screen which will re-fetch the saved preference
+    // via /users/login the moment they re-authenticate.
     setCurrentScreen('Login');
+  };
+
+  // Persist the user's chosen language to User_Account.preferred_language.
+  // Fire-and-forget: we don't want a transient backend error to block the
+  // already-completed i18n.changeLanguage() UX, but we update local state
+  // synchronously so a quick logout/login doesn't clobber it with stale
+  // /users data from the server.
+  const saveLanguagePreference = (userId, langCode) => {
+    if (!userId || !langCode) return;
+    if (!APP_LANGUAGE_CODES.includes(langCode)) return;
+
+    setAuthenticatedUser((current) =>
+      current && String(current.user_id) === String(userId)
+        ? { ...current, preferred_language: langCode }
+        : current
+    );
+
+    const targetBase = apiBase || REMOTE_API_BASE;
+
+    fetchWithTimeout(
+      `${targetBase}/users/${userId}/language`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferred_language: langCode }),
+      },
+      8000
+    ).catch((err) => {
+      console.log('saveLanguagePreference failed:', err?.message || err);
+    });
   };
 
   // -------------------------
@@ -854,6 +908,13 @@ export default function App() {
         <LanguageScreen
           onSelectLanguage={(langCode) => {
             i18n.changeLanguage(langCode);
+            // Persist for currently-signed-in users (e.g. someone who
+            // hopped back to LanguageScreen from the Login screen).
+            // Pre-login picks are kept in-memory; handleRegister will
+            // re-send this same value at registration time.
+            if (authenticatedUser?.user_id) {
+              saveLanguagePreference(authenticatedUser.user_id, langCode);
+            }
             setCurrentScreen(goBackTo);
           }}
         />
@@ -934,6 +995,12 @@ export default function App() {
           onCommunity={() => setCurrentScreen('Community')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
+          onSelectLanguage={(langCode) => {
+            i18n.changeLanguage(langCode);
+            if (authenticatedUser?.user_id) {
+              saveLanguagePreference(authenticatedUser.user_id, langCode);
+            }
+          }}
         />
       );
     }

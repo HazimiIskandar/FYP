@@ -3,6 +3,48 @@ const router = express.Router();
 const db = require("../config/db");
 const bcrypt = require('bcryptjs');
 
+// Languages the mobile app currently ships translations for. Kept in sync with
+// /locales/{en,zh,ms,ta}.json + screens/LanguageScreen.js. Validated server-side
+// so a malformed PUT can't poison the User_Account.preferred_language column.
+const SUPPORTED_LANGUAGES = ['en', 'zh', 'ms', 'ta'];
+
+const isSupportedLanguage = (code) =>
+    SUPPORTED_LANGUAGES.includes(String(code || '').toLowerCase().trim());
+
+// Migration: add User_Account.preferred_language if it does not yet exist.
+// Runs synchronously at module load using the callback-style db.query so
+// the column is guaranteed to exist by the time the first HTTP request
+// reaches the route handlers. ER_DUP_FIELDNAME is swallowed because it
+// just means another instance won the race.
+db.query("SHOW COLUMNS FROM User_Account LIKE 'preferred_language'", (showErr, showRows) => {
+    if (showErr) {
+        console.error(
+            '[userAccountRoutes] Failed to check preferred_language column:',
+            showErr.message || showErr
+        );
+        return;
+    }
+
+    if (Array.isArray(showRows) && showRows.length > 0) {
+        return;
+    }
+
+    db.query(
+        "ALTER TABLE User_Account ADD COLUMN preferred_language VARCHAR(8) NULL DEFAULT NULL",
+        (alterErr) => {
+            if (alterErr) {
+                if (alterErr.code === 'ER_DUP_FIELDNAME') return;
+                console.error(
+                    '[userAccountRoutes] Failed to add preferred_language column:',
+                    alterErr.message || alterErr
+                );
+                return;
+            }
+            console.log('[userAccountRoutes] Added preferred_language column to User_Account');
+        }
+    );
+});
+
 const capitalizeWords = (value) =>
     String(value || '')
         .replace(/\d/g, '')
@@ -108,10 +150,15 @@ router.post("/login", (req, res) => {
 });
 
 router.post("/register", (req, res) => {
-    const { name, email, phone_number, role, password } = req.body;
+    const { name, email, phone_number, role, password, preferred_language } = req.body;
     const normalizedName = capitalizeWords(name);
     const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedPreferredLanguage = preferred_language === undefined || preferred_language === null || preferred_language === ''
+        ? null
+        : String(preferred_language).toLowerCase().trim();
 
+    // Required-field checks first so a missing name/email/password returns
+    // the actionable error before the locale validation.
     if (!name || !email || !password) {
         return res.status(400).json({ error: "Name, email and password are required" });
     }
@@ -123,6 +170,11 @@ router.post("/register", (req, res) => {
     }
     if (!isStrongPassword(password)) {
         return res.status(400).json({ error: "Password must be 12+ characters with uppercase, lowercase, number, and symbol, or a 16+ character multi-word passphrase." });
+    }
+    if (normalizedPreferredLanguage !== null && !isSupportedLanguage(normalizedPreferredLanguage)) {
+        return res.status(400).json({
+            error: `preferred_language must be one of: ${SUPPORTED_LANGUAGES.join(', ')}.`,
+        });
     }
 
     // prevent duplicate emails
@@ -168,6 +220,14 @@ router.post("/register", (req, res) => {
                     insertValues.push(role || 'Senior');
                 }
 
+                // Only persist preferred_language when the client provided
+                // an explicit value. NULL means "user hasn't picked one yet"
+                // so future logins can fall back to the app default.
+                if (normalizedPreferredLanguage !== null && columns.includes('preferred_language')) {
+                    insertFields.push('preferred_language');
+                    insertValues.push(normalizedPreferredLanguage);
+                }
+
                 const sql = `INSERT INTO User_Account (${insertFields.join(', ')}) VALUES (${insertFields.map(() => '?').join(', ')})`;
 
                 db.query(sql, insertValues, (err, result) => {
@@ -192,6 +252,33 @@ router.post("/register", (req, res) => {
                     });
                 });
             });
+        });
+    });
+});
+
+// PUT /users/:user_id/language — used by the mobile app to save the
+// preferred UI locale when a logged-in user picks a new language from
+// either LanguageScreen or the SeniorHomeScreen language modal.
+router.put('/:user_id/language', (req, res) => {
+    const userId = req.params.user_id;
+    const requested = String(req.body?.preferred_language || '').toLowerCase().trim();
+
+    if (!isSupportedLanguage(requested)) {
+        return res.status(400).json({
+            error: `preferred_language must be one of: ${SUPPORTED_LANGUAGES.join(', ')}.`,
+        });
+    }
+
+    const sql = `UPDATE User_Account SET preferred_language = ? WHERE user_id = ?`;
+
+    db.query(sql, [requested, userId], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message || err });
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+        res.json({
+            message: 'Language preference saved.',
+            preferred_language: requested,
         });
     });
 });
