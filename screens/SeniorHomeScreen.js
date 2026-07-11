@@ -2,11 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 
-export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, hasCheckedInEvening, onCheckIn, onSOS, onCommunity, onProfile, onSettings, currentStreak }) {
+export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, hasCheckedInEvening, onCheckIn, onSOS, onCommunity, onProfile, onSettings, currentStreak, onSelectLanguage }) {
   const currentHour = new Date().getHours();
   const isMorning = currentHour < 16;
   const hasCheckedIn = isMorning ? hasCheckedInMorning : hasCheckedInEvening;
@@ -131,7 +130,12 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, has
                 key={lang.code}
                 style={styles.modalLanguageOption}
                 onPress={() => {
-                  i18n.changeLanguage(lang.code);
+                  // Routing the change through App.js so the parent can
+                  // persist the choice to User_Account.preferred_language
+                  // via saveLanguagePreference.
+                  if (typeof onSelectLanguage === 'function') {
+                    onSelectLanguage(lang.code);
+                  }
                   setLanguageModalVisible(false);
                 }}
                 activeOpacity={0.86}
