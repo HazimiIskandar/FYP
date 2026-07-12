@@ -3,10 +3,12 @@ import { StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity } fr
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
+import { formatRelativeTime } from '../utils/time';
 
 export default function CaregiverHomeScreen({
   summary = { total: 0, urgent: 0, checkedIn: 0 },
   prioritySenior = {},
+  latestCheckIn = null,
   activeTicket = {},
   onCallEmergencyContact = () => {},
   onGoToSeniorsList,
@@ -26,8 +28,52 @@ export default function CaregiverHomeScreen({
   const getUnitLabel = (senior) =>
     senior?.unit_number || senior?.unit_no || senior?.unit || senior?.unitLabel || 'Not recorded';
 
-  const getContactName = (senior) =>
-    senior?.emergency_contact || senior?.next_of_kin || senior?.next_of_kin_name || 'Not recorded';
+  // Singapore 8-digit local numbers are conventionally rendered "XXXX XYYY"
+  // for readability. If the stored value is anything else (already has a
+  // +65 prefix, different length, etc.) we return it untouched so we never
+  // strip real formatting or invent digits.
+  const formatPhoneNumber = (raw) => {
+    const text = String(raw || '').replace(/\D/g, '');
+    if (text.length === 8) return `${text.slice(0, 4)} ${text.slice(4)}`;
+    return String(raw || '').trim();
+  };
+
+  // Emergency contact line — now shows Name + phone number together so the
+  // caregiver can both identify and ring the contact without scrolling.
+  // Falls back through every known source (legacy flat fields first,
+  // then the NOK records App.js's refreshAll populated onto the senior),
+  // and gracefully degrades to just one of the two if only one exists.
+  const getContactDisplay = (senior) => {
+    const primary = Array.isArray(senior?.nokContacts) && senior.nokContacts.length > 0
+      ? senior.nokContacts[0]
+      : null;
+    const name =
+      senior?.emergency_contact ||
+      senior?.next_of_kin ||
+      senior?.next_of_kin_name ||
+      primary?.full_name ||
+      null;
+    const phone =
+      senior?.emergency_contact_phone ||
+      senior?.next_of_kin_phone ||
+      primary?.phone_number ||
+      null;
+    const cleanName = String(name || '').trim();
+    const cleanPhone = formatPhoneNumber(phone);
+
+    if (cleanName && cleanPhone) return `${cleanName} · ${cleanPhone}`;
+    if (cleanName) return cleanName;
+    if (cleanPhone) return cleanPhone;
+    return 'Not recorded';
+  };
+
+  const getRelationship = (senior) => {
+    // The backend stores relationship_to_senior on the NOK row.
+    const primary = Array.isArray(senior?.nokContacts) ? senior.nokContacts[0] : null;
+    const raw = primary?.relationship_to_senior || senior?.relationship || null;
+    if (!raw) return 'Not recorded';
+    return String(raw).trim() || 'Not recorded';
+  };
 
   const getStatusBadge = (senior) => {
     const raw = `${senior?.status || senior?.checkin_status || senior?.health_status || ''}`.toLowerCase();
@@ -63,7 +109,8 @@ export default function CaregiverHomeScreen({
   const seniorName = getDisplayName(prioritySenior);
   const seniorAge = getSeniorAge(prioritySenior) ?? '';
   const seniorUnit = getUnitLabel(prioritySenior);
-  const contactName = getContactName(prioritySenior);
+  const contactName = getContactDisplay(prioritySenior);
+  const relationshipLabel = getRelationship(prioritySenior);
   const statusBadgeText = getStatusBadge(prioritySenior);
   // The priority card only carries weight when something actually needs
   // attention. If the top-priority senior is Checked In, swap the red
@@ -74,7 +121,23 @@ export default function CaregiverHomeScreen({
     priorityStatus === 'Checked In' || !prioritySenior?.senior_id;
   const ticketTitle = activeTicket?.title || activeTicket?.event_name || 'Missed check-in';
   const ticketId = activeTicket?.id || activeTicket?.ticket_id || activeTicket?.event_id || 'INC0016767';
-  const ticketUpdate = activeTicket?.last_update || activeTicket?.updated_at || activeTicket?.time || '10 minutes ago';
+  // Ticket update is the SGT-aware formatted version of the emergency
+  // event time (or legacy string field). Falls back to the original
+  // hardcoded placeholder only when both the timestamp AND every string
+  // field are missing — so a caregiver who has a real emergency ticket
+  // always sees something better than a fake "10 minutes ago".
+  const ticketRawTimestamp =
+    activeTicket?.created_at || activeTicket?.timestamp || activeTicket?.event_time;
+  const ticketUpdate =
+    formatRelativeTime(ticketRawTimestamp) ||
+    activeTicket?.last_update ||
+    activeTicket?.updated_at ||
+    activeTicket?.time ||
+    '10 minutes ago';
+  const latestCheckInRelative = formatRelativeTime(
+    latestCheckIn?.checkin_timestamp,
+    'No check-in yet'
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -113,8 +176,25 @@ export default function CaregiverHomeScreen({
           <View style={styles.infoCard}>
             <View style={styles.infoCopy}>
               <Text style={styles.cardEyebrow}>Priority senior</Text>
-              <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{`${seniorName}${seniorAge ? ` (Age: ${seniorAge})` : ''}`}</Text>
-              <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{`Unit ${seniorUnit} | ${contactName}`}</Text>
+              <Text style={styles.name} numberOfLines={2} ellipsizeMode="tail">{`${seniorName}${seniorAge ? ` (Age: ${seniorAge})` : ''}`}</Text>
+              {/* Each label sits on its own line — no numberOfLines so long
+                  "Not recorded" placeholders stay readable on small phones
+                  and at the larger FontSizeContext scales. Each Text also
+                  uses flexShrink: 1 so a long emergency-contact name wraps
+                  gracefully into the line instead of pushing siblings off
+                  the right edge. */}
+              <Text style={styles.metaLine}>
+                <Text style={styles.metaLabel}>Unit: </Text>
+                <Text style={styles.metaValue}>{seniorUnit}</Text>
+              </Text>
+              <Text style={styles.metaLine}>
+                <Text style={styles.metaLabel}>Emergency contact: </Text>
+                <Text style={styles.metaValue}>{contactName}</Text>
+              </Text>
+              <Text style={styles.metaLine}>
+                <Text style={styles.metaLabel}>Relationship: </Text>
+                <Text style={styles.metaValue}>{relationshipLabel}</Text>
+              </Text>
             </View>
             <View style={styles.statusBadge}>
               <Text style={styles.statusBadgeText}>{statusBadgeText}</Text>
@@ -127,7 +207,13 @@ export default function CaregiverHomeScreen({
               <Text style={styles.ticketTitle}>{ticketTitle}</Text>
             </View>
             <Text style={styles.ticketMeta}>Ticket ID: {ticketId}</Text>
-            <Text style={styles.ticketMeta}>Last update: {ticketUpdate}</Text>
+            {/* Active emergency ticket update time — preserved alongside
+                the new "Latest check-in" line so a live incident never
+                gets lost when we add the check-in timestamp. */}
+            <Text style={styles.ticketMeta}>Ticket updated: {ticketUpdate}</Text>
+            <Text style={styles.ticketMeta}>
+              Latest check-in: {latestCheckInRelative}
+            </Text>
           </View>
 
           <TouchableOpacity style={styles.callButton} onPress={onCallEmergencyContact} activeOpacity={0.86}>
@@ -231,7 +317,16 @@ const styles = StyleSheet.create({
   // + minWidth:0 so a long name ellipsizes inside the row instead.
   infoCopy: { flex: 1, flexShrink: 1, minWidth: 0 },
   name: { color: '#111827', fontSize: 24, fontWeight: '900', flexShrink: 1 },
-  meta: { color: '#4B5563', fontSize: 15, marginTop: 4, flexShrink: 1 },
+  // The 3 stacked meta lines (Unit / Emergency contact / Relationship).
+  // No numberOfLines so "Not recorded" placeholders stay intact on
+  // small-screen devices and at the larger FontSizeContext scales.
+  metaLine: { color: '#4B5563', fontSize: 15, marginTop: 4, flexShrink: 1 },
+  metaLabel: { color: '#6B7280', fontWeight: '800', flexShrink: 1 },
+  metaValue: { color: '#111827', fontWeight: '700', flexShrink: 1 },
+  // (Previously a single `meta` style with numberOfLines={1} lived here.
+  // It was removed when the meta block was split into the 3 explicit
+  // labelled lines below so a long emergency-contact name or a "Not
+  // recorded" placeholder never got cut off.)
   statusBadge: { backgroundColor: '#FEF3C7', borderRadius: 16, paddingVertical: 7, paddingHorizontal: 10 },
   statusBadgeText: { color: '#92400E', fontSize: 13, fontWeight: '900' },
   ticketActive: {

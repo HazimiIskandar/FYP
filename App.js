@@ -514,6 +514,29 @@ export default function App() {
     return 'Pending';
   };
 
+  // Pick the most recent completed Daily_CheckIn row for a given senior.
+  // The /checkins endpoint already returns the full set of rows ordered
+  // DESC, so the front-end can resolve "latest check-in" without a
+  // round-trip to /checkin/:senior_id. Returns the raw row (or null) so
+  // callers can format the timestamp however they want — the Caregiver
+  // Home screen renders it through formatRelativeTime.
+  const getLatestCheckInFor = (seniorId) => {
+    if (!seniorId) return null;
+    const matching = (Array.isArray(checkIns) ? checkIns : []).filter(
+      (entry) =>
+        String(entry?.senior_id) === String(seniorId) &&
+        (entry?.checkin_status || '').toLowerCase().includes('completed')
+    );
+    if (!matching.length) return null;
+    return matching
+      .slice()
+      .sort(
+        (left, right) =>
+          new Date(right?.checkin_timestamp || 0).getTime() -
+          new Date(left?.checkin_timestamp || 0).getTime()
+      )[0];
+  };
+
   const calculateCheckInStreak = (seniorId) => {
     if (!seniorId) return 0;
 
@@ -790,11 +813,68 @@ export default function App() {
             .filter((normalizedSenior) => normalizedSenior.full_name !== 'Unknown Senior')
         : [];
       setUsers(Array.isArray(usersData) ? usersData : []);
-      setSeniors(normalizedSeniors);
       setCheckIns(Array.isArray(checkinsData) ? checkinsData : []);
       setCommunityActivities(Array.isArray(communityData) ? communityData : []);
       setRewardStreaks(Array.isArray(rewardsData) ? rewardsData : []);
       setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
+
+      // For caregivers, fan-out a per-senior fetch for NOK contacts + medical
+      // conditions in parallel so the priority card on the Caregiver Home
+      // screen can render "Emergency contact" + "Relationship" without an
+      // extra round-trip when the user navigates between screens.
+      // /caregiver/:id/seniors only JOINs Senior + User_Account so this
+      // additional envelope is required to surface the elder's contact
+      // network on the front-end.
+      // Uses fetchWithTimeout so a single slow backend endpoint cannot
+      // pin the whole refreshAll indefinitely on a flaky network.
+      let enrichedSeniors = normalizedSeniors;
+      if (
+        isCaregiver &&
+        apiBase &&
+        Array.isArray(normalizedSeniors) &&
+        normalizedSeniors.length > 0
+      ) {
+        try {
+          const fetchEnvelope = async (path) => {
+            const response = await fetchWithTimeout(
+              `${apiBase}${path}`,
+              {},
+              8000
+            );
+            return response.ok ? response.json() : [];
+          };
+          const enriched = await Promise.all(
+            normalizedSeniors.map(async (senior) => {
+              if (!senior?.senior_id) {
+                return senior;
+              }
+              const [nokData, conditionsData] = await Promise.all([
+                fetchEnvelope(`/seniors/${senior.senior_id}/nok`),
+                fetchEnvelope(`/seniors/${senior.senior_id}/medical-conditions`),
+              ]);
+              return {
+                ...senior,
+                nokContacts: Array.isArray(nokData) ? nokData : [],
+                medicalConditions: Array.isArray(conditionsData)
+                  ? conditionsData
+                  : [],
+              };
+            })
+          );
+          enrichedSeniors = enriched;
+          setSeniors(enrichedSeniors);
+        } catch (err) {
+          console.log(
+            '[refreshAll] caregiver roster enrichment failed:',
+            err?.message || err
+          );
+          // Fall back to the un-enriched list — still better than wiping
+          // out the roster because one NOK endpoint hiccupped.
+          setSeniors(normalizedSeniors);
+        }
+      } else {
+        setSeniors(normalizedSeniors);
+      }
       // if someone is authenticated, update their cached user object too
       let updatedSeniorWithExtras = null;
       if (effectiveUser && effectiveUser.user_id) {
@@ -1127,6 +1207,12 @@ export default function App() {
         decoratedSeniors.find((s) => s.status === 'Urgent') ||
         decoratedSeniors.find((s) => s.status === 'Pending') ||
         decoratedSeniors[0];
+      // Latest completed Daily_CheckIn row for that senior, surfaced as
+      // a "Latest check-in" timestamp on the priority card so the line is
+      // driven by the check-in schema (not hardcoded).
+      const topPriorityLatestCheckIn = topPrioritySenior
+        ? getLatestCheckInFor(topPrioritySenior.senior_id)
+        : null;
       return (
         <CaregiverHomeScreen
           summary={{
@@ -1135,6 +1221,7 @@ export default function App() {
             urgent: decoratedSeniors.filter((s) => s.status === 'Urgent').length
           }}
           prioritySenior={topPrioritySenior}
+          latestCheckIn={topPriorityLatestCheckIn}
           activeTicket={emergencyEvents?.[0]}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}

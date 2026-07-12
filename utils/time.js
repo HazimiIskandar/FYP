@@ -216,3 +216,65 @@ export const isSgtToday = (value) => {
   const valueKey = getSgtDateKey(value);
   return Boolean(todayKey && valueKey && todayKey === valueKey);
 };
+
+// One SGT "calendar day" in milliseconds — used by formatRelativeTime to
+// bucket "today / yesterday / N days ago" so two check-ins landed on the
+// same SGT day don't get split by a UTC midnight rollover.
+const SGT_DAY_MS = 24 * 60 * 60 * 1000;
+
+// "Just now" / "5 minutes ago" / "2 hours ago" / "Yesterday at 09:00 AM"
+// / "3 days ago" / older -> formatDateTime. All comparisons are done in the
+// SGT clock so "today" matches what the rest of the app shows elsewhere.
+//
+// Returns `fallback` for missing/invalid input so callers can chain a
+// localised "No check-in yet" placeholder when the value is null.
+export const formatRelativeTime = (value, fallback = '') => {
+  if (isMissing(value)) return fallback;
+  const valueDate = toDate(value);
+  const now = new Date();
+  if (Number.isNaN(valueDate.getTime())) return fallback;
+
+  const diffMs = now.getTime() - valueDate.getTime();
+  // Future-dated values (off clock) get the absolute SGT date+time so we
+  // always show *something* — never a negative direction like "-2 minutes".
+  if (diffMs < 0) return formatDateTime(valueDate);
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  if (diffSeconds < 60) return 'Just now';
+
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) {
+    return diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+  }
+
+  // Cross the SGT-day boundary. Compare YYYY-MM-DD keys so a check-in at
+  // 23:50 SGT and a check at 00:30 SGT the next morning both roll into
+  // "Yesterday at …" — not "1 day ago" purely because 24h has elapsed.
+  const valueKey = getSgtDateKey(valueDate);
+  const todayKey = getSgtDateKey(now);
+  const yesterdayKey = (() => {
+    const yesterday = new Date(now.getTime() - SGT_DAY_MS);
+    return getSgtDateKey(yesterday);
+  })();
+
+  if (valueKey === todayKey) {
+    // <24h AND same SGT day — fall back to "X hours ago" style by hours so
+    // caregivers see "23 hours ago" without a confusing "Today at …".
+    return `${diffHours} hours ago`;
+  }
+  if (valueKey === yesterdayKey) {
+    return `Yesterday at ${formatTime(valueDate, '')}`;
+  }
+
+  const diffDays = Math.floor(diffMs / SGT_DAY_MS);
+  if (diffDays < 7) {
+    return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+  }
+
+  return formatDateTime(valueDate);
+};
