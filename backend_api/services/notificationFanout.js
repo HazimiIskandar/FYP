@@ -172,9 +172,18 @@ async function dispatchEngagement({
     // future render-log dive shows EXACTLY which sink failed and why — the
     // previous version fire-and-forgot createNotification which masked
     // silent INSERT failures behind console.log only.
+    //
+    // When `bucket` is null (senior has no caregiver + no NOK linked) the
+    // routing still flows through every sink — the SN `u_workflow_route`
+    // is posted as `null` (empty in the table), the Notification audit row
+    // is stamped with recipient_type="unlinked" so the failure-mode is
+    // searchable in MySQL, and Telegram gracefully no-ops because
+    // telegramRecipients[null] is undefined → empty chat_ids → skip.
+    // This keeps the per-sink Promise.allSettled shape stable for the
+    // post-sink logging below.
     const sinkResults = await Promise.allSettled([
       createNotification(
-        bucket,
+        bucket || "unlinked",
         caregiverName,
         seniorId,
         null, // event_id — community/button flows don't carry one

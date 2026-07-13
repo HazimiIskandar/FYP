@@ -170,14 +170,22 @@ function coerceDateTime(value) {
 
 function buildPayload(ctx) {
   const c = ctx && typeof ctx === "object" ? ctx : {};
-  const route = VALID_WORKFLOW_ROUTES.has(c.workflow_route)
+  // When the senior has no caregiver AND no NOK linked, the linkage-aware
+  // check-in route drops `workflow_route` to `null`. POSTing `{u_workflow_route:
+  // null}` would be safe for most Choice fields in ServiceNow but is offered
+  // as `null` for the latter; we OMIT the key entirely instead of sending a
+  // literal null, so SN's per-column Choice validation cannot reject the row.
+  // The row still lands in `u_checkin_response` with `u_workflow_route` left
+  // at the column default (empty) — the visual signal we want for
+  // incomplete-profile accounts.
+  const route = c.workflow_route && VALID_WORKFLOW_ROUTES.has(c.workflow_route)
     ? c.workflow_route
-    : "caregiver_aic";
+    : null;
   const eventType = VALID_EVENT_TYPES.has(c.event_type)
     ? c.event_type
     : "Daily Check-In";
 
-  return {
+  const payload = {
     u_senior_id:
       c.senior_id == null || c.senior_id === "" ? null : String(c.senior_id),
     u_senior_full_name: c.senior_full_name ?? null,
@@ -185,11 +193,18 @@ function buildPayload(ctx) {
     u_received_at: coerceDateTime(c.received_at) || new Date().toISOString(),
     u_event_type: eventType,
     u_im_okay: coerceBool(c.im_okay, true),
-    u_workflow_route: route,
     u_aic_staff_count: coerceInt(c.aic_staff_count, 0),
     u_caregiver_count: coerceInt(c.caregiver_count, 0),
     u_nok_count: coerceInt(c.nok_count, 0),
   };
+  // Conditionally attach u_workflow_route — omit entirely when null so SN
+  // never sees an explicit null for a Choice column. The calling site's
+  // log line reads `payload.u_workflow_route || "(empty)"` to label the
+  // omission consistently.
+  if (route !== null) {
+    payload.u_workflow_route = route;
+  }
+  return payload;
 }
 
 // ----- HTTP --------------------------------------------------------------------
@@ -236,7 +251,7 @@ async function createCheckInResponse(ctx) {
           "[servicenow] OK Senior " +
             seniorTag +
             " route=" +
-            payload.u_workflow_route +
+            (payload.u_workflow_route || "(empty)") +
             " event=" +
             payload.u_event_type +
             " sys_id=" +

@@ -12,9 +12,19 @@
 // SN_OAUTH_CLIENT_ID / SN_OAUTH_CLIENT_SECRET env vars are unset (each sink
 // self-silently skips). MySQL is the source of truth.
 //
-// Accepts an optional `notify_bucket` in the request body, validated
-// against a fixed allowlist. Defaults to "caregiver_nok_aic". See
-// telegramRecipients.js for the chat-id arrays tied to each bucket.
+// WORKFLOW_ROUTE ASSIGNMENT (per linkage state, NOT from client body):
+//   • senior has caregiver + NOK linked  → "caregiver_nok_aic" (existing default)
+//   • senior has caregiver only linked   → "caregiver_aic"
+//   • senior has neither linked          → `null`
+//                                       ServiceNow u_workflow_route stays
+//                                       empty for unlinked accounts so the
+//                                       SN flow does not silently promote
+//                                       incomplete-profile seniors into the
+//                                       escalation path. Telegram falls
+//                                       back to "no chat_ids filled in —
+//                                       skipping" (its built-in behaviour).
+// The client's `notify_bucket` body field is INTENTIONALLY IGNORED —
+// linkage tables are the authoritative source of truth for routing.
 // ---------------------------------------------------------------------------------
 
 const express = require("express");
@@ -22,13 +32,6 @@ const router = express.Router();
 const db = require("../config/db");
 const { calculateCurrentStreak } = require("../services/rewardService");
 const { dispatchEngagement } = require("../services/notificationFanout");
-
-const NOTIFY_BUCKETS = ["caregiver_nok_aic", "caregiver_aic"];
-const DEFAULT_NOTIFY_BUCKET = "caregiver_nok_aic";
-
-function normalizeBucket(raw) {
-  return NOTIFY_BUCKETS.includes(raw) ? raw : DEFAULT_NOTIFY_BUCKET;
-}
 
 // =============================================================================
 // POST /checkin
@@ -42,24 +45,42 @@ router.post("/", (req, res) => {
   if (!senior_id) {
     return res.status(400).json({ error: "senior_id is required" });
   }
-  const notify_bucket = normalizeBucket(req.body && req.body.notify_bucket);
 
   const currentHour = new Date().getHours();
   const isMorning = currentHour < 16;
 
-  const findTodaySql = `
-    SELECT checkin_id
-    FROM Daily_CheckIn
-    WHERE senior_id = ?
-      AND DATE(checkin_timestamp) = CURDATE()
-      AND HOUR(checkin_timestamp) ${isMorning ? "< 16" : ">= 16"}
-    LIMIT 1
+  // `let` so the linkage-aware assignee below can mutate it before the
+  // response body / dispatchEngagement fire.
+  let notify_bucket = null;
+
+  // Combined "duplicate check + linkage lookup". One MySQL round-trip
+  // returns the same-of-day flag AND the senior's actual caregiver / NOK
+  // counts so we can derive the workflow_route. True to the per-request
+  // contract — `req.body.notify_bucket` is deliberately not consulted;
+  // linkage is the authoritative source.
+  const findTodayAndLinkageSql = `
+    SELECT
+      EXISTS(
+        SELECT 1 FROM Daily_CheckIn
+        WHERE senior_id = ?
+          AND DATE(checkin_timestamp) = CURDATE()
+          AND HOUR(checkin_timestamp) ${isMorning ? "< 16" : ">= 16"}
+      ) AS already_checked,
+      (SELECT COUNT(*) FROM Senior_has_Caregiver WHERE senior_id = ?) AS caregivers,
+      (SELECT COUNT(*) FROM Senior_has_NOK         WHERE senior_id = ?) AS noks
+    FROM (SELECT 1) AS src
   `;
 
-  db.query(findTodaySql, [senior_id], (todayErr, todayRows) => {
+  db.query(findTodayAndLinkageSql, [senior_id, senior_id, senior_id], (todayErr, todayRows) => {
     if (todayErr)
       return res.status(500).json({ error: todayErr.message || todayErr });
-    if (todayRows.length > 0) {
+
+    // The combined query always returns one row. Pull the duplicate flag
+    // + linkage counts from `todayRows[0]` and short-circuit if the
+    // senior has already checked in today.
+    const firstRow = (todayRows && todayRows[0]) || {};
+
+    if (Number(firstRow.already_checked) > 0) {
       // Already-checked path: do NOT fan out (this is a duplicate, not a
       // brand-new engagement). The community-game path has its own dedup
       // guard (only fires when it CREATED the day's check-in row), so
@@ -70,6 +91,34 @@ router.post("/", (req, res) => {
           : "Already checked in for the evening",
       });
     }
+
+    // Derive workflow_route from the senior's actual caregiver / NOK
+    // linkage state. `req.body.notify_bucket` is intentionally ignored —
+    // the linkage tables are the authoritative source of truth for
+    // routing. Stops new profiles (no caregiver + no NOK linked) from
+    // being silently bucketed into the default `caregiver_nok_aic`
+    // escalation path.
+    const caregivers = Number(firstRow.caregivers) || 0;
+    const noks = Number(firstRow.noks) || 0;
+    if (caregivers > 0 && noks > 0) {
+      notify_bucket = "caregiver_nok_aic";
+    } else if (caregivers > 0) {
+      notify_bucket = "caregiver_aic";
+    } else {
+      // No caregiver AND no NOK linked — leave bucket null so
+      // ServiceNow's u_workflow_route is stored empty (see
+      // services/servicenow.js buildPayload). Telegram silently skips
+      // because telegramRecipients[null] is undefined → empty chat_ids
+      // → no-op (handled inside telegramService.js).
+      notify_bucket = null;
+    }
+
+    console.log(
+      "[checkin] linkage-derived bucket senior_id=" + String(senior_id) +
+        " caregivers=" + caregivers +
+        " noks=" + noks +
+        " bucket=" + (notify_bucket == null ? "null" : notify_bucket)
+    );
 
     const findRewardSql = `
       SELECT reward_id, total_points
