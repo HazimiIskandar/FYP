@@ -322,17 +322,20 @@ const styles = StyleSheet.create({
   },
 
   // ----- Styles for the linkage-incomplete yellow warning popup (Profile only) -----
-  // Tailwind yellow-50 (#FEFCE8) for the card body, amber-400 (#FBBF24) as
-  // a top accent stripe, and amber-900 (#92400E) for the warning icon +
-  // body text so the message reads with strong contrast despite the
-  // pale background. The "OK" button inverts to amber-400 + white text
-  // so it mirrors how SeniorSettingsScreen / Community already style
-  // their confirm-step primary buttons.
+  // Geometry mirrors CaregiverEditSeniorMenuScreen's "Check-In Times" popup
+  // (borderRadius 22, uniform padding 18, paddingHorizontal 22 on the
+  // overlay, no explicit width on the card) so the two warning / setup
+  // modals feel like siblings across the app. Yellow-50 (#FEFCE8)
+  // background + amber-400 top stripe + amber-900 icon/text/OK button
+  // differentiate the branding without changing the envelope.
   setupNoticeModal: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(17, 24, 39, 0.55)',
     justifyContent: 'center',
-    alignItems: 'center',
     paddingHorizontal: 22,
   },
   setupNoticeBackdrop: {
@@ -343,34 +346,29 @@ const styles = StyleSheet.create({
     left: 0,
   },
   setupNoticeCard: {
-    width: '100%',
     backgroundColor: '#FEFCE8',
-    borderRadius: 18,
+    borderRadius: 22,
     borderTopWidth: 4,
     borderTopColor: '#FBBF24',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
     borderColor: '#FCD34D',
-    paddingVertical: 20,
-    paddingHorizontal: 18,
+    padding: 18,
     alignItems: 'center',
   },
   setupNoticeIconRow: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#FDE68A',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   setupNoticeText: {
     color: '#92400E',
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 16,
+    lineHeight: 21,
+    marginBottom: 14,
   },
   setupNoticeOkButton: {
     backgroundColor: '#FBBF24',
