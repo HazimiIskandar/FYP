@@ -53,6 +53,25 @@ export default function App() {
   const [loginError, setLoginError] = useState(null);
   const [registerError, setRegisterError] = useState(null);
   const [openCaregiverLinkOnSettings, setOpenCaregiverLinkOnSettings] = useState(false);
+  // Linkage gate: true once we have evidence the senior is linked to a
+  // caregiver (`is_fully_linked: true` from /seniors/:id/linkage-summary).
+  // Defaults CONSERVATIVELY to false so a newly-registered senior who
+  // opens the app before the linkage fetch resolves is shown the
+  // restricted Home view rather than the full dashboard; we accept a
+  // tiny flicker for already-linked seniors (full -> restricted -> full)
+  // in exchange for the safety guarantee that no unlinked senior
+  // accidentally exercises I'm-Okay / SOS / Community before their
+  // caregiver has linked them. /seniors/SeniorEditProfileScreen.js etc
+  // receive `restrictedMode = !linkageComplete` from this state.
+  const [linkageComplete, setLinkageComplete] = useState(false);
+  // Tracks whether the senior has tapped OK on the Profile yellow
+  // warning popup during the current session. Stays sticky for the
+  // rest of the app session and is reset to false on logout so a
+  // different senior signing in on the same device sees the popup
+  // again. Lives at App.js level so the modal doesn't pop back up
+  // every time the senior navigates Home -> Settings -> Profile
+  // during their caregiver-link wait.
+  const [dismissedSetupNotice, setDismissedSetupNotice] = useState(false);
 
   const REMOTE_API_BASE = 'https://fyp-senior-connect.onrender.com';
   const getHostFromUri = (uri) => {
@@ -115,6 +134,41 @@ export default function App() {
     }
 
     return null;
+  };
+
+  // Fetch the senior's caregiver + NOK link counts. Returns the
+  // `is_fully_linked` boolean from the backend so callers can route
+  // synchronously without waiting for the React state to settle. We
+  // mirror the value into `linkageComplete` so downstream renders
+  // (SeniorHomeScreen, SeniorProfileScreen, BottomNav) flip to/from
+  // restricted mode automatically. bails silently on no senior_id or
+  // any non-OK response — missing linkage defaults to "not linked"
+  // rather than crashing the login flow.
+  const fetchLinkageSummary = async (seniorId, baseOverride = null) => {
+    const targetBase = baseOverride || apiBase;
+    if (!targetBase || !seniorId) {
+      setLinkageComplete(false);
+      return false;
+    }
+    try {
+      const response = await fetchWithTimeout(
+        `${targetBase}/seniors/${seniorId}/linkage-summary`,
+        {},
+        8000
+      );
+      if (!response.ok) {
+        setLinkageComplete(false);
+        return false;
+      }
+      const data = await response.json().catch(() => null);
+      const isLinked = Boolean(data && data.is_fully_linked);
+      setLinkageComplete(isLinked);
+      return isLinked;
+    } catch (err) {
+      console.log('fetchLinkageSummary failed:', err?.message || err);
+      setLinkageComplete(false);
+      return false;
+    }
   };
 
   const ensureSeniorRecord = async (userId, baseOverride = null) => {
@@ -364,7 +418,27 @@ export default function App() {
         nokContacts: [],
       };
 
-      // Route based on role_id or role name
+      // Decide the post-login screen:
+      //   1. AIC staff (role_id === 3)  -> AICPortal
+      //   2. Caregiver   (role_id === 2) -> CaregiverHome
+      //   3. Senior whose profile fields are empty -> SeniorSettings (existing
+      //      incomplete-profile onboarding flow, with the Caregiver modal
+      //      open so they can also generate a link code straight away).
+      //   4. Senior with profile complete but caregiver NOT linked -> Home
+      //      (SeniorHomeScreen renders the restricted view that surfaces
+      //      only the Generate Link Code card).
+      //   5. Senior fully linked with complete profile -> Home (full).
+      // Cases 4 + 5 both land on 'Home' because the screen itself
+      // branches on `isLinkageIncomplete`; the only difference is what
+      // it renders. SeniorHomeScreen consumes isLinkageIncomplete and
+      // SeniorSettingsScreen consumes onGenerateLinkCode.
+      let linkageOk = Boolean(linkageComplete);
+      if (loggedInSenior && loggedInSenior.senior_id) {
+        linkageOk = await fetchLinkageSummary(loggedInSenior.senior_id, activeBase);
+      } else {
+        setLinkageComplete(false);
+      }
+
       if (roleId === 3 || roleName.includes('aic')) {
         setCurrentScreen('AICPortal');
       } else if (roleId === 2 || roleName.includes('caregiver')) {
@@ -372,6 +446,11 @@ export default function App() {
       } else if (!isSeniorProfileComplete(loggedInSenior)) {
         setOpenCaregiverLinkOnSettings(true);
         setCurrentScreen('SeniorSettings');
+      } else if (!linkageOk) {
+        // Profile complete, but caregiver not yet linked – render the
+        // senior on the restricted Home view so they see the big
+        // Generate Link Code CTA immediately.
+        setCurrentScreen('Home');
       } else {
         setCurrentScreen('Home');
       }
@@ -923,6 +1002,25 @@ export default function App() {
         );
       }
 
+      // Re-fetch linkage so a caregiver that just linked on their
+      // phone (via /caregiver/link-senior) auto-promotes the senior
+      // app to the full Home view the next refresh tick. We do this
+      // whenever we have a senior record — login flow, post-save
+      // refresh on Profile, post-checkin refresh — instead of only
+      // once at login. The fetch is fire-and-forget so a transient
+      // backend hiccup never blocks the rest of refreshAll.
+      if (matchingSenior?.senior_id) {
+        fetchLinkageSummary(matchingSenior.senior_id).catch((err) => {
+          console.log(
+            'refreshAll linkage fetch failed senior_id=' +
+              String(matchingSenior.senior_id) +
+              ' err=' + ((err && err.message) || String(err))
+          );
+        });
+      } else if (updatedSeniorWithExtras?.senior_id) {
+        fetchLinkageSummary(updatedSeniorWithExtras.senior_id).catch(() => {});
+      }
+
       if (selectedSenior?.senior_id) {
         const matchingSelectedSenior =
           normalizedSeniors.find(
@@ -990,6 +1088,12 @@ export default function App() {
     setLoginError(null);
     setSeniors([]);
     setSelectedSeniorOrigin('Status');
+    // Reset linkage + dismissed-popup flags so the next senior who
+    // logs in on this device starts from a clean slate — otherwise a
+    // previously-restricted session could leak into the next user's
+    // view after the Linkage tab / Setup Notice already dismissed.
+    setLinkageComplete(false);
+    setDismissedSetupNotice(false);
     // Intentionally do NOT reset i18n.language here — the senior is going
     // back to the Login screen which will re-fetch the saved preference
     // via /users/login the moment they re-authenticate.
@@ -1151,11 +1255,24 @@ export default function App() {
               saveLanguagePreference(authenticatedUser.user_id, langCode);
             }
           }}
+          isLinkageIncomplete={!linkageComplete}
+          onGenerateLinkCode={() => {
+            // Reuse the existing Caregiver modal flow. Same UX as
+            // tapping the "Caregiver" row inside SeniorSettings, just
+            // reached in one tap from the prominent Home CTA.
+            setOpenCaregiverLinkOnSettings(true);
+            setCurrentScreen('SeniorSettings');
+          }}
         />
       );
     }
 
     if (currentScreen === 'SeniorProfile') {
+      // The yellow warning popup is shown ONLY when the linkage is
+      // incomplete AND the senior hasn't already dismissed it during
+      // this session. Both flags live in App.js so navigating
+      // Home -> Profile -> Settings -> Profile doesn't re-pop the
+      // modal every visit.
       return (
         <SeniorProfileScreen
           senior={currentSenior}
@@ -1163,6 +1280,10 @@ export default function App() {
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
+          isLinkageIncomplete={!linkageComplete}
+          restrictedMode={!linkageComplete}
+          showLinkageWarning={!linkageComplete && !dismissedSetupNotice}
+          onDismissLinkageWarning={() => setDismissedSetupNotice(true)}
         />
       );
     }
@@ -1178,6 +1299,7 @@ export default function App() {
           onBack={() => setCurrentScreen('SeniorSettings')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
           onRefresh={refreshAll}
+          restrictedMode={!linkageComplete}
         />
       );
     }
@@ -1195,6 +1317,7 @@ export default function App() {
           onEditProfile={() => setCurrentScreen('SeniorEditProfile')}
           onLogout={handleLogout}
           onRefresh={refreshAll}
+          restrictedMode={!linkageComplete}
         />
       );
     }

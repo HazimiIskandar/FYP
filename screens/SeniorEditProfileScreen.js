@@ -121,6 +121,13 @@ export default function SeniorEditProfileScreen({
   onRefresh,
   onProfile,
   isCaregiverView = false,
+  // Forwarded to SeniorBottomNav so the bottom nav also hides the
+  // Community tab from this Edit Profile screen. Edit Profile is only
+  // rendered when the caregiver is the active viewer (isCaregiverView)
+  // OR when the senior has not yet finished setup, so keeping the
+  // Community tab hidden here reinforces the same restriction as the
+  // other reachable Senior screens.
+  restrictedMode = false,
 }) {
   const seniorMedicalConditions = Array.isArray(senior?.medicalConditions) ? senior.medicalConditions : [];
   const seniorNokContacts = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
@@ -1193,6 +1200,7 @@ export default function SeniorEditProfileScreen({
           onCommunity={onCommunity}
           onProfile={() => {}}
           onSettings={onSettings}
+          restrictedMode={restrictedMode}
         />
       )}
 

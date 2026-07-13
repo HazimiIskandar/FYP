@@ -38,7 +38,11 @@
     "language": "Language",
     "checkInMorning": "Morning Check-In",
     "doneForMorning": "Done for Morning",
-    "doneForEvening": "Done for Evening"
+    "doneForEvening": "Done for Evening",
+    "setupRequiredTitle": "Set Up Your Account",
+    "setupRequiredDescription": "Please ask your caregiver to link your account before using this phone.",
+    "setupRequiredShareCode": "Share this code with your caregiver so they can link your account on their phone. Once linked, your check-in, community games, and emergency features will be enabled.",
+    "generateLinkCodeCta": "Generate Link Code"
   },
   "settings": {
     "title": "Settings",
@@ -102,6 +106,8 @@
     "notRecorded": "Not recorded",
     "noMedicalConditions": "No medical conditions recorded.",
     "noEmergencyContacts": "No emergency contacts recorded.",
+    "setupRequiredNotice": "You have not set up your account yet. Please ask your caregiver to link your account and complete setting up your profile details before using the app.",
+    "setupRequiredOk": "OK",
     "relationships": {
       "son": "Son",
       "daughter": "Daughter",

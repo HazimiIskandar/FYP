@@ -270,6 +270,46 @@ router.post("/link-caregiver", (req, res) => {
   });
 });
 
+// GET /seniors/:senior_id/linkage-summary
+// Returns caregiver + NOK link counts and a derived `is_fully_linked`
+// flag so the React Native app can decide whether to lock features
+// (I'm-Okay, Community games, Emergency) for newly-created accounts
+// whose caregiver has not yet been linked. Counts come from the
+// authoritative Senior_has_Caregiver + Senior_has_NOK junction tables;
+// one round-trip via subqueries keeps latency tiny. Defined BEFORE the
+// generic /:senior_id route below so Express doesn't route the
+// literal string "linkage-summary" into the wrong handler.
+router.get("/:senior_id/linkage-summary", (req, res) => {
+  const seniorId = req.params.senior_id;
+  if (!seniorId || Number.isNaN(Number(seniorId))) {
+    return res.status(400).json({ error: "A valid senior_id is required." });
+  }
+
+  const sql = `
+    SELECT
+      (SELECT COUNT(*) FROM Senior_has_Caregiver WHERE senior_id = ?) AS caregivers,
+      (SELECT COUNT(*) FROM Senior_has_NOK         WHERE senior_id = ?) AS noks
+  `;
+  db.query(sql, [seniorId, seniorId], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message || err });
+    const row = (Array.isArray(rows) && rows[0]) || {};
+    const caregiverCount = Number(row.caregivers) || 0;
+    const nokCount = Number(row.noks) || 0;
+    // RN gate is `is_fully_linked = caregiverCount > 0` because the
+    // senior's primary setup step is the caregiver linking their account
+    // via /caregiver/link-senior (the RN app prompts the senior to hand
+    // a matching 6-digit code to the caregiver to drive that flow).
+    // `caregiver_count` and `nok_count` are also returned so future
+    // versions of the front-end can introduce more granular states.
+    return res.json({
+      senior_id: Number(seniorId),
+      caregiver_count: caregiverCount,
+      nok_count: nokCount,
+      is_fully_linked: caregiverCount > 0,
+    });
+  });
+});
+
 /**
  * GET SINGLE SENIOR (basic profile)
  */

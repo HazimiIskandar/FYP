@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 import { useFontScale } from '../context/FontSizeContext';
+import { Modal, Pressable } from 'react-native';
 import { formatDate } from '../utils/time';
 
 const getSeniorName = (senior) =>
@@ -33,6 +34,27 @@ export default function SeniorProfileScreen({
   onHome,
   onCommunity,
   onSettings,
+  // Set by App.js when the linkage summary endpoint reports
+  // `is_fully_linked = false`. When true the screen surfaces a yellow
+  // warning popup (in the same color family as Tailwind yellow-50 +
+  // amber accent) explaining the user must finish setup with their
+  // caregiver before the rest of the app is usable. The Popup is
+  // auto-shown on mount but dismissable so the user can still browse
+  // the "Not recorded" details themselves.
+  isLinkageIncomplete = false,
+  // Forwarded to SeniorBottomNav via prop so the bottom navigation
+  // also hides the Community tab from this screen, keeping the
+  // restriction consistent across the tabs the senior CAN reach
+  // (Home / Profile / Settings).
+  restrictedMode = false,
+  // Visibility of the yellow warning popup. App.js owns both this
+  // flag and the dismissal-across-navigation state so the modal
+  // doesn't pop back up the moment the senior moves between tabs.
+  showLinkageWarning = false,
+  // Called when the user taps OK on the yellow popup. Persists in
+  // App.js for the rest of the session (cleared on logout) so a
+  // second Profile visit doesn't re-pop the modal.
+  onDismissLinkageWarning,
 }) {
   const { t, i18n } = useTranslation();
   const { fontScale } = useFontScale();
@@ -47,6 +69,19 @@ export default function SeniorProfileScreen({
   const [fetchedConditions, setFetchedConditions] = useState([]);
   const [fetchedNoks, setFetchedNoks] = useState([]);
   const [fetchedProfile, setFetchedProfile] = useState(null);
+  // Yellow popup visibility is now fully controlled by App.js via
+  // the showLinkageWarning prop + onDismissLinkageWarning callback.
+  // Keeping a local fallback for tests/snapshots: if App.js doesn't
+  // pass the new prop name, fall back to the older isLinkageIncomplete
+  // behaviour so an out-of-date parent doesn't break the popup.
+  const showSetupNotice = typeof showLinkageWarning === 'boolean'
+    ? showLinkageWarning
+    : Boolean(isLinkageIncomplete);
+  const dismissSetupNotice = () => {
+    if (typeof onDismissLinkageWarning === 'function') {
+      onDismissLinkageWarning();
+    }
+  };
   const personalDetailsKey = JSON.stringify({
     fullName: getSeniorName(senior),
     dob: senior?.dob || '',
@@ -192,7 +227,33 @@ export default function SeniorProfileScreen({
         onCommunity={onCommunity}
         onProfile={() => {}}
         onSettings={onSettings}
+        restrictedMode={restrictedMode}
       />
+
+      {showSetupNotice ? (
+        <Modal transparent animationType="fade" visible={true} onRequestClose={dismissSetupNotice}>
+          <View style={styles.setupNoticeModal}>
+            <Pressable style={styles.setupNoticeBackdrop} onPress={dismissSetupNotice} />
+            <View style={styles.setupNoticeCard}>
+              <View style={styles.setupNoticeIconRow}>
+                <Ionicons name="warning" size={26} color="#92400E" />
+              </View>
+              <Text style={[styles.setupNoticeText, { fontSize: 16 * fontScale }]}>
+                {t('profile.setupRequiredNotice')}
+              </Text>
+              <TouchableOpacity
+                style={styles.setupNoticeOkButton}
+                onPress={dismissSetupNotice}
+                activeOpacity={0.86}
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.setupRequiredOk')}
+              >
+                <Text style={[styles.setupNoticeOkText, { fontSize: 17 * fontScale }]}>{t('profile.setupRequiredOk')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -250,5 +311,70 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 15,
     fontWeight: '700',
+  },
+
+  // ----- Styles for the linkage-incomplete yellow warning popup (Profile only) -----
+  // Tailwind yellow-50 (#FEFCE8) for the card body, amber-400 (#FBBF24) as
+  // a top accent stripe, and amber-900 (#92400E) for the warning icon +
+  // body text so the message reads with strong contrast despite the
+  // pale background. The "OK" button inverts to amber-400 + white text
+  // so it mirrors how SeniorSettingsScreen / Community already style
+  // their confirm-step primary buttons.
+  setupNoticeModal: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+  },
+  setupNoticeBackdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  setupNoticeCard: {
+    width: '100%',
+    backgroundColor: '#FEFCE8',
+    borderRadius: 18,
+    borderTopWidth: 4,
+    borderTopColor: '#FBBF24',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#FCD34D',
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+  },
+  setupNoticeIconRow: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FDE68A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  setupNoticeText: {
+    color: '#92400E',
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  setupNoticeOkButton: {
+    backgroundColor: '#FBBF24',
+    borderRadius: 16,
+    minHeight: 54,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setupNoticeOkText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    textAlign: 'center',
   },
 });

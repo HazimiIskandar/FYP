@@ -38,7 +38,11 @@
     "language": "Bahasa",
     "checkInMorning": "Daftar Masuk Pagi",
     "doneForMorning": "Selesai Pagi",
-    "doneForEvening": "Selesai Petang"
+    "doneForEvening": "Selesai Petang",
+    "setupRequiredTitle": "Sediakan Akaun Anda",
+    "setupRequiredDescription": "Sila minta penjaga anda memautkan akaun anda sebelum menggunakan telefon ini.",
+    "setupRequiredShareCode": "Kongsi kod ini dengan penjaga anda supaya mereka boleh memautkan akaun anda melalui telefon mereka. Setelah dipautkan, ciri daftar masuk, permainan komuniti dan kecemasan akan diaktifkan.",
+    "generateLinkCodeCta": "Jana Kod Pautan"
   },
   "settings": {
     "title": "Tetapan",
@@ -102,6 +106,8 @@
     "notRecorded": "Tidak direkodkan",
     "noMedicalConditions": "Tiada keadaan perubatan direkodkan.",
     "noEmergencyContacts": "Tiada kenalan kecemasan direkodkan.",
+    "setupRequiredNotice": "Anda belum menyediakan akaun anda. Sila minta penjaga anda untuk memautkan akaun anda dan melengkapkan butiran profil anda sebelum menggunakan aplikasi.",
+    "setupRequiredOk": "OK",
     "relationships": {
       "son": "Anak lelaki",
       "daughter": "Anak perempuan",

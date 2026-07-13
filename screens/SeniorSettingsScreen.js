@@ -58,6 +58,12 @@ export default function SeniorSettingsScreen({
   onRefresh,
   initialModal,
   onInitialModalConsumed,
+  // Forwarded to SeniorBottomNav so the bottom nav also hides the
+  // Community tab from this Settings screen. Settings contains the
+  // Generate Link Code entry point the senior arrives through in the
+  // linkage-incomplete flow, so passing the same flag as Home / Profile
+  // keeps the visual restriction consistent across every reachable tab.
+  restrictedMode = false,
 }) {
   const { t } = useTranslation();
   const { fontScale, setFontScale } = useFontScale();
@@ -196,6 +202,7 @@ export default function SeniorSettingsScreen({
         onCommunity={onCommunity}
         onProfile={onProfile}
         onSettings={() => {}}
+        restrictedMode={restrictedMode}
       />
 
 

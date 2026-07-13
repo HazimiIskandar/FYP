@@ -6,7 +6,28 @@ import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 import { useFontScale } from '../context/FontSizeContext';
 
-export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, hasCheckedInEvening, onCheckIn, onSOS, onCommunity, onProfile, onSettings, currentStreak, onSelectLanguage }) {
+export default function SeniorHomeScreen({
+  senior = {},
+  hasCheckedInMorning,
+  hasCheckedInEvening,
+  onCheckIn,
+  onSOS,
+  onCommunity,
+  onProfile,
+  onSettings,
+  currentStreak,
+  onSelectLanguage,
+  // Set by App.js when the linkage summary endpoint reports
+  // `is_fully_linked = false`. When true the screen renders a single
+  // Generate-Link-Code card instead of the daily check-in / SOS widgets,
+  // because allowing those before the caregiver links would create
+  // ServiceNow rows with empty `u_workflow_route` and Telegram/incident
+  // fan-outs the user actually didn't ask for. The CTA defers to
+  // `onGenerateLinkCode`, which App.js wires to the same Caregiver modal
+  // SeniorSettingsScreen opens via `initialModal='Caregiver'`.
+  isLinkageIncomplete = false,
+  onGenerateLinkCode,
+}) {
   const { t } = useTranslation();
   const { fontScale } = useFontScale();
   const currentHour = new Date().getHours();
@@ -49,6 +70,70 @@ export default function SeniorHomeScreen({ senior = {}, hasCheckedInMorning, has
 
     Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }).start();
   }, [hasCheckedIn, pulseAnim, scaleAnim]);
+
+  // RESTRICTED HOME: shown when the senior has not yet been linked to
+  // a caregiver. App.js sources `isLinkageIncomplete` from
+  // /seniors/:id/linkage-summary. We early-return so the SOS, I'm Okay,
+  // streak card, and language-modal widgets below don't render at all —
+  // the senior literally cannot tap them. The CTA defers to
+  // `onGenerateLinkCode`, wired in App.js to open SeniorSettings with
+  // `initialModal='Caregiver'`. Reuses the existing `pulseAnim` ref so
+  // we don't allocate a second Animated.Value (React would still be
+  // happy, but keeping hooks call-count flat makes the conditional
+  // render path easier to reason about).
+  if (isLinkageIncomplete) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header
+          title={seniorName ? t('home.goodMorningName', { name: seniorName }) : t('home.goodMorning')}
+          subtitle={t('home.setupRequiredTitle')}
+        />
+
+        <ScrollView contentContainerStyle={styles.contentScroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.setupCard}>
+            <View style={styles.setupIcon}>
+              <Ionicons name="link-outline" size={32} color="#2563EB" />
+            </View>
+            <Text style={[styles.setupTitle, { fontSize: 22 * fontScale }]}>{t('home.setupRequiredTitle')}</Text>
+            <Text style={[styles.setupBody, { fontSize: 16 * fontScale }]}>{t('home.setupRequiredDescription')}</Text>
+            <Text style={[styles.setupShareHint, { fontSize: 14 * fontScale }]}>{t('home.setupRequiredShareCode')}</Text>
+          </View>
+
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <TouchableOpacity
+              style={styles.generateLinkCodeButton}
+              onPress={() => {
+                if (typeof onGenerateLinkCode === 'function') {
+                  onGenerateLinkCode();
+                }
+              }}
+              activeOpacity={0.86}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.generateLinkCodeCta')}
+            >
+              <Ionicons name="key-outline" size={32} color="#FFFFFF" />
+              <Text
+                style={[styles.generateLinkCodeText, { fontSize: 24 * fontScale }]}
+                adjustsFontSizeToFit
+                numberOfLines={2}
+              >
+                {t('home.generateLinkCodeCta')}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
+
+        <SeniorBottomNav
+          activeTab="Home"
+          onHome={() => {}}
+          onCommunity={onCommunity}
+          onProfile={onProfile}
+          onSettings={onSettings}
+          restrictedMode
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -267,4 +352,70 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   modalLanguageText: { color: '#111827', fontSize: 21, fontWeight: '800' },
+
+  // ----- Styles for the restricted Home view (isLinkageIncomplete) -----
+  // Used by the early-return branch above so the senior lands on a
+  // single Generate-Link-Code card instead of the full check-in widget.
+  setupCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  setupIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  setupTitle: {
+    color: '#111827',
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  setupBody: {
+    color: '#374151',
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  setupShareHint: {
+    color: '#6B7280',
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 6,
+  },
+  generateLinkCodeButton: {
+    width: '100%',
+    minHeight: 96,
+    backgroundColor: '#2563EB',
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 24,
+    marginBottom: 4,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  generateLinkCodeText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    textAlign: 'center',
+  },
 });

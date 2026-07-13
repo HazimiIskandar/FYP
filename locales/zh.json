@@ -38,7 +38,11 @@
     "language": "语言",
     "checkInMorning": "早上签到",
     "doneForMorning": "早上已完成",
-    "doneForEvening": "晚上已完成"
+    "doneForEvening": "晚上已完成",
+    "setupRequiredTitle": "设置您的账户",
+    "setupRequiredDescription": "请先让您的看护者关联您的账户后再使用此手机。",
+    "setupRequiredShareCode": "请将此代码分享给您的看护者,他们可以在自己的手机上关联您的账户。关联后,您即可使用签到、社区游戏和紧急功能。",
+    "generateLinkCodeCta": "生成关联代码"
   },
   "settings": {
     "title": "设置",
@@ -102,6 +106,9 @@
     "notRecorded": "未记录",
     "noMedicalConditions": "没有记录医疗状况。",
     "noEmergencyContacts": "没有记录紧急联系人。",
+    "setupRequiredNotice": "您还未设置账户。请先让您的看护者关联您的账户并完成个人资料设置,然后再使用此应用。",
+    "setupRequiredOk": "好的",
+
     "relationships": {
       "son": "儿子",
       "daughter": "女儿",
