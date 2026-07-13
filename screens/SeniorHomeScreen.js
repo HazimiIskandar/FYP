@@ -111,9 +111,8 @@ export default function SeniorHomeScreen({
               accessibilityRole="button"
               accessibilityLabel={t('home.generateLinkCodeCta')}
             >
-              <Ionicons name="key-outline" size={32} color="#FFFFFF" />
               <Text
-                style={[styles.generateLinkCodeText, { fontSize: 24 * fontScale }]}
+                style={[styles.generateLinkCodeText, { fontSize: 22 * fontScale }]}
                 adjustsFontSizeToFit
                 numberOfLines={2}
               >
@@ -396,22 +395,25 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingHorizontal: 6,
   },
+  // Mirror the styling of the SeniorSettingsScreen "Caregiver" modal
+  // generateLinkCodeButton so seniors see the same blue button on both
+  // surfaces (Home restricted card vs Settings modal). Mirrored
+  // properties: blue background (#2563EB), borderRadius 18, minHeight 72,
+  // white text, no leading icon, no shadow, fontSize ~22. The Home CTA
+  // keeps width: '100%' so it spans the limited-mode card; the Settings
+  // modal button is intentionally narrower because it is wrapped in the
+  // modalCard's natural width. Pulsing animation is preserved on Home
+  // because the Home screen is the primary entry point for an
+  // unlinked senior.
   generateLinkCodeButton: {
     width: '100%',
-    minHeight: 96,
+    minHeight: 72,
     backgroundColor: '#2563EB',
-    borderRadius: 24,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 14,
     marginTop: 24,
     marginBottom: 4,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.28,
-    shadowRadius: 20,
-    elevation: 10,
   },
   generateLinkCodeText: {
     color: '#FFFFFF',
