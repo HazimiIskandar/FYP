@@ -421,17 +421,26 @@ export default function App() {
       // Decide the post-login screen:
       //   1. AIC staff (role_id === 3)  -> AICPortal
       //   2. Caregiver   (role_id === 2) -> CaregiverHome
-      //   3. Senior whose profile fields are empty -> SeniorSettings (existing
-      //      incomplete-profile onboarding flow, with the Caregiver modal
-      //      open so they can also generate a link code straight away).
-      //   4. Senior with profile complete but caregiver NOT linked -> Home
-      //      (SeniorHomeScreen renders the restricted view that surfaces
-      //      only the Generate Link Code card).
-      //   5. Senior fully linked with complete profile -> Home (full).
-      // Cases 4 + 5 both land on 'Home' because the screen itself
-      // branches on `isLinkageIncomplete`; the only difference is what
-      // it renders. SeniorHomeScreen consumes isLinkageIncomplete and
-      // SeniorSettingsScreen consumes onGenerateLinkCode.
+      //   3. Senior already linked to a caregiver -> Home (full)
+      //      regardless of profile completeness, so a senior whose
+      //      caregiver already linked them via the 6-digit code is
+      //      not trapped inside the SeniorSettings + Caregiver
+      //      onboarding modal (which shows a Generate Link Code
+      //      surface that's already redundant — the link is done).
+      //   4. Senior NOT linked AND profile incomplete -> SeniorSettings
+      //      with the Caregiver modal forced open so they can finish
+      //      the profile + generate a link code in a single onboarding
+      //      pass.
+      //   5. Senior NOT linked AND profile complete -> Home (restricted).
+      //      SeniorHomeScreen's `isLinkageIncomplete` branch renders
+      //      the big Setup Required / Generate Link Code card on the
+      //      surface, so this branch does NOT need any extra UI code.
+      //
+      // The previous order put the profile-completeness gate BEFORE
+      // the linkage gate, which sent every linked-but-profile-
+      // -incomplete senior straight to the Generate Link Code modal
+      // — miscommunicating to the user that the caregiver link in
+      // `Senior_has_Caregiver` is missing even though it is intact.
       let linkageOk = Boolean(linkageComplete);
       if (loggedInSenior && loggedInSenior.senior_id) {
         linkageOk = await fetchLinkageSummary(loggedInSenior.senior_id, activeBase);
@@ -443,15 +452,20 @@ export default function App() {
         setCurrentScreen('AICPortal');
       } else if (roleId === 2 || roleName.includes('caregiver')) {
         setCurrentScreen('CaregiverHome');
+      } else if (linkageOk) {
+        // Case 3 — already linked. Honours the genuine link in
+        // Senior_has_Caregiver rather than overriding with an
+        // onboarding-modal CTA the user already fulfilled via the
+        // caregiver.
+        setCurrentScreen('Home');
       } else if (!isSeniorProfileComplete(loggedInSenior)) {
+        // Case 4 — unlinked + incomplete profile. Onboarding flow.
         setOpenCaregiverLinkOnSettings(true);
         setCurrentScreen('SeniorSettings');
-      } else if (!linkageOk) {
-        // Profile complete, but caregiver not yet linked – render the
-        // senior on the restricted Home view so they see the big
-        // Generate Link Code CTA immediately.
-        setCurrentScreen('Home');
       } else {
+        // Case 5 — unlinked + profile complete. Restricted Home view
+        // surfaces the Generate Link Code CTA natively via
+        // SeniorHomeScreen's isLinkageIncomplete branch.
         setCurrentScreen('Home');
       }
     } catch (err) {
