@@ -141,12 +141,29 @@ export default function App() {
   // synchronously without waiting for the React state to settle. We
   // mirror the value into `linkageComplete` so downstream renders
   // (SeniorHomeScreen, SeniorProfileScreen, BottomNav) flip to/from
-  // restricted mode automatically. bails silently on no senior_id or
-  // any non-OK response — missing linkage defaults to "not linked"
-  // rather than crashing the login flow.
+  // restricted mode automatically.
+  //
+  // IMPORTANT: only `setLinkageComplete(false)` when the backend
+  // returned a *positive proof of unlinked* (200 OK with
+  // `is_fully_linked: false`). On non-OK responses and on catch
+  // (network/timeout/exceptions), we LEAVE any prior `linkageComplete`
+  // state intact instead of clobbering it to false — a background
+  // fire-and-forget call from `refreshAll` (e.g. after a Profile save)
+  // would otherwise silently revoke a fully-linked senior's full
+  // Home access on a single transient 5xx / 8-second timeout, which
+  // manifested as the senior briefly flashing the full Home view
+  // then flickering back to the restricted "Generate Link Code"
+  // surface. Confirmed in the live diagnostic: the deployed
+  // `/seniors/13/linkage-summary` endpoint reliably returns
+  // `is_fully_linked: true` for Ah Beng, so transient failures here are
+  // almost always a network blip — the user-facing state should not
+  // be punished for that.
   const fetchLinkageSummary = async (seniorId, baseOverride = null) => {
     const targetBase = baseOverride || apiBase;
     if (!targetBase || !seniorId) {
+      // Pathological preconditions (no API base resolved / no senior
+      // row at all). Treat as unlinked-but-only-on-initial-mount; the
+      // safe default here is the conservative one.
       setLinkageComplete(false);
       return false;
     }
@@ -157,7 +174,13 @@ export default function App() {
         8000
       );
       if (!response.ok) {
-        setLinkageComplete(false);
+        // Transient or server error — leave any prior linkageComplete
+        // state intact. The user has already proved they're linked via
+        // an earlier successful fetch; a single !ok on a background
+        // re-fetch shouldn't tear down their access.
+        console.log(
+          `fetchLinkageSummary: non-OK ${response.status} for senior_id=${seniorId} — leaving linkageComplete untouched`
+        );
         return false;
       }
       const data = await response.json().catch(() => null);
@@ -165,8 +188,13 @@ export default function App() {
       setLinkageComplete(isLinked);
       return isLinked;
     } catch (err) {
-      console.log('fetchLinkageSummary failed:', err?.message || err);
-      setLinkageComplete(false);
+      // Network error / abort / timeout — also leave linkageComplete
+      // intact. The logged-in senior already demonstrated their link
+      // in the synchronous handleLogin path; we never want a delayed
+      // failure from this background call to revoke their features.
+      console.log(
+        `fetchLinkageSummary failed senior_id=${seniorId} err=${err?.message || err} — leaving linkageComplete untouched`
+      );
       return false;
     }
   };
