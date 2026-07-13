@@ -336,6 +336,7 @@ const styles = StyleSheet.create({
     left: 0,
     backgroundColor: 'rgba(17, 24, 39, 0.55)',
     justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 22,
   },
   setupNoticeBackdrop: {
@@ -346,6 +347,8 @@ const styles = StyleSheet.create({
     left: 0,
   },
   setupNoticeCard: {
+    width: '100%',
+    maxWidth: 360,
     backgroundColor: '#FEFCE8',
     borderRadius: 22,
     borderTopWidth: 4,

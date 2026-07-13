@@ -352,9 +352,12 @@ const styles = StyleSheet.create({
     zIndex: 20,
     backgroundColor: 'rgba(17, 24, 39, 0.55)',
     justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 22,
   },
   modalCard: {
+    width: '100%',
+    maxWidth: 360,
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
     padding: 18,
