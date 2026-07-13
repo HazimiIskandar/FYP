@@ -7,8 +7,8 @@
 // ServiceNow POST happen off the response path.
 //
 // The fan-out helper is Promise.allSettled-based, never throws, and falls back
-// gracefully when TELEGRAM_BOT_TOKEN / SN_USERNAME / SN_PASSWORD env vars are
-// unset (each sink self-silently skips). MySQL is the source of truth.
+// gracefully when TELEGRAM_BOT_TOKEN / SN_OAUTH_CLIENT_ID / SN_OAUTH_CLIENT_SECRET
+// env vars are unset (each sink self-silently skips). MySQL is the source of truth.
 //
 // Accepts an optional `notify_bucket` in the request body, validated against a
 // fixed allowlist. Defaults to "caregiver_nok_aic". See telegramRecipients.js

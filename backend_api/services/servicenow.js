@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------------
-// ServiceNow client — u_checkin_response
+// ServiceNow client — u_checkin_response (OAuth2 client_credentials)
 //
 // Purpose:
 //   Fire-and-forget POST of an enriched Daily_CheckIn payload to the personal
@@ -18,9 +18,17 @@
 //   u_caregiver_count   Integer       default 0
 //   u_nok_count         Integer       default 0
 //
+// Auth:
+//   OAuth2 client_credentials grant against {INSTANCE_URL}/oauth_token.do. The
+//   bearer token is cached in module memory and refreshed ~60s before expiry;
+//   one in-flight token fetch is shared by all overlapping callers via a
+//   single-flight `tokenPromise`. A 401 from /api/now invalidates the cache so
+//   the next attempt recovers. HTTP Basic Auth was removed because dev316146
+//   silently rejected authenticated POSTs even with confirmed-good passwords.
+//
 // Contract:
 //   - Never throws. Returns null on failure so callers don't need try/catch.
-//   - Retries once (MAX_ATTEMPTS=2) on network / auth / 5xx failure.
+//   - Retries once (MAX_ATTEMPTS=2) on network / token / 5xx failure.
 //   - 5s request timeout per attempt to keep the event loop unblocked.
 //   - Mis-shaped context values are coerced (never crash the publisher).
 // ---------------------------------------------------------------------------------
@@ -32,14 +40,16 @@ const INSTANCE_URL =
   process.env.SN_INSTANCE_URL || "https://dev316146.service-now.com";
 const TABLE_NAME = process.env.SN_TABLE || "u_checkin_response";
 
-const AUTH = {
-  username: process.env.SN_USERNAME,
-  password: process.env.SN_PASSWORD,
+const OAUTH = {
+  client_id: process.env.SN_OAUTH_CLIENT_ID,
+  client_secret: process.env.SN_OAUTH_CLIENT_SECRET,
 };
 
 const REQUEST_TIMEOUT_MS = Number(process.env.SN_TIMEOUT_MS) || 5000;
 const MAX_ATTEMPTS = 2;
+const TOKEN_REFRESH_SAFETY_MS = 60_000; // refresh 60s before SN-issued expiry
 
+// ----- VALIDATION CONSTANTS ----------------------------------------------------
 const VALID_EVENT_TYPES = new Set([
   "Daily Check-In",
   "Missed Check-In",
@@ -52,6 +62,68 @@ const VALID_WORKFLOW_ROUTES = new Set([
   "caregiver_aic",
   "caregiver_nok_aic",
 ]);
+
+// ----- TOKEN CACHE -------------------------------------------------------------
+let cachedToken = null; // current bearer string
+let tokenExpiry = 0; // epoch ms at which we treat the token as stale
+let tokenPromise = null; // in-flight /oauth_token.do fetch (single-flight)
+
+async function fetchAccessToken() {
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: OAUTH.client_id,
+    client_secret: OAUTH.client_secret,
+  }).toString();
+
+  const res = await axios.post(INSTANCE_URL + "/oauth_token.do", body, {
+    timeout: REQUEST_TIMEOUT_MS,
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+  });
+
+  const token =
+    res && res.data && res.data.access_token
+      ? String(res.data.access_token)
+      : null;
+  const expiresInSec =
+    (res && res.data && Number(res.data.expires_in)) || 1800;
+  if (!token) {
+    throw new Error("/oauth_token.do returned no access_token");
+  }
+  cachedToken = token;
+  // Schedule refresh SLIGHTLY before expiry so concurrent callers mid-flight
+  // don't suddenly start seeing 401s in the gap before the next refresh.
+  tokenExpiry = Date.now() + expiresInSec * 1000 - TOKEN_REFRESH_SAFETY_MS;
+  return token;
+}
+
+async function getAccessToken() {
+  // Cache hit if still inside the safety window.
+  if (cachedToken && Date.now() < tokenExpiry) {
+    return cachedToken;
+  }
+  // Single-flight: every caller awaiting the same token fetch shares one
+  // promise. The `.finally` resets `tokenPromise` even on rejection so future
+  // callers retry cleanly.
+  if (tokenPromise) {
+    return tokenPromise;
+  }
+  tokenPromise = (async () => {
+    try {
+      return await fetchAccessToken();
+    } finally {
+      tokenPromise = null;
+    }
+  })();
+  return tokenPromise;
+}
+
+function clearTokenCache() {
+  cachedToken = null;
+  tokenExpiry = 0;
+}
 
 // ----- HELPERS -----------------------------------------------------------------
 function coerceInt(value, fallback = 0) {
@@ -98,13 +170,14 @@ function buildPayload(ctx) {
   };
 }
 
-async function attemptPost(payload) {
+// ----- HTTP --------------------------------------------------------------------
+async function attemptPost(payload, token) {
   return axios.post(INSTANCE_URL + "/api/now/table/" + TABLE_NAME, payload, {
-    auth: AUTH,
     timeout: REQUEST_TIMEOUT_MS,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      Authorization: "Bearer " + token,
     },
   });
 }
@@ -116,9 +189,11 @@ async function createCheckInResponse(ctx) {
     const seniorTag =
       c.senior_id == null || c.senior_id === "" ? "unknown" : String(c.senior_id);
 
-    if (!AUTH.username || !AUTH.password) {
+    if (!OAUTH.client_id || !OAUTH.client_secret) {
       console.warn(
-        "[servicenow] Skipping Senior " + seniorTag + ": SN_USERNAME / SN_PASSWORD not set"
+        "[servicenow] Skipping Senior " +
+          seniorTag +
+          ": SN_OAUTH_CLIENT_ID / SN_OAUTH_CLIENT_SECRET not set"
       );
       return null;
     }
@@ -127,31 +202,73 @@ async function createCheckInResponse(ctx) {
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        const response = await attemptPost(payload);
-        const sysId = response && response.data && response.data.result && response.data.result.sys_id || "n/a";
+        const token = await getAccessToken();
+        const response = await attemptPost(payload, token);
+        const sysId =
+          (response &&
+            response.data &&
+            response.data.result &&
+            response.data.result.sys_id) ||
+          "n/a";
         console.log(
-          "[servicenow] OK Senior " + seniorTag + " route=" + payload.u_workflow_route + " event=" + payload.u_event_type + " sys_id=" + sysId + " attempt=" + attempt
+          "[servicenow] OK Senior " +
+            seniorTag +
+            " route=" +
+            payload.u_workflow_route +
+            " event=" +
+            payload.u_event_type +
+            " sys_id=" +
+            sysId +
+            " attempt=" +
+            attempt
         );
-        return response && response.data && response.data.result || null;
+        return (response && response.data && response.data.result) || null;
       } catch (err) {
-        const reason =
-          (err.response && err.response.data && err.response.data.error && err.response.data.error.message) ||
-          err.response || err.response && err.response.statusText ||
-          err.code || err.message || "unknown error";
         const status = (err.response && err.response.status) || "no-status";
+        const reason =
+          (err.response &&
+            err.response.data &&
+            err.response.data.error &&
+            err.response.data.error.message) ||
+          (err.response && err.response.statusText) ||
+          err.response ||
+          err.code ||
+          err.message ||
+          "unknown error";
         console.warn(
-          "[servicenow] FAIL Senior " + seniorTag + " attempt=" + attempt + "/" + MAX_ATTEMPTS + " status=" + status + " reason=" + JSON.stringify(reason)
+          "[servicenow] FAIL Senior " +
+            seniorTag +
+            " attempt=" +
+            attempt +
+            "/" +
+            MAX_ATTEMPTS +
+            " status=" +
+            status +
+            " reason=" +
+            JSON.stringify(reason)
         );
+        // 401 from /api/now => token was rejected by SN. Force a re-fetch on
+        // attempt 2. We deliberately DON'T clear on 403: a valid-token 403 is
+        // an ACL/permissions failure that retrying cannot fix.
+        if (status === 401) {
+          clearTokenCache();
+        }
         if (attempt < MAX_ATTEMPTS) continue;
       }
     }
     console.warn(
-      "[servicenow] Giving up after " + MAX_ATTEMPTS + " attempts. Senior=" + seniorTag + " payload=" + JSON.stringify(payload)
+      "[servicenow] Giving up after " +
+        MAX_ATTEMPTS +
+        " attempts. Senior=" +
+        seniorTag +
+        " payload=" +
+        JSON.stringify(payload)
     );
     return null;
   } catch (fatalErr) {
     console.warn(
-      "[servicenow] unexpected failure: " + ((fatalErr && fatalErr.message) || String(fatalErr))
+      "[servicenow] unexpected failure: " +
+        ((fatalErr && fatalErr.message) || String(fatalErr))
     );
     return null;
   }
