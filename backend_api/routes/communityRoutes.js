@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../config/db");
 const { calculateCurrentStreak } = require("../services/rewardService");
+const { dispatchEngagement } = require("../services/notificationFanout");
 
 const router = express.Router();
 
@@ -210,6 +211,29 @@ router.post("/record-activity", async (req, res) => {
       checkin_created: checkIn.created,
       current_streak: currentStreak,
     });
+
+    // Fan-out fires only when THIS community activity is ALSO the senior's
+    // FIRST engagement of the day. `checkIn.created === true` means there
+    // was no Daily_CheckIn row for today before this activity, so we just
+    // created one — exactly the moment to dispatch.
+    // If they had already checked in via I-am-okay earlier today, the
+    //     already-existing Daily_CheckIn row short-circuits and this branch
+    //     does not fire, so we get exactly one fan-out per (senior, day) no
+    //     matter how they engaged.
+    if (checkIn.created) {
+      setImmediate(() => {
+        dispatchEngagement({
+          checkinId: checkIn.checkin_id,
+          seniorId: senior_id,
+          bucket: "caregiver_nok_aic",
+          newStreak: currentStreak,
+          newTotalPoints: undefined, // community path doesn't compute points
+          eventType: "Community Game",
+          imOkay: true,
+          source: "community",
+        });
+      });
+    }
   } catch (err) {
     console.error("Error recording activity:", err);
     res.status(500).json({ error: "Failed to record activity" });

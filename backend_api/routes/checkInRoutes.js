@@ -2,201 +2,32 @@
 // POST /checkin - daily check-in for a senior.
 //
 // On a successful Daily_CheckIn INSERT, the deepest success branch schedules
-// `fanOutCheckIn(...)` inside `setImmediate(...)` — the React Native client gets
-// its response instantly and the Notification audit row + Telegram message +
-// ServiceNow POST happen off the response path.
+// `dispatchEngagement(...)` inside `setImmediate(...)` — the React Native
+// client gets its response instantly and the Notification audit row +
+// Telegram message + ServiceNow POST happen off the response path.
 //
-// The fan-out helper is Promise.allSettled-based, never throws, and falls back
-// gracefully when TELEGRAM_BOT_TOKEN / SN_OAUTH_CLIENT_ID / SN_OAUTH_CLIENT_SECRET
-// env vars are unset (each sink self-silently skips). MySQL is the source of truth.
+// All three downstream sinks are dispatched by the SHARED helper in
+// `services/notificationFanout.js`, which does its own Promise.allSettled
+// fan-out and falls back gracefully when TELEGRAM_BOT_TOKEN /
+// SN_OAUTH_CLIENT_ID / SN_OAUTH_CLIENT_SECRET env vars are unset (each sink
+// self-silently skips). MySQL is the source of truth.
 //
-// Accepts an optional `notify_bucket` in the request body, validated against a
-// fixed allowlist. Defaults to "caregiver_nok_aic". See telegramRecipients.js
-// for the chat-id arrays tied to each bucket.
+// Accepts an optional `notify_bucket` in the request body, validated
+// against a fixed allowlist. Defaults to "caregiver_nok_aic". See
+// telegramRecipients.js for the chat-id arrays tied to each bucket.
 // ---------------------------------------------------------------------------------
 
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const { calculateCurrentStreak } = require("../services/rewardService");
-const { createNotification } = require("../services/notificationService");
-const { notifyCheckIn } = require("../services/telegramService");
-const servicenow = require("../services/servicenow");
+const { dispatchEngagement } = require("../services/notificationFanout");
 
 const NOTIFY_BUCKETS = ["caregiver_nok_aic", "caregiver_aic"];
 const DEFAULT_NOTIFY_BUCKET = "caregiver_nok_aic";
 
-// ----- HELPERS -----------------------------------------------------------------
-function dbQueryAsync(sql, params) {
-  return new Promise((resolve) => {
-    db.query(sql, params, (err, rows) => {
-      if (err) {
-        // Swallow — fan-out must NEVER break the user-acknowledged check-in.
-        console.warn(
-          "[checkin] helper query failed:",
-          (sql || "").replace(/\s+/g, " ").trim().slice(0, 80),
-          err.message
-        );
-        // Always resolve to [] so callers can rely on "array of rows".
-        return resolve([]);
-      }
-      resolve(Array.isArray(rows) ? rows : []);
-    });
-  });
-}
-
 function normalizeBucket(raw) {
   return NOTIFY_BUCKETS.includes(raw) ? raw : DEFAULT_NOTIFY_BUCKET;
-}
-
-// Fan out: notification row + Telegram message + ServiceNow row.
-// All three are independent — Promise.allSettled lets a sink fail without
-// halting the others. Never throws to the caller.
-async function fanOutCheckIn(checkinId, seniorId, bucket, newStreak, newTotalPoints) {
-  try {
-    // ---------- 1. Enrich from MySQL (parallel) ----------
-    const seniorRows = await dbQueryAsync(
-      `SELECT ua.full_name
-       FROM Senior s
-       JOIN User_Account ua ON ua.user_id = s.user_id
-       WHERE s.senior_id = ?
-       LIMIT 1`,
-      [seniorId]
-    );
-    const seniorRow = (seniorRows && seniorRows[0]) || {};
-    const seniorName = seniorRow.full_name || "A senior";
-
-    const [
-      caregiverRows,
-      nokRows,
-      aicCountRows,
-      caregiverCountRows,
-      nokCountRows,
-    ] = await Promise.all([
-      // First caregiver name (for the audit row's recipient_name).
-      dbQueryAsync(
-        `SELECT ua.full_name
-         FROM Senior_has_Caregiver sc
-         JOIN User_Account ua ON ua.user_id = sc.caregiver_id
-         WHERE sc.senior_id = ?
-         ORDER BY sc.caregiver_id ASC
-         LIMIT 1`,
-        [seniorId]
-      ),
-      // First NOK name (kept for future enrichment; not currently used by sinks).
-      dbQueryAsync(
-        `SELECT n.full_name
-         FROM Senior_has_NOK sn
-         JOIN NOK n ON n.nok_id = sn.nok_id
-         WHERE sn.senior_id = ?
-         ORDER BY sn.nok_id ASC
-         LIMIT 1`,
-        [seniorId]
-      ),
-      // AIC staff counts (real COUNT(*) for the ServiceNow u_aic_staff_count).
-      dbQueryAsync(
-        `SELECT COUNT(*) AS n
-         FROM Senior_has_AIC_Staff
-         WHERE senior_id = ?`,
-        [seniorId]
-      ),
-      // Caregiver counts (real COUNT(*) for the ServiceNow u_caregiver_count).
-      dbQueryAsync(
-        `SELECT COUNT(*) AS n
-         FROM Senior_has_Caregiver
-         WHERE senior_id = ?`,
-        [seniorId]
-      ),
-      // NOK counts (real COUNT(*) for the ServiceNow u_nok_count).
-      dbQueryAsync(
-        `SELECT COUNT(*) AS n
-         FROM Senior_has_NOK
-         WHERE senior_id = ?`,
-        [seniorId]
-      ),
-    ]);
-
-    const caregiverName =
-      (caregiverRows && caregiverRows[0] && caregiverRows[0].full_name) ||
-      "Assigned caregiver";
-    const nokName =
-      (nokRows && nokRows[0] && nokRows[0].full_name) || null;
-    const aicCount =
-      (aicCountRows && aicCountRows[0] && Number(aicCountRows[0].n)) || 0;
-    const caregiverCount =
-      (caregiverCountRows && caregiverCountRows[0] && Number(caregiverCountRows[0].n)) || 0;
-    const nokCount =
-      (nokCountRows && nokCountRows[0] && Number(nokCountRows[0].n)) || 0;
-
-    // ---------- 2. Build payloads for each sink ----------
-    const eventType = "Daily Check-In";
-    const imOkay = true;
-    const checkinTimestamp = new Date().toISOString();
-
-    const snCtx = {
-      senior_id: seniorId,
-      senior_full_name: seniorName,
-      checkin_timestamp: checkinTimestamp,
-      event_type: eventType,
-      im_okay: imOkay,
-      workflow_route: bucket,
-      aic_staff_count: aicCount,
-      caregiver_count: caregiverCount,
-      nok_count: nokCount,
-    };
-
-    const tgPayload = {
-      seniorFullName: seniorName,
-      eventType,
-      imOkay,
-      checkinTimestamp,
-    };
-
-    // ---------- 3. Fire all three sinks in parallel ----------
-    await Promise.allSettled([
-      // notificationService.createNotification is callback-style / fires
-      // asynchronously; we don't await the underlying MySQL insert because
-      // its own callback logs errors. We just want it dispatched.
-      Promise.resolve(
-        createNotification(
-          bucket,
-          caregiverName,
-          seniorId,
-          null, // event_id
-          checkinId
-        )
-      ),
-      notifyCheckIn(bucket, tgPayload),
-      servicenow.createCheckInResponse(snCtx),
-    ]);
-
-    // "dispatched" (not "completed") — because the Notification INSERT
-    // callback runs after this log fires, and Telegram/ServiceNow return
-    // values are already logged inside their own services.
-    console.log(
-      "[checkin] fan-out dispatched checkin_id=" +
-        String(checkinId) +
-        " senior_id=" +
-        String(seniorId) +
-        " bucket=" +
-        bucket +
-        " caregivers=" +
-        caregiverCount +
-        " noks=" +
-        nokCount +
-        " aic=" +
-        aicCount +
-        " streak=" +
-        newStreak +
-        " total_points=" +
-        newTotalPoints
-    );
-  } catch (fatalErr) {
-    console.warn(
-      "[checkin] fan-out unexpected failure:",
-      fatalErr && fatalErr.message ? fatalErr.message : String(fatalErr)
-    );
-  }
 }
 
 // =============================================================================
@@ -229,7 +60,10 @@ router.post("/", (req, res) => {
     if (todayErr)
       return res.status(500).json({ error: todayErr.message || todayErr });
     if (todayRows.length > 0) {
-      // Already-checked path: do NOT fan out (this is a duplicate, not a new event).
+      // Already-checked path: do NOT fan out (this is a duplicate, not a
+      // brand-new engagement). The community-game path has its own dedup
+      // guard (only fires when it CREATED the day's check-in row), so
+      // both routes converge on exactly one fan-out per (senior, day).
       return res.json({
         message: isMorning
           ? "Already checked in for the morning"
@@ -340,13 +174,16 @@ router.post("/", (req, res) => {
 
                         // Fire-and-forget. Never blocks the response.
                         setImmediate(() => {
-                          fanOutCheckIn(
-                            newCheckinId,
-                            senior_id,
-                            notify_bucket,
-                            currentStreak,
-                            totalPoints
-                          );
+                          dispatchEngagement({
+                            checkinId: newCheckinId,
+                            seniorId: senior_id,
+                            bucket: notify_bucket,
+                            newStreak: currentStreak,
+                            newTotalPoints: totalPoints,
+                            eventType: "Daily Check-In",
+                            imOkay: true,
+                            source: "checkin",
+                          });
                         });
                       }
                     );

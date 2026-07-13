@@ -102,11 +102,29 @@ async function notifyCheckIn(bucket, payload) {
       : new Date().toISOString();
   const event = payload && payload.eventType ? payload.eventType : "Daily Check-in";
 
+  // Event-to-verb+emoji mapping so the message body matches the source of
+  // engagement (Daily Check-In button -> "checked in", puzzle game -> "played
+  // a memory match puzzle", SOS -> "triggered an SOS alert", etc.). New
+  // `event_type` values in `services/servicenow.js#VALID_EVENT_TYPES` should
+  // add a row here so caregiver / NOK / AIC messages stay accurate.
+  const EVENT_VERBS = {
+    "Daily Check-In": { emoji: "\u2705", verb: "checked in" },
+    "Community Game": { emoji: "\ud83c\udfae", verb: "played a memory match puzzle" },
+    "Missed Check-In": { emoji: "\u26a0\ufe0f", verb: "missed a check-in (auto-escalated)" },
+    "SOS": { emoji: "\ud83d\udea8", verb: "triggered an SOS alert" },
+    "Fall Detected": { emoji: "\ud83d\ude91", verb: "had a fall" },
+    "Sensor Alert": { emoji: "\ud83d\udce1", verb: "had a sensor alert" },
+    "Emergency": { emoji: "\ud83d\udea8", verb: "triggered an emergency alert" },
+  };
+  const eventInfo = EVENT_VERBS[event] || { emoji: "\u2705", verb: "checked in" };
+
   const text =
-    `✅ <b>${escapeHtml(fullName)}</b> checked in.\n` +
-    `Event: ${escapeHtml(event)}\n` +
-    `Status: ${status}\n` +
-    `Time: ${ts}`;
+    eventInfo.emoji +
+    " <b>" + escapeHtml(fullName) + "</b> " +
+    eventInfo.verb + ".\n" +
+    "Event: " + escapeHtml(event) + "\n" +
+    "Status: " + status + "\n" +
+    "Time: " + ts;
 
   await Promise.all(uniqueIds.map((id) => sendTo(id, text)));
 }

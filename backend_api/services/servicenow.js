@@ -11,7 +11,9 @@
 //   u_senior_full_name  String (UTF-8)
 //   u_checkin_timestamp Date/Time
 //   u_received_at       Date/Time
-//   u_event_type        Choice        (Daily Check-In | Missed Check-In | Emergency)
+//   u_event_type        Choice        (Daily Check-In | Missed Check-In | Emergency
+//                                      | SOS | Fall Detected | Sensor Alert
+//                                      | Community Game)
 //   u_im_okay           True/False
 //   u_workflow_route    Choice        (caregiver_aic | caregiver_nok_aic)
 //   u_aic_staff_count   Integer       default 0
@@ -50,6 +52,14 @@ const MAX_ATTEMPTS = 2;
 const TOKEN_REFRESH_SAFETY_MS = 60_000; // refresh 60s before SN-issued expiry
 
 // ----- VALIDATION CONSTANTS ----------------------------------------------------
+// `Community Game` was added so the memory-match puzzle on
+// `screens/CommunityScreen.js` flows through the same Notification audit +
+// ServiceNow `u_checkin_response` row as the I-am-okay button. Choice
+// dictionaries on the SN side may need a one-time admin update to
+// accept the new value (look up u_event_type on the table's column
+// schema). Invalid choices cause a 400 from /api/now — `buildPayload`
+// does NOT auto-coerce once we add the value to this set; log a
+// `[servicenow] FAIL status=400` if SN still rejects.
 const VALID_EVENT_TYPES = new Set([
   "Daily Check-In",
   "Missed Check-In",
@@ -57,6 +67,7 @@ const VALID_EVENT_TYPES = new Set([
   "SOS",
   "Fall Detected",
   "Sensor Alert",
+  "Community Game",
 ]);
 const VALID_WORKFLOW_ROUTES = new Set([
   "caregiver_aic",
