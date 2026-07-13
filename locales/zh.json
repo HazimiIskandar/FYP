@@ -40,8 +40,8 @@
     "doneForMorning": "早上已完成",
     "doneForEvening": "晚上已完成",
     "setupRequiredTitle": "设置您的账户",
-    "setupRequiredDescription": "请先让您的看护者关联您的账户后再使用此手机。",
-    "setupRequiredShareCode": "请将此代码分享给您的看护者,他们可以在自己的手机上关联您的账户。关联后,您即可使用签到、社区游戏和紧急功能。",
+    "setupRequiredDescription": "请先让您的看护者协助您连接并设置账户,然后再使用应用功能。",
+    "setupRequiredShareCode": "生成一个链接代码并分享给他们以连接账户。连接成功后,您的签到、社区游戏和紧急功能将可用。",
     "generateLinkCodeCta": "生成关联代码"
   },
   "settings": {

@@ -40,8 +40,8 @@
     "doneForMorning": "Selesai Pagi",
     "doneForEvening": "Selesai Petang",
     "setupRequiredTitle": "Sediakan Akaun Anda",
-    "setupRequiredDescription": "Sila minta penjaga anda memautkan akaun anda sebelum menggunakan telefon ini.",
-    "setupRequiredShareCode": "Kongsi kod ini dengan penjaga anda supaya mereka boleh memautkan akaun anda melalui telefon mereka. Setelah dipautkan, ciri daftar masuk, permainan komuniti dan kecemasan akan diaktifkan.",
+    "setupRequiredDescription": "Sila minta penjaga anda memautkan dan menyediakan akaun anda sebelum menggunakan ciri aplikasi.",
+    "setupRequiredShareCode": "Hasilkan kod pautan dan kongsikan dengan mereka untuk menyambungkan akaun anda. Setelah dipautkan, ciri daftar masuk, permainan komuniti dan kecemasan akan diaktifkan.",
     "generateLinkCodeCta": "Jana Kod Pautan"
   },
   "settings": {
