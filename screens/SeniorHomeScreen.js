@@ -57,6 +57,15 @@ export default function SeniorHomeScreen({
   const seniorName = getSeniorDisplayName(senior);
 
   useEffect(() => {
+    // Skip the pulse loop entirely while the senior is in restricted
+    // (linkage-incomplete) mode - the Generate Link Code button on the
+    // restricted card is rendered without the Animated.View wrapper
+    // around it, so no consumer would render the pulse anyway. Tying
+    // the dependency to isLinkageIncomplete means React tears down the
+    // loop immediately when the senior transitions from full Home into
+    // restricted mode (and vice versa) instead of letting the loop keep
+    // spinning on a value nobody reads.
+    if (isLinkageIncomplete) return;
     if (!hasCheckedIn) {
       const loop = Animated.loop(
         Animated.sequence([
@@ -69,7 +78,7 @@ export default function SeniorHomeScreen({
     }
 
     Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }).start();
-  }, [hasCheckedIn, pulseAnim, scaleAnim]);
+  }, [hasCheckedIn, isLinkageIncomplete, pulseAnim, scaleAnim]);
 
   // RESTRICTED HOME: shown when the senior has not yet been linked to
   // a caregiver. App.js sources `isLinkageIncomplete` from
@@ -99,27 +108,25 @@ export default function SeniorHomeScreen({
             <Text style={[styles.setupShareHint, { fontSize: 14 * fontScale }]}>{t('home.setupRequiredShareCode')}</Text>
           </View>
 
-          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-            <TouchableOpacity
-              style={styles.generateLinkCodeButton}
-              onPress={() => {
-                if (typeof onGenerateLinkCode === 'function') {
-                  onGenerateLinkCode();
-                }
-              }}
-              activeOpacity={0.86}
-              accessibilityRole="button"
-              accessibilityLabel={t('home.generateLinkCodeCta')}
+          <TouchableOpacity
+            style={styles.generateLinkCodeButton}
+            onPress={() => {
+              if (typeof onGenerateLinkCode === 'function') {
+                onGenerateLinkCode();
+              }
+            }}
+            activeOpacity={0.86}
+            accessibilityRole="button"
+            accessibilityLabel={t('home.generateLinkCodeCta')}
+          >
+            <Text
+              style={[styles.generateLinkCodeText, { fontSize: 22 * fontScale }]}
+              adjustsFontSizeToFit
+              numberOfLines={2}
             >
-              <Text
-                style={[styles.generateLinkCodeText, { fontSize: 22 * fontScale }]}
-                adjustsFontSizeToFit
-                numberOfLines={2}
-              >
-                {t('home.generateLinkCodeCta')}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
+              {t('home.generateLinkCodeCta')}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
 
         <SeniorBottomNav
