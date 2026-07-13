@@ -788,9 +788,18 @@ export default function App() {
         );
 
         setUsers(Array.isArray(usersData) ? usersData : []);
-        // Seniors left empty until refreshAll (role-aware) — do NOT fall back
-        // to fetching all seniors here so caregivers never see unfiltered data.
-        setSeniors([]);
+        // Seniors is intentionally NOT touched here. The role-aware
+        // refreshAll() populated summary data after login (so seniors
+        // already reflects this caregiver's roster). Touching seniors
+        // state inside this mount-time fetchAllData effect races with
+        // a concurrent login — the slow Promise.all below resolves
+        // *after* handleLogin has called refreshAll(), and an
+        // unconditional setSeniors([]) silently wipes the populated
+        // roster to empty, leaving the Caregiver Home tile stuck at
+        // 0/0 even though Amanda actually has 5 linked seniors.
+        // Initial useState([]) keeps the list empty before login;
+        // refreshAll() owns the roster end-to-end; handleLogout()
+        // clears it on sign-out.
         setCheckIns(Array.isArray(checkInsData) ? checkInsData : []);
         setCommunityActivities(Array.isArray(communitiesData) ? communitiesData : []);
         setEmergencyEvents(Array.isArray(emergencyData) ? emergencyData : []);
@@ -798,7 +807,10 @@ export default function App() {
       } catch (err) {
         console.log('API fetch error:', err);
 
-        setSeniors([]);
+        // Skip setSeniors([]) here for the same race-condition reason
+        // documented above. Other datasets are still cleared because
+        // they were never populated and could be left with stale rows
+        // from a previous session.
         setUsers([]);
         setCheckIns([]);
         setCommunityActivities([]);
