@@ -212,10 +212,12 @@ router.post("/record-activity", async (req, res) => {
       current_streak: currentStreak,
     });
 
-    // Diagnostic log so future render-log dives can tell whether the gate
-    // short-circuited us (`checkIn.created === false` -> silent dedup) or
-    // whether we actually scheduled a fan-out. Companion log line lives
-    // inside dispatchEngagement (`[fanout] invoked source=community ...`).
+    // Diagnostic log so future render-log dives can tell whether this
+    // puzzle press is also the senior's FIRST engagement of the day
+    // (created:true -> fan-out fires) or a duplicate of an earlier
+    // I'm-okay engagement today (created:false -> fan-out suppressed).
+    // Companion log line lives inside dispatchEngagement
+    // (`[fanout] invoked source=community ...`).
     console.log(
       "[community] record-activity checkin_created=" + (checkIn.created ? "true" : "false") +
         " checkin_id=" + String(checkIn.checkin_id) +
@@ -224,14 +226,27 @@ router.post("/record-activity", async (req, res) => {
         " -> " + (checkIn.created ? "WILL fire fan-out" : "SKIP fan-out (already checked in today)")
     );
 
-    // Fan-out fires only when THIS community activity is ALSO the senior's
-    // FIRST engagement of the day. `checkIn.created === true` means there
-    // was no Daily_CheckIn row for today before this activity, so we just
-    // created one — exactly the moment to dispatch.
-    // If they had already checked in via I-am-okay earlier today, the
-    //     already-existing Daily_CheckIn row short-circuits and this branch
-    //     does not fire, so we get exactly one fan-out per (senior, day) no
-    //     matter how they engaged.
+    // Fan-out is gated on `checkIn.created === true` so the senior gets
+    // **exactly one** fan-out per (senior, day) regardless of source.
+    // Together with the symmetric dedup in checkInRoutes.js (button
+    // path), the user-visible semantic is:
+    //
+    //   • Senior pressed I'm-okay FIRST today
+    //     → button path's findTodaySql returned the row, fired its
+    //       fan-out once, inserted Daily_CheckIn already. The puzzle
+    //       path now finds that row, returns created:false, and skips
+    //       its own fan-out. No duplicate Notification / SN / Telegram
+    //       pings. ✓
+    //   • Senior missed I'm-okay and ONLY played the puzzle today
+    //     → ensureDailyCheckInForActivity INSERTs a fresh Daily_CheckIn
+    //       here, returns created:true, this branch fires the fan-out
+    //       with event_type="Community Game". The Senior's day is
+    //       captured via the puzzle path. ✓
+    //
+    // The CommunityScreen.js frontend dedups `recordedActivityKeyRef.current
+    // = ${seniorId}:${getTodayKey()}` so each (senior, day) only POSTs
+    // once even if the senior replays the puzzle multiple times, making
+    // the backend gate the authoritative per-day ceiling.
     if (checkIn.created) {
       setImmediate(() => {
         dispatchEngagement({
