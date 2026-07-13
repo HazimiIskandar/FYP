@@ -40,21 +40,37 @@ const createNotification = (
         Number(alert_id != null);
 
     if (linksSet !== 1) {
+        // The `[notification] SKIP:` prefix lives ONLY in the log line; the
+        // Error message stays self-describing so when dispatchEngagement
+        // surfaces it as `reason=...`, we don't see a duplicated tag.
+        const reason =
+            "linksSet invariant violation: exactly one of event_id / " +
+            "checkin_id / alert_id must be set (got " + linksSet + ")";
         console.warn(
-            "[notificationService] exactly one of event_id / checkin_id / " +
-            "alert_id must be set (got " + linksSet + "). Skipping insert.",
+            "[notification] SKIP: " + reason,
             { event_id, checkin_id, alert_id }
         );
-        return;
+        // Returning a resolved Promise keeps dispatchEngagement's settle
+        // shape consistent across all code paths so its per-sink logs always
+        // surface a useful `.value.error` instead of falling through to
+        // `reason=unknown`.
+        return Promise.resolve({
+            ok: false,
+            insertId: null,
+            error: new Error(reason),
+        });
     }
 
     // alert_id + sensor_id must move as a pair (NULL together or both set).
     if ((alert_id == null) !== (sensor_id == null)) {
-        console.warn(
-            "[notificationService] alert_id and sensor_id must both be set or both be NULL.",
-            { alert_id, sensor_id }
-        );
-        return;
+        const reason =
+            "alert_id / sensor_id pairing violation: must both be set or both be NULL";
+        console.warn("[notification] SKIP: " + reason, { alert_id, sensor_id });
+        return Promise.resolve({
+            ok: false,
+            insertId: null,
+            error: new Error(reason),
+        });
     }
 
     const sql = `
@@ -72,25 +88,49 @@ const createNotification = (
         VALUES (?, ?, 'Sent', ?, ?, ?, ?, ?)
     `;
 
-    db.query(
-        sql,
-        [
-            recipient_type,
-            recipient_name,
-            senior_id,
-            event_id,
-            checkin_id,
-            alert_id,
-            sensor_id,
-        ],
-        (err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                console.log("Notification created", result && result.insertId);
+    // Returns a Promise so callers (notably notificationFanout.js) can await
+    // the actual INSERT completion via Promise.allSettled. Without this wrap,
+    // the db.query callback was orphaned: Promise.resolve(createNotification(...))
+    // resolved to `undefined` immediately, and any failure (FK violation,
+    // connection drop, pool exhaustion) was just printed via console.log and
+    // never surfaced. We resolve UNCONDITIONALLY on both success and failure
+    // so Promise.allSettled always settles — the caller inspects `.value.ok`
+    // and `.value.error` instead of relying on rejection.
+    return new Promise((resolve) => {
+        db.query(
+            sql,
+            [
+                recipient_type,
+                recipient_name,
+                senior_id,
+                event_id,
+                checkin_id,
+                alert_id,
+                sensor_id,
+            ],
+            (err, result) => {
+                if (err) {
+                    console.warn(
+                        "[notification] FAIL senior_id=" + String(senior_id) +
+                        " checkin_id=" + String(checkin_id) +
+                        " event_id=" + String(event_id) +
+                        " err=" + ((err && err.message) || String(err))
+                    );
+                    return resolve({ ok: false, insertId: null, error: err });
+                }
+                console.log(
+                    "[notification] OK id=" + (result && result.insertId) +
+                    " senior_id=" + String(senior_id) +
+                    " checkin_id=" + String(checkin_id)
+                );
+                return resolve({
+                    ok: true,
+                    insertId: (result && Number(result.insertId)) || null,
+                    error: null,
+                });
             }
-        }
-    );
+        );
+    });
 };
 
 module.exports = {

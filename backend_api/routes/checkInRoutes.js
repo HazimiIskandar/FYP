@@ -172,6 +172,13 @@ router.post("/", (req, res) => {
                           notify_bucket,
                         });
 
+                        console.log(
+                          "[checkin] post-response scheduling fanout checkin_id=" +
+                            String(newCheckinId) +
+                            " senior_id=" + String(senior_id) +
+                            " bucket=" + notify_bucket
+                        );
+
                         // Fire-and-forget. Never blocks the response.
                         setImmediate(() => {
                           dispatchEngagement({

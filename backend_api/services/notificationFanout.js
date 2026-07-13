@@ -74,6 +74,19 @@ async function dispatchEngagement({
   source = "checkin",
 }) {
   try {
+    // Top-of-function log: if we see this in Render logs, the fan-out reached
+    // dispatchEngagement AND the route scheduled us (setImmediate ticked). If
+    // we DON'T see this, the gate `if (checkIn.created)` short-circuited us
+    // (i.e. the senior already had a Daily_CheckIn row for today from an
+    // earlier I-am-okay press) and the puzzle-fire was correctly dedup'd.
+    console.log(
+      "[fanout] invoked source=" + source +
+        " event=" + eventType +
+        " checkin_id=" + String(checkinId) +
+        " senior_id=" + String(seniorId) +
+        " bucket=" + bucket +
+        " im_okay=" + (imOkay ? "true" : "false")
+    );
     // ---------- 1. Enrich from MySQL (parallel) ----------
     const seniorRows = await dbQueryAsync(
       `SELECT ua.full_name
@@ -152,21 +165,58 @@ async function dispatchEngagement({
     };
 
     // ---------- 3. Fire all three sinks in parallel ----------
-    await Promise.allSettled([
-      // createNotification runs async (callback-style); wrap in Promise.resolve
-      // so Promise.allSettled treats it as a settled then-able.
-      Promise.resolve(
-        createNotification(
-          bucket,
-          caregiverName,
-          seniorId,
-          null, // event_id — community/button flows don't carry one
-          checkinId
-        )
+    // createNotification is now Promise-returning (notificationService.js
+    // wraps the db.query callback in a Promise, so the INSERT actually
+    // settles before we proceed). notifyCheckIn and servicenow.createCheck*
+    // are already thenables. We consume the per-sink settled results so a
+    // future render-log dive shows EXACTLY which sink failed and why — the
+    // previous version fire-and-forgot createNotification which masked
+    // silent INSERT failures behind console.log only.
+    const sinkResults = await Promise.allSettled([
+      createNotification(
+        bucket,
+        caregiverName,
+        seniorId,
+        null, // event_id — community/button flows don't carry one
+        checkinId
       ),
       notifyCheckIn(bucket, tgPayload),
       servicenow.createCheckInResponse(snCtx),
     ]);
+    const [notifResult, tgResult, snResult] = sinkResults;
+
+    if (notifResult.status === "fulfilled" && notifResult.value && notifResult.value.ok) {
+      // success path — already logged inside createNotification
+    } else {
+      const reason =
+        notifResult.status === "rejected"
+          ? notifResult.reason
+          : (notifResult.value && notifResult.value.error) || "unknown";
+      console.warn(
+        "[fanout] notification FAILED source=" + source +
+          " checkin_id=" + String(checkinId) +
+          " reason=" + (reason && reason.message ? reason.message : JSON.stringify(reason))
+      );
+    }
+    if (tgResult.status === "rejected") {
+      console.warn(
+        "[fanout] telegram FAILED source=" + source +
+          " reason=" + (tgResult.reason && tgResult.reason.message ? tgResult.reason.message : String(tgResult.reason))
+      );
+    }
+    if (snResult.status === "fulfilled") {
+      const wasOk =
+        snResult.value && typeof snResult.value === "object" && snResult.value.sys_id;
+      console.log(
+        "[fanout] servicenow source=" + source +
+          " result=" + (wasOk ? "OK sys_id=" + wasOk : "null")
+      );
+    } else {
+      console.warn(
+        "[fanout] servicenow FAILED source=" + source +
+          " reason=" + (snResult.reason && snResult.reason.message ? snResult.reason.message : String(snResult.reason))
+      );
+    }
 
     // "dispatched" (not "completed") because Notification INSERT callback
     // runs after this log fires, and Telegram/SN return values are already

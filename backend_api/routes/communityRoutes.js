@@ -212,6 +212,18 @@ router.post("/record-activity", async (req, res) => {
       current_streak: currentStreak,
     });
 
+    // Diagnostic log so future render-log dives can tell whether the gate
+    // short-circuited us (`checkIn.created === false` -> silent dedup) or
+    // whether we actually scheduled a fan-out. Companion log line lives
+    // inside dispatchEngagement (`[fanout] invoked source=community ...`).
+    console.log(
+      "[community] record-activity checkin_created=" + (checkIn.created ? "true" : "false") +
+        " checkin_id=" + String(checkIn.checkin_id) +
+        " senior_id=" + String(senior_id) +
+        " activity_created=" + (activityCreated ? "true" : "false") +
+        " -> " + (checkIn.created ? "WILL fire fan-out" : "SKIP fan-out (already checked in today)")
+    );
+
     // Fan-out fires only when THIS community activity is ALSO the senior's
     // FIRST engagement of the day. `checkIn.created === true` means there
     // was no Daily_CheckIn row for today before this activity, so we just
