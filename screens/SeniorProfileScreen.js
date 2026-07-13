@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   },
   setupNoticeCard: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 300,
     backgroundColor: '#FEFCE8',
     borderRadius: 22,
     borderTopWidth: 4,
