@@ -35,8 +35,21 @@ const CONFIG = Object.freeze({
 // timestamps stay consistent with the rest of the app's UI dates).
 const pool = mysql.createPool({
   ...CONFIG,
-  connectionLimit: Number(process.env.DB_POOL_LIMIT) || 10,
+  // Filess.io's MySQL server caps `max_user_connections` per user at 5.
+  // Setting our pool's `connectionLimit` to anything >= 6 will cause
+  // the 6th..Nth pool.query() acquire to be rejected by the server with
+  // ER_USER_LIMIT_REACHED (errno 1226), which is exactly what blew up
+  // the recent deploy. 4 leaves one slot of headroom for any external
+  // MySQL client (phpMyAdmin, MySQL Workbench) the user may spin up
+  // against the same DB. Bump this via `DB_POOL_LIMIT` env var on Render
+  // if you migrate to a host with a higher cap.
+  connectionLimit: Number(process.env.DB_POOL_LIMIT) || 4,
   waitForConnections: true,
+  // Cap the queue so a misbehaving traffic spike cannot buffer thousands
+  // of pending requests inside the pool. Beyond this, mysql2 returns
+  // ER_CON_COUNT_ERROR to the caller immediately (route handlers log
+  // it as a 500) instead of letting memory climb unbounded.
+  queueLimit: Number(process.env.DB_POOL_QUEUE_LIMIT) || 50,
   enableKeepAlive: true,
   // Pick the first TCP keep-alive 30s after a connection opens -- well
   // below filess.io's idle reset interval, so the OS actively proves the
@@ -93,7 +106,7 @@ pool.query(
       "| session.tz=" + r.tz,
       "| server_now=" + r.server_now,
       "| utc_now=" + r.utc_now,
-      "| pool_limit=" + (Number(process.env.DB_POOL_LIMIT) || 10)
+      "| pool_limit=" + (Number(process.env.DB_POOL_LIMIT) || 4)
     );
     if (!tzOk) {
       console.error(
