@@ -55,11 +55,22 @@ const TOKEN_REFRESH_SAFETY_MS = 60_000; // refresh 60s before SN-issued expiry
 // `Community Game` was added so the memory-match puzzle on
 // `screens/CommunityScreen.js` flows through the same Notification audit +
 // ServiceNow `u_checkin_response` row as the I-am-okay button. Choice
-// dictionaries on the SN side may need a one-time admin update to
-// accept the new value (look up u_event_type on the table's column
-// schema). Invalid choices cause a 400 from /api/now — `buildPayload`
-// does NOT auto-coerce once we add the value to this set; log a
-// `[servicenow] FAIL status=400` if SN still rejects.
+// dictionaries on the SN side need a one-time admin update to accept the
+// new value: in dev316146, navigate to Application Explorer -> u_checkin_response
+// table -> u_event_type column -> Choices related list -> New, set
+// Value='Community Game', Label='Community Game', Sequence=last-1,
+// then Submit. Until that admin step runs, the catch block in
+// `createCheckInResponse` will defensively coerce the value to the
+// always-present baseline 'Daily Check-In' on the retry, and log a
+// `[servicenow] CHOICE-COERCE ...` line so the operator can audit when
+// the fallback fired. After the admin step lands, the coercion log will
+// stop appearing for that event type.
+//
+// ADDING NEW EVENT TYPES
+//   1) Add the string to VALID_EVENT_TYPES below.
+//   2) Add the same string to SN sys_choice for u_event_type (admin step).
+//   3) Update EVENT_VERBS in services/telegramService.js (#271) so the
+//      outbound Telegram message matches the new source.
 const VALID_EVENT_TYPES = new Set([
   "Daily Check-In",
   "Missed Check-In",
@@ -263,6 +274,30 @@ async function createCheckInResponse(ctx) {
         // an ACL/permissions failure that retrying cannot fix.
         if (status === 401) {
           clearTokenCache();
+        }
+        // 400 from /api/now with a u_event_type that isn't yet in SN's
+        // sys_choice list (the typical case on dev316146 PDI for newly-introduced
+        // event types like 'Community Game'). The validation list on
+        // VALID_EVENT_TYPES is the CLIENT view; SN's authoritative list lives
+        // in sys_choice and must be updated by an SN admin one-time per new
+        // value. Until that admin step runs, this defensive coercion degrades
+        // gracefully: retry once with the always-present baseline
+        // 'Daily Check-In' so the row still lands. The MySQL Notification
+        // row keeps the original event_type so the audit trail is preserved.
+        // A `[servicenow] CHOICE-COERCE …` line in Render logs flags this so
+        // the operator can audit when the fallback fired.
+        if (
+          status === 400 &&
+          payload.u_event_type &&
+          payload.u_event_type !== "Daily Check-In"
+        ) {
+          const coerced = payload.u_event_type;
+          payload.u_event_type = "Daily Check-In";
+          console.warn(
+            "[servicenow] CHOICE-COERCE " + coerced +
+              " -> Daily Check-In status=400 reason=" +
+              JSON.stringify(reason)
+          );
         }
         if (attempt < MAX_ATTEMPTS) continue;
       }
