@@ -1,11 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import SeniorBottomNav from '../components/SeniorBottomNav';
 import { useFontScale } from '../context/FontSizeContext';
-import { Modal, Pressable } from 'react-native';
 import { formatDate } from '../utils/time';
 
 const getSeniorName = (senior) =>
@@ -231,7 +239,7 @@ export default function SeniorProfileScreen({
       />
 
       {showSetupNotice ? (
-        <Modal transparent animationType="fade" visible={true} onRequestClose={dismissSetupNotice}>
+        <Modal transparent animationType="fade" visible={showSetupNotice} onRequestClose={dismissSetupNotice}>
           <View style={styles.setupNoticeModal}>
             <Pressable style={styles.setupNoticeBackdrop} onPress={dismissSetupNotice} />
             <View style={styles.setupNoticeCard}>
