@@ -1339,8 +1339,16 @@ export default function App() {
       return (
         <CaregiverHomeScreen
           summary={{
+            // Total / Checked In / Urgent must all be scoped to the SAME
+            // set — this caregiver's roster (decoratedSeniors). The previous
+            // implementation mixed checkedInCount (computed from /checkins,
+            // which is a global endpoint) into a numerator alongside a
+            // roster-scoped denominator => ratios > 1 (e.g. "21/5") on a
+            // roster of 5 seniors. decoratedSeniors[i].status already encodes
+            // "Checked In" via getDerivedStatus, so all three counts come
+            // from the same scoped set.
             total: decoratedSeniors.length,
-            checkedIn: checkedInCount,
+            checkedIn: decoratedSeniors.filter((s) => s.status === 'Checked In').length,
             urgent: decoratedSeniors.filter((s) => s.status === 'Urgent').length
           }}
           prioritySenior={topPrioritySenior}
