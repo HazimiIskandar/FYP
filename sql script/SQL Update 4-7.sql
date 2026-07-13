@@ -201,14 +201,28 @@ DEFAULT CHARACTER SET = utf8mb4;
 -- -----------------------------------------------------
 -- Table `senior_connect_curiousago`.`Emergency_Event`
 -- -----------------------------------------------------
+-- Semantic note on nullable FKs:
+--   - alert_id + sensor_id form a composite FK to Sensor_Alert. They are
+--     NULLable so non-sensor emergency paths (manual SOS button press,
+--     auto-escalated Missed Check-In) can store a row without a physical
+--     sensor source.
+--   - The composite FK (alert_id, sensor_id) tolerates NULLs in InnoDB; the
+--     CHECK constraint below forbids half-populated pairs so we never end up
+--     with `alert_id=5, sensor_id=NULL` (which would silently bypass the FK).
+--   - event_type is the discriminator:
+--       'SOS'              - manual SOS from app (no sensor)
+--       'Missed Check-In'  - escalation engine (no sensor)
+--       'Sensor Alert'     - generic real-sensor alert
+--       'Fall Detected'    - wearable/fall sensor reported a fall
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Emergency_Event` (
   `event_id` INT NOT NULL AUTO_INCREMENT,
   `senior_id` INT NOT NULL,
+  `event_type` VARCHAR(50) NOT NULL,
   `event_status` VARCHAR(50) NOT NULL DEFAULT 'Open',
   `escalation_level` VARCHAR(50) NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `alert_id` INT NOT NULL,
-  `sensor_id` INT NOT NULL,
+  `alert_id` INT NULL DEFAULT NULL,
+  `sensor_id` INT NULL DEFAULT NULL,
   PRIMARY KEY (`event_id`),
   INDEX `senior_id` (`senior_id` ASC) VISIBLE,
   INDEX `fk_Emergency_Event_Sensor_Alert1_idx` (`alert_id` ASC, `sensor_id` ASC) VISIBLE,
@@ -219,7 +233,10 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Emergency_Event` (
     ON UPDATE CASCADE,
   CONSTRAINT `fk_Emergency_Event_Sensor_Alert1`
     FOREIGN KEY (`alert_id` , `sensor_id`)
-    REFERENCES `senior_connect_curiousago`.`Sensor_Alert` (`alert_id` , `sensor_id`))
+    REFERENCES `senior_connect_curiousago`.`Sensor_Alert` (`alert_id` , `sensor_id`),
+  CONSTRAINT `chk_Emergency_Event_sensor_alert_pair`
+    CHECK ((`alert_id` IS NULL AND `sensor_id` IS NULL)
+        OR (`alert_id` IS NOT NULL AND `sensor_id` IS NOT NULL)))
 ENGINE = InnoDB
 AUTO_INCREMENT = 282
 DEFAULT CHARACTER SET = utf8mb4;
@@ -228,9 +245,13 @@ DEFAULT CHARACTER SET = utf8mb4;
 -- -----------------------------------------------------
 -- Table `senior_connect_curiousago`.`Escalation_History`
 -- -----------------------------------------------------
+-- escalated_to captures WHO/WHAT the escalation was handed off to
+-- ('Caregiver App', 'System Auto Escalation', AIC staff names, ...).
+-- The application writes to this column from logEscalation().
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Escalation_History` (
   `escalation_id` INT NOT NULL AUTO_INCREMENT,
   `event_id` INT NOT NULL,
+  `escalated_to` VARCHAR(100) NULL DEFAULT NULL,
   `escalation_time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `escalation_status` VARCHAR(50) NOT NULL,
   PRIMARY KEY (`escalation_id`),
@@ -293,15 +314,27 @@ DEFAULT CHARACTER SET = utf8mb4;
 -- -----------------------------------------------------
 -- Table `senior_connect_curiousago`.`Notification`
 -- -----------------------------------------------------
+-- A Notification is the audit row for *any* outbound alert. It is linked
+-- back to exactly ONE of the source kinds via the FK columns:
+--   - checkin_id   - notification fired because of a Daily_CheckIn row
+--   - event_id     - notification fired because of an Emergency_Event
+--   - alert_id     - notification fired because of a Sensor_Alert
+-- All three FK columns are NULLable; at least one of them MUST be set,
+-- enforced by chk_Notification_one_link.
+--
+-- recipient_type / recipient_name describe WHO the notification was sent to
+-- ('caregiver', 'nok', 'aic', 'all' or a bucket name like 'caregiver_nok_aic').
 CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Notification` (
   `notification_id` INT NOT NULL AUTO_INCREMENT,
   `notification_status` VARCHAR(50) NOT NULL,
+  `recipient_type` VARCHAR(50) NULL DEFAULT NULL,
+  `recipient_name` VARCHAR(100) NULL DEFAULT NULL,
   `sent_timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `senior_id` INT NOT NULL,
   `event_id` INT NULL DEFAULT NULL,
-  `checkin_id` INT NOT NULL,
-  `alert_id` INT NOT NULL,
-  `sensor_id` INT NOT NULL,
+  `checkin_id` INT NULL DEFAULT NULL,
+  `alert_id` INT NULL DEFAULT NULL,
+  `sensor_id` INT NULL DEFAULT NULL,
   PRIMARY KEY (`notification_id`),
   INDEX `fk_Notification_Senior1_idx1` (`senior_id` ASC) VISIBLE,
   INDEX `fk_Notification_Emergency_Event1_idx` (`event_id` ASC) VISIBLE,
@@ -318,7 +351,11 @@ CREATE TABLE IF NOT EXISTS `senior_connect_curiousago`.`Notification` (
     REFERENCES `senior_connect_curiousago`.`Senior` (`senior_id`),
   CONSTRAINT `fk_Notification_Sensor_Alert1`
     FOREIGN KEY (`alert_id` , `sensor_id`)
-    REFERENCES `senior_connect_curiousago`.`Sensor_Alert` (`alert_id` , `sensor_id`))
+    REFERENCES `senior_connect_curiousago`.`Sensor_Alert` (`alert_id` , `sensor_id`),
+  CONSTRAINT `chk_Notification_one_link`
+    CHECK (`event_id` IS NOT NULL
+        OR `checkin_id` IS NOT NULL
+        OR `alert_id` IS NOT NULL))
 ENGINE = InnoDB
 AUTO_INCREMENT = 2
 DEFAULT CHARACTER SET = utf8mb4;

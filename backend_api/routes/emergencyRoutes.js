@@ -2,7 +2,12 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 
-// TRIGGER EMERGENCY
+// TRIGGER EMERGENCY (manual SOS from app)
+//
+// Manual SOS has NO physical sensor source, so alert_id / sensor_id are left
+// NULL. The CHECK constraint chk_Emergency_Event_sensor_alert_pair enforces
+// the all-or-nothing rule, and event_type='SOS' tells the front-end /
+// escalation engine what kind of event this is.
 router.post("/trigger", (req, res) => {
   const { senior_id } = req.body;
 

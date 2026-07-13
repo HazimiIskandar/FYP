@@ -44,6 +44,9 @@ const VALID_EVENT_TYPES = new Set([
   "Daily Check-In",
   "Missed Check-In",
   "Emergency",
+  "SOS",
+  "Fall Detected",
+  "Sensor Alert",
 ]);
 const VALID_WORKFLOW_ROUTES = new Set([
   "caregiver_aic",

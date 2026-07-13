@@ -3,9 +3,13 @@ const router = express.Router();
 const db = require("../config/db");
 
 // ESCALATION ENGINE
+//
+// A missed check-in is a SYSTEM-triggered event with NO physical sensor
+// source, so alert_id / sensor_id stay NULL. event_type='Missed Check-In'
+// distinguishes it from manual SOS and from real sensor alerts.
 const escalateCheckIn = (senior_id) => {
     const createEvent = `
-        INSERT INTO Emergency_Event 
+        INSERT INTO Emergency_Event
         (senior_id, event_type, event_status, escalation_level)
         VALUES (?, 'Missed Check-In', 'Open', 'Level 1')
     `;
