@@ -40,8 +40,8 @@
     "doneForMorning": "Done for Morning",
     "doneForEvening": "Done for Evening",
     "setupRequiredTitle": "Set Up Your Account",
-    "setupRequiredDescription": "Please ask your caregiver to link your account before using this phone.",
-    "setupRequiredShareCode": "Share this code with your caregiver so they can link your account on their phone. Once linked, your check-in, community games, and emergency features will be enabled.",
+    "setupRequiredDescription": "Please ask your caregiver to link and set up your account before using the app's features.",
+    "setupRequiredShareCode": "Generate a link code and share it with them to connect your accounts. Once linked, your check-in, community games, and emergency features will be enabled.",
     "generateLinkCodeCta": "Generate Link Code"
   },
   "settings": {
