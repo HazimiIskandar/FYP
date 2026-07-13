@@ -1,0 +1,284 @@
+--- User_Account columns ---
+[
+  {
+    "Field": "user_id",
+    "Type": "int",
+    "Null": "NO",
+    "Key": "PRI",
+    "Default": null,
+    "Extra": "auto_increment"
+  },
+  {
+    "Field": "role_id",
+    "Type": "int",
+    "Null": "NO",
+    "Key": "MUL",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "full_name",
+    "Type": "varchar(100)",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "phone_number",
+    "Type": "varchar(20)",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "email",
+    "Type": "varchar(100)",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "dob",
+    "Type": "date",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "gender",
+    "Type": "varchar(10)",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "address",
+    "Type": "varchar(255)",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "postal_code",
+    "Type": "char(6)",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "unit_number",
+    "Type": "varchar(10)",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "created_at",
+    "Type": "timestamp",
+    "Null": "YES",
+    "Key": "",
+    "Default": "CURRENT_TIMESTAMP",
+    "Extra": "DEFAULT_GENERATED"
+  },
+  {
+    "Field": "account_status",
+    "Type": "varchar(50)",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "last_login",
+    "Type": "timestamp",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "password",
+    "Type": "varchar(255)",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "preferred_language",
+    "Type": "varchar(8)",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  }
+]
+
+=== SCHEMA AVAILABILITY ===
+User_Account.full_name : true
+User_Account.email     : true
+User_Account.role_id   : true
+User_Account.dob       : true
+MySQL Database Connected Successfully (pool, reconnect-capable) | session.tz=+08:00 | server_now=Mon Jul 13 2026 23:57:22 GMT+0800 (Singapore Standard Time) | utc_now=Mon Jul 13 2026 15:57:22 GMT+0800 (Singapore Standard Time) | pool_limit=4
+--- All caregiver User_Account rows (role_id = 2) ---
+[
+  {
+    "user_id": 19,
+    "full_name": "Amanda Lee",
+    "email": "amanda_lee@gmail.com",
+    "role_id": 2
+  },
+  {
+    "user_id": 24,
+    "full_name": "Caregiver",
+    "email": "caregiver@gmail.com",
+    "role_id": 2
+  },
+  {
+    "user_id": 7,
+    "full_name": "xx",
+    "email": "xx",
+    "role_id": 2
+  }
+]
+--- Senior_has_Caregiver linkage counts per caregiver, ordered desc ---
+[
+  {
+    "caregiver_id": 19,
+    "full_name": "Amanda Lee",
+    "email": "amanda_lee@gmail.com",
+    "linked_seniors": 5
+  },
+  {
+    "caregiver_id": 7,
+    "full_name": "xx",
+    "email": "xx",
+    "linked_seniors": 2
+  }
+]
+--- Endpoint-equivalent rows for caregiver_id=19 (Amanda Lee, 5 linked) ---
+[
+  {
+    "senior_id": 13,
+    "user_id": 13,
+    "preferred_checkin_time": "10:00 AM, 7:00 PM",
+    "age": 69,
+    "full_name": "Ah Beng",
+    "phone_number": "92973498",
+    "email": "ahbeng@gmail.com",
+    "dob": "1956-11-04T16:00:00.000Z",
+    "gender": "Male",
+    "address": "80 Robinson Road",
+    "postal_code": "068898",
+    "unit_number": "#05-125"
+  },
+  {
+    "senior_id": 1,
+    "user_id": 1,
+    "preferred_checkin_time": "9:00 AM - 12:00 PM, 4:00 PM - 10:00 PM",
+    "age": 79,
+    "full_name": "Margaret Tan",
+    "phone_number": "91234564",
+    "email": "margaret@gmail.com",
+    "dob": "1947-02-21T16:00:00.000Z",
+    "gender": "Female",
+    "address": "135 Jurong East Street 14",
+    "postal_code": "600134",
+    "unit_number": "#04-334"
+  },
+  {
+    "senior_id": 28,
+    "user_id": 30,
+    "preferred_checkin_time": "9:00 AM",
+    "age": 74,
+    "full_name": "Richard Low",
+    "phone_number": "98483294",
+    "email": "zalazam@zam.com",
+    "dob": "1952-03-02T16:00:00.000Z",
+    "gender": "Male",
+    "address": "80 Robinson Road",
+    "postal_code": "068898",
+    "unit_number": "#06-01"
+  },
+  {
+    "senior_id": 30,
+    "user_id": 31,
+    "preferred_checkin_time": "9:00 AM",
+    "age": 86,
+    "full_name": "Senior Hello",
+    "phone_number": "92973497",
+    "email": "seniorhello@gmail.com",
+    "dob": "1940-05-03T16:00:00.000Z",
+    "gender": "Male",
+    "address": "9 Woodlands Ave 9, Singapore 738964",
+    "postal_code": "738964",
+    "unit_number": "#04-876"
+  },
+  {
+    "senior_id": 2,
+    "user_id": 2,
+    "preferred_checkin_time": "9:00 AM",
+    "age": 79,
+    "full_name": "Tan Ah Kow",
+    "phone_number": "88983280",
+    "email": "ahkow@gmail.com",
+    "dob": "1947-02-11T16:00:00.000Z",
+    "gender": "Male",
+    "address": "Blk 105 Clementi Street 12",
+    "postal_code": "120105",
+    "unit_number": "#04-208"
+  }
+]
+--- Amanda candidate — caregiver_id=19 (Amanda Lee) roster ---
+[
+  {
+    "senior_id": 13,
+    "user_id": 13,
+    "full_name": "Ah Beng",
+    "caregiver_id": 19
+  },
+  {
+    "senior_id": 1,
+    "user_id": 1,
+    "full_name": "Margaret Tan",
+    "caregiver_id": 19
+  },
+  {
+    "senior_id": 28,
+    "user_id": 30,
+    "full_name": "Richard Low",
+    "caregiver_id": 19
+  },
+  {
+    "senior_id": 30,
+    "user_id": 31,
+    "full_name": "Senior Hello",
+    "caregiver_id": 19
+  },
+  {
+    "senior_id": 2,
+    "user_id": 2,
+    "full_name": "Tan Ah Kow",
+    "caregiver_id": 19
+  }
+]
+--- Orphan linkage sanity check (senior_id or caregiver_id no longer exists) ---
+[]
+
+=== SUMMARY ===
+caregivers (role_id = 2) total: 3
+Senior_has_Caregiver rows total: 7
+Top 5 caregivers by linked senior count:
+  #1: caregiver_id=19 Amanda Lee <amanda_lee@gmail.com> -> 5 linked senior(s)
+  #2: caregiver_id=7 xx <xx> -> 2 linked senior(s)
+Amanda candidate rows: 1
+  -> user_id=19 full_name=Amanda Lee email=amanda_lee@gmail.com
+Orphan linkages (pointing to deleted senior or user): 0
