@@ -521,11 +521,49 @@ export default function App() {
           setCurrentScreen('SeniorSettings');
         } else {
           // 'linked' or 'error' (fallback): both land on Home. The
-          // 'error' path uses the restricted Setup-Required card on
-          // Home (linkageComplete stays at whatever React set last,
-          // usually false after a failed fetch — see notes in
-          // fetchLinkageSummary) so the senior still sees the
-          // Setup CTA, just doesn't get a forced modal-on-login.
+          // IMPORTANT nuance for the 'error' branch: an existing
+          // senior (one with a senior_id) MUST see the full Home
+          // view rather than the restricted Setup-Required card,
+          // because a transient 5xx on /linkage-summary at login
+          // time should NOT lock an existing-caregiver senior out
+          // of their dashboard. We optimise linkageComplete to TRUE
+          // specifically on the 'error' branch when a senior_id
+          // already exists (i.e. the senior actually has an account
+          // in the DB). This protects the user's invariant:
+          // "existing seniors with a caregiver must always see Home
+          // on login" doesn't depend on the /linkage-summary
+          // response being successful.
+          //
+          // To avoid leaving the senior sitting on Home with a
+          // stale optimistic state for the entire window until
+          // their next user-triggered refreshAll() (a window that
+          // could be minutes if they just sit on the home screen),
+          // we also kick off an immediate verification fetch in the
+          // background. fetchLinkageSummary is idempotent and
+          // returns the tri-state again — if it confirms the senior
+          // IS in fact unlinked, it will setLinkageComplete(false)
+          // and the next render will flip Home into the restricted
+          // Setup Required card automatically (with the user's
+          // existing data intact, exactly as the re-onboarding
+          // scenario requires). Fire-and-forget so the optimistic
+          // Home render isn't blocked on the verification round-
+          // trip. Errors on this verification fetch leave
+          // linkageComplete untouched (already set to optimistic
+          // true above) — still showing Home rather than locking
+          // out a known senior.
+          if (linkageRoutingState === 'error' && loggedInSenior?.senior_id) {
+            setLinkageComplete(true);
+            fetchLinkageSummary(loggedInSenior.senior_id, activeBase).catch(
+              (verifyErr) => {
+                console.log(
+                  'handleLogin post-optimistic verification fetch failed senior_id=' +
+                    String(loggedInSenior.senior_id) +
+                    ' err=' +
+                    ((verifyErr && verifyErr.message) || String(verifyErr))
+                );
+              }
+            );
+          }
           setCurrentScreen('Home');
         }
       }
