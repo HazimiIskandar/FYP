@@ -1317,7 +1317,18 @@ export default function App() {
               saveLanguagePreference(authenticatedUser.user_id, langCode);
             }
           }}
-          isLinkageIncomplete={!linkageComplete}
+          // The restricted Home view is reserved for genuinely NEW accounts:
+          // unlinked + personal profile hasn't been filled in yet (Case 4).
+          // Once a senior has completed their personal details they are
+          // “existing” — even if still unlinked — and the full dashboard
+          // (check-in, SOS, community, etc.) is what they should see. This
+          // is the rule the user requested after Margaret Tan’s account
+          // showed the Setup-Required card with the Generate Link Code
+          // button even though all her personal details were filled in.
+          isLinkageIncomplete={
+            !linkageComplete && !isSeniorProfileComplete(currentSenior)
+          }
+          isProfileComplete={isSeniorProfileComplete(currentSenior)}
           onGenerateLinkCode={() => {
             // Reuse the existing Caregiver modal flow. Same UX as
             // tapping the "Caregiver" row inside SeniorSettings, just
@@ -1344,7 +1355,16 @@ export default function App() {
           onSettings={() => setCurrentScreen('SeniorSettings')}
           isLinkageIncomplete={!linkageComplete}
           restrictedMode={!linkageComplete}
-          showLinkageWarning={!linkageComplete && !dismissedSetupNotice}
+          // Yellow setup-notice popup mirrors the Home restricted-view
+          // rule: only shown for genuinely new accounts (unlinked AND
+          // profile incomplete). Existing accounts (unlinked but with
+          // personal details inputted) no longer get nagged with a
+          // warning they can't act on.
+          showLinkageWarning={
+            !linkageComplete &&
+            !isSeniorProfileComplete(currentSenior) &&
+            !dismissedSetupNotice
+          }
           onDismissLinkageWarning={() => setDismissedSetupNotice(true)}
         />
       );
@@ -1367,6 +1387,12 @@ export default function App() {
     }
 
     if (currentScreen === 'SeniorSettings') {
+      // The Caregiver row + modal in SeniorSettingsScreen are gated by
+      // `restrictedMode && !isProfileComplete` (i.e. Case 4 — brand-new
+      // account). Pass `isProfileComplete` so the screen can combine it
+      // with the existing `restrictedMode` flag without us changing the
+      // SeniorBottomNav semantics (which still wants `restrictedMode` to
+      // mean “unlinked” only, unrelated to profile completion).
       return (
         <SeniorSettingsScreen
           senior={currentSenior}
@@ -1380,6 +1406,7 @@ export default function App() {
           onLogout={handleLogout}
           onRefresh={refreshAll}
           restrictedMode={!linkageComplete}
+          isProfileComplete={isSeniorProfileComplete(currentSenior)}
         />
       );
     }

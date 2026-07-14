@@ -17,14 +17,17 @@ export default function SeniorHomeScreen({
   onSettings,
   currentStreak,
   onSelectLanguage,
-  // Set by App.js when the linkage summary endpoint reports
-  // `is_fully_linked = false`. When true the screen renders a single
-  // Generate-Link-Code card instead of the daily check-in / SOS widgets,
-  // because allowing those before the caregiver links would create
-  // ServiceNow rows with empty `u_workflow_route` and Telegram/incident
-  // fan-outs the user actually didn't ask for. The CTA defers to
-  // `onGenerateLinkCode`, which App.js wires to the same Caregiver modal
-  // SeniorSettingsScreen opens via `initialModal='Caregiver'`.
+  // Set by App.js to true ONLY for a genuinely brand-new account —
+  // i.e. the senior is BOTH unlinked (per /seniors/:id/linkage-summary)
+  // AND has not yet filled in their personal details. App.js owns the
+  // conjunction (see its isLinkageIncomplete prop), so this screen
+  // just reads the resulting boolean and renders the single
+  // Generate-Link-Code card when true. Existing seniors whose
+  // personal details are already complete (Margaret Tan etc.) fall
+  // through to the full dashboard below.
+  // The CTA defers to `onGenerateLinkCode`, which App.js wires to the
+  // same Caregiver modal SeniorSettingsScreen opens via
+  // `initialModal='Caregiver'`.
   isLinkageIncomplete = false,
   onGenerateLinkCode,
 }) {
@@ -80,15 +83,18 @@ export default function SeniorHomeScreen({
     Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }).start();
   }, [hasCheckedIn, isLinkageIncomplete, pulseAnim, scaleAnim]);
 
-  // RESTRICTED HOME: shown when the senior has not yet been linked to
-  // a caregiver. App.js sources `isLinkageIncomplete` from
-  // /seniors/:id/linkage-summary. We early-return so the SOS, I'm Okay,
-  // streak card, and language-modal widgets below don't render at all —
-  // the senior literally cannot tap them. The CTA defers to
+  // RESTRICTED HOME: shown only for genuinely brand-new accounts. The
+  // gate prop already AND-combines `!linkageComplete &&
+  // !isSeniorProfileComplete` in App.js so we just early-return on it
+  // here. Existing seniors like Margaret Tan whose profile is already
+  // complete fall through to the full Home view below regardless of
+  // linkageComplete. We early-return so the SOS, I'm Okay, streak
+  // card, and language-modal widgets below don't render at all — the
+  // senior literally cannot tap them. The CTA defers to
   // `onGenerateLinkCode`, wired in App.js to open SeniorSettings with
-  // `initialModal='Caregiver'`. Reuses the existing `pulseAnim` ref so
-  // we don't allocate a second Animated.Value (React would still be
-  // happy, but keeping hooks call-count flat makes the conditional
+  // `initialModal='Caregiver'`. Reuses the existing `pulseAnim` ref
+  // so we don't allocate a second Animated.Value (React would still
+  // be happy, but keeping hooks call-count flat makes the conditional
   // render path easier to reason about).
   if (isLinkageIncomplete) {
     return (
