@@ -59,19 +59,13 @@ export default function SeniorSettingsScreen({
   initialModal,
   onInitialModalConsumed,
   // Forwarded to SeniorBottomNav so the bottom nav also hides the
-  // Community tab from this Settings screen. `restrictedMode` keeps its
-  // meaning as `!linkageComplete` (no profile involvement) so the nav
-  // restriction is unchanged.
+  // Community tab from this Settings screen. Sourced from App.js's
+  // `isNewAccount = !linkageComplete` — true for ANY senior that has
+  // no active caregiver link (brand-new account OR post-caregiver-
+  // removal re-onboarding). The Caregiver row + modal below simple gate
+  // on this same flag so both surfaces stay in sync for the same
+  // senior.
   restrictedMode = false,
-  // Set by App.js from `isSeniorProfileComplete(currentSenior)`. The
-  // Caregiver row + modal below use a STRICTER rule than restrictedMode:
-  // `restrictedMode && !isProfileComplete` (= Case 4 — genuinely brand-
-  // new account). For an existing senior with completed personal
-  // details like Margaret Tan, this is true and the row + modal are
-  // hidden so she cannot accidentally re-open the Generate Link Code
-  // modal. The auto-open path in handleLogin Case 4 still works because
-  // Case 4 implies both flags are true.
-  isProfileComplete = false,
 }) {
   const { t } = useTranslation();
   const { fontScale, setFontScale } = useFontScale();
@@ -166,17 +160,21 @@ export default function SeniorSettingsScreen({
     <SafeAreaView style={styles.container}>
       <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Caregiver row only appears for genuinely brand-new onboarding
-            accounts: BOTH unlinked (restrictedMode true) AND still missing
-            their personal details (isProfileComplete false). Linked seniors
-            AND profile-complete seniors (Margaret Tan's case) never see
-            this row, so they cannot accidentally re-open the "Generate
-            Link Code" modal. The matching modal render is gated by the
-            same conjunction below so the initialModal='Caregiver'
-            forced-on-mount in handleLogin Case 4 (always true on both
-            flags) is the ONLY legitimate way to surface the modal on
-            this screen. */}
-        {restrictedMode && !isProfileComplete ? (
+        {/* Caregiver row only appears when the senior has NO active
+            caregiver link (restrictedMode = !linkageComplete from
+            App.js). This covers BOTH brand-new accounts (profile
+            not yet filled in) AND the post-removal re-onboarding
+            case (previously-linked senior whose old caregiver just
+            deleted Senior_has_Caregiver on their side — the senior's
+            own profile, points, and history are preserved and the
+            modal simply hands them a fresh 6-digit code to share
+            with a new caregiver). Linked seniors never see this row
+            so they cannot accidentally re-open the Generate Link
+            Code modal. The matching modal render below is gated by
+            the same flag so the initialModal='Caregiver' force-on-
+            mount in handleLogin is the ONLY legitimate way to
+            surface the modal on this screen. */}
+        {restrictedMode ? (
           <TouchableOpacity
             style={styles.settingRow}
             onPress={() => setActiveModal('Caregiver')}
@@ -227,7 +225,7 @@ export default function SeniorSettingsScreen({
 
 
 
-      {activeModal === 'Caregiver' && restrictedMode && !isProfileComplete ? (
+      {activeModal === 'Caregiver' && restrictedMode ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>

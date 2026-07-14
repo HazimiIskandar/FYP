@@ -17,16 +17,14 @@ export default function SeniorHomeScreen({
   onSettings,
   currentStreak,
   onSelectLanguage,
-  // Set by App.js to true ONLY for a genuinely brand-new account —
-  // i.e. the senior is BOTH unlinked (per /seniors/:id/linkage-summary)
-  // AND has not yet filled in their personal details. App.js owns the
-  // conjunction (see its isLinkageIncomplete prop), so this screen
-  // just reads the resulting boolean and renders the single
-  // Generate-Link-Code card when true. Existing seniors whose
-  // personal details are already complete (Margaret Tan etc.) fall
-  // through to the full dashboard below.
-  // The CTA defers to `onGenerateLinkCode`, which App.js wires to the
-  // same Caregiver modal SeniorSettingsScreen opens via
+  // Set by App.js to true whenever the senior has NO active caregiver
+  // link — covers BOTH brand-new accounts AND post-caregiver-removal
+  // re-onboarding (where the senior’s profile / data is preserved
+  // and only Senior_has_Caregiver is gone). When true the screen
+  // early-returns with the restricted Setup Required card so the
+  // senior can hand a fresh 6-digit code to a new caregiver; the CTA
+  // defers to `onGenerateLinkCode`, which App.js wires to the same
+  // Caregiver modal SeniorSettingsScreen opens via
   // `initialModal='Caregiver'`.
   isLinkageIncomplete = false,
   onGenerateLinkCode,
@@ -83,12 +81,15 @@ export default function SeniorHomeScreen({
     Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }).start();
   }, [hasCheckedIn, isLinkageIncomplete, pulseAnim, scaleAnim]);
 
-  // RESTRICTED HOME: shown only for genuinely brand-new accounts. The
-  // gate prop already AND-combines `!linkageComplete &&
-  // !isSeniorProfileComplete` in App.js so we just early-return on it
-  // here. Existing seniors like Margaret Tan whose profile is already
-  // complete fall through to the full Home view below regardless of
-  // linkageComplete. We early-return so the SOS, I'm Okay, streak
+  // RESTRICTED HOME: shown for any senior without an active caregiver
+  // link — covers BOTH brand-new accounts AND the post-caregiver-
+  // removal re-onboarding case (senior's own profile / data is
+  // preserved across the caregiver swap, so they re-enter through
+  // the same Setup Required surface to hand a fresh 6-digit code
+  // to a new caregiver). The gate prop is the single flag
+  // `isLinkageIncomplete = !linkageComplete` from App.js — we just
+  // early-return on it here so I'm-Okay / SOS / streak card / language
+  // modal DON'T render at all for an unlinked senior. We early-return so the SOS, I'm Okay, streak
   // card, and language-modal widgets below don't render at all — the
   // senior literally cannot tap them. The CTA defers to
   // `onGenerateLinkCode`, wired in App.js to open SeniorSettings with
