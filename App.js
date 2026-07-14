@@ -64,26 +64,6 @@ export default function App() {
   // caregiver has linked them. /seniors/SeniorEditProfileScreen.js etc
   // receive `restrictedMode = !linkageComplete` from this state.
   const [linkageComplete, setLinkageComplete] = useState(false);
-
-  // Poll /linkage-summary while a senior is on Home. Picks up caregiver-side
-  // INSERT/DELETE on Senior_has_Caregiver within 10s and flips access automatically.
-  useEffect(() => {
-    if (currentScreen !== 'SeniorHome' || !currentSenior?.senior_id) return;
-    const runOnce = async () => {
-      try {
-        await fetchLinkageSummary(currentSenior.senior_id, apiBase);
-      } catch {}
-    };
-    runOnce();
-    const id = setInterval(runOnce, 10000);
-    const sub = AppState?.addEventListener?.('change', (state) => {
-      if (state === 'active') runOnce();
-    });
-    return () => {
-      clearInterval(id);
-      sub?.remove?.();
-    };
-  }, [currentScreen, currentSenior?.senior_id, apiBase]);
   // Tracks whether the senior has tapped OK on the Profile yellow
   // warning popup during the current session. Stays sticky for the
   // rest of the app session and is reset to false on logout so a
@@ -178,7 +158,7 @@ export default function App() {
   // `is_fully_linked: true` for Ah Beng, so transient failures here are
   // almost always a network blip — the user-facing state should not
   // be punished for that.
-  const fetchLinkageSummary = async (seniorId, baseOverride = null, options = {}) => {
+  const fetchLinkageSummary = async (seniorId, baseOverride = null) => {
     const targetBase = baseOverride || apiBase;
     if (!targetBase || !seniorId) {
       // Pathological preconditions (no API base resolved / no senior
@@ -194,32 +174,28 @@ export default function App() {
         8000
       );
       if (!response.ok) {
+        // Transient or server error — leave any prior linkageComplete
+        // state intact. The user has already proved they're linked via
+        // an earlier successful fetch; a single !ok on a background
+        // re-fetch shouldn't tear down their access.
         console.log(
-          `fetchLinkageSummary: non-OK ${response.status} for senior_id=${seniorId}`
+          `fetchLinkageSummary: non-OK ${response.status} for senior_id=${seniorId} — leaving linkageComplete untouched`
         );
-        if (typeof options.setStateOnError === 'function') {
-          options.setStateOnError({
-            setState: setLinkageComplete,
-            refresh: () => fetchLinkageSummary(seniorId, baseOverride),
-          });
-        }
-        return { state: 'error', isLinked: null, reason: `http_${response.status}` };
+        return false;
       }
       const data = await response.json().catch(() => null);
       const isLinked = Boolean(data && data.is_fully_linked);
       setLinkageComplete(isLinked);
-      return { state: isLinked ? 'linked' : 'unlinked', isLinked, reason: null };
+      return isLinked;
     } catch (err) {
+      // Network error / abort / timeout — also leave linkageComplete
+      // intact. The logged-in senior already demonstrated their link
+      // in the synchronous handleLogin path; we never want a delayed
+      // failure from this background call to revoke their features.
       console.log(
-        `fetchLinkageSummary failed senior_id=${seniorId} err=${err?.message || err}`
+        `fetchLinkageSummary failed senior_id=${seniorId} err=${err?.message || err} — leaving linkageComplete untouched`
       );
-      if (typeof options.setStateOnError === 'function') {
-        options.setStateOnError({
-          setState: setLinkageComplete,
-          refresh: () => fetchLinkageSummary(seniorId, baseOverride),
-        });
-      }
-      return { state: 'error', isLinked: null, reason: err?.message || 'fetch_failed' };
+      return false;
     }
   };
 
@@ -365,7 +341,22 @@ export default function App() {
     }
   };
 
-const capitalizeWords = (value) =>
+  const isSeniorProfileComplete = (senior) => {
+    if (!senior) return false;
+    if (!senior.senior_id) return false;
+
+    return [
+      senior.full_name,
+      senior.dob,
+      senior.gender,
+      senior.address,
+      senior.postal_code,
+      senior.unit_number || senior.unit_no,
+      senior.phone_number || senior.contact,
+    ].every((value) => `${value ?? ''}`.trim().length > 0);
+  };
+
+  const capitalizeWords = (value) =>
     String(value || '')
       .replace(/\d/g, '')
       .replace(/\s+/g, ' ')
@@ -462,7 +453,8 @@ const capitalizeWords = (value) =>
       //      name containing "senior") → Home. This is unconditional
       //      because the previous case-by-case branching kept sending
       //      *existing* seniors (Margaret Tan and others) into the
-      //      Settings onboarding flow whenever one of the seven// Senior profile fields happened to be NULL on
+      //      Settings onboarding flow whenever one of the seven
+      //      isSeniorProfileComplete fields happened to be NULL on
       //      the User_Account row — even though linkageOk came back
       //      true and the senior had clearly used the app before.
       //      Existing seniors must always reach Home on login. New
@@ -488,21 +480,21 @@ const capitalizeWords = (value) =>
         // on Home or Settings (the previous `await` introduced an
         // up-to-8-second stall when the backend hiccupped on a
         // senior's first login). Failures inside
-        // AWAIT linkage summary synchronously so the first render of
-        // SeniorHomeScreen reflects the correct gate. On a transient
-        // backend hiccup at login, fall back to optimistic-true and
-        // fire-and-forget a verification refresh that will correct
-        // the gate if linkage is genuinely false.
-        await fetchLinkageSummary(
+        // fetchLinkageSummary intentionally leave linkageComplete
+        // untouched; an extra .catch here is belt-and-braces for
+        // the rare case where the document path throws on a
+        // completely unexpected state (e.g. fetchWithTimeout
+        // rejecting after the response body has already arrived).
+        fetchLinkageSummary(
           loggedInSenior.senior_id,
-          activeBase,
-          {
-            setStateOnError: ({ setState, refresh }) => {
-              setState(true);
-              refresh();
-            },
-          }
-        );
+          activeBase
+        ).catch((err) => {
+          console.log(
+            'handleLogin linkage fetch failed senior_id=' +
+              String(loggedInSenior.senior_id) +
+              ' err=' + ((err && err.message) || String(err))
+          );
+        });
       } else {
         setLinkageComplete(false);
       }
@@ -1256,7 +1248,8 @@ const capitalizeWords = (value) =>
   // every screen). Keeping the conjunction here eliminates drift
   // where one screen accidentally hides the Community tab for an
   // existing profile-complete unlinked senior (Case 5).
-  const isRestricted = !linkageComplete;
+  const isNewAccount =
+    !linkageComplete && !isSeniorProfileComplete(currentSenior);
 
   // -------------------------
   // SCREEN ROUTING
@@ -1370,8 +1363,10 @@ const capitalizeWords = (value) =>
           // is the rule the user requested after Margaret Tan’s account
           // showed the Setup-Required card with the Generate Link Code
           // button even though all her personal details were filled in.
-          isLinkageIncomplete={isRestricted}
-          
+          isLinkageIncomplete={
+            !linkageComplete && !isSeniorProfileComplete(currentSenior)
+          }
+          isProfileComplete={isSeniorProfileComplete(currentSenior)}
           onGenerateLinkCode={() => {
             // Reuse the existing Caregiver modal flow. Same UX as
             // tapping the "Caregiver" row inside SeniorSettings, just
@@ -1398,10 +1393,10 @@ const capitalizeWords = (value) =>
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
-          isLinkageIncomplete={isRestricted}
-          restrictedMode={isRestricted}
+          isLinkageIncomplete={isNewAccount}
+          restrictedMode={isNewAccount}
           showLinkageWarning={
-            isRestricted && !dismissedSetupNotice
+            isNewAccount && !dismissedSetupNotice
           }
           onDismissLinkageWarning={() => setDismissedSetupNotice(true)}
         />
@@ -1419,7 +1414,7 @@ const capitalizeWords = (value) =>
           onBack={() => setCurrentScreen('SeniorSettings')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
           onRefresh={refreshAll}
-          restrictedMode={isRestricted}
+          restrictedMode={isNewAccount}
         />
       );
     }
@@ -1443,8 +1438,8 @@ const capitalizeWords = (value) =>
           onEditProfile={() => setCurrentScreen('SeniorEditProfile')}
           onLogout={handleLogout}
           onRefresh={refreshAll}
-          restrictedMode={isRestricted}
-          
+          restrictedMode={isNewAccount}
+          isProfileComplete={isSeniorProfileComplete(currentSenior)}
         />
       );
     }

@@ -3,6 +3,7 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Mod
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
+// import { scheduleCheckInReminders } from '../services/checkInNotifications'; // caregivers might not schedule local notifications on their own device for the senior, but we'll leave the API call.
 
 const getSeniorName = (senior) =>
   senior?.full_name ||
@@ -13,10 +14,12 @@ const getSeniorName = (senior) =>
 const formatCheckInTime = (value) => {
   const raw = String(value || '').trim();
 
+  // If it's already a range (e.g. '9:00 AM - 10:00 AM'), return it directly
   if (raw.includes('-')) {
     return raw;
   }
 
+  // Fallback if somehow it's a single time (from older data)
   if (/^(1[0-2]|[1-9]):[0-5]\d\s?(AM|PM)$/i.test(raw)) {
     return raw.replace(/\s?(AM|PM)$/i, (match) => ` ${match.trim().toUpperCase()}`);
   }
@@ -59,10 +62,13 @@ export default function CaregiverEditSeniorMenuScreen({
   const getInitialTimes = (seniorData) => {
     const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '5:00 AM - 10:00 AM, 6:00 PM - 10:00 PM';
     const parts = String(raw).split(',').map(s => s.trim());
+    // In old format (4 slots), parts[1] might be e.g. "11:00 AM - 12:00 PM". We seamlessly migrate by reading the first slot of morning and first slot of evening, or if it's already migrated, we just read the two ranges.
+    // However, if the old format had 4 parts, parts[2] is the Evening.
+    // If it has 2 parts, parts[1] is Evening.
     const isOldFormat = parts.length > 2;
     const morningPart = parts[0] || '5:00 AM - 10:00 AM';
     const eveningPart = isOldFormat ? (parts[2] || '6:00 PM - 10:00 PM') : (parts[1] || '6:00 PM - 10:00 PM');
-
+    
     const mSplit = morningPart.split('-').map(s => s.trim());
     const eSplit = eveningPart.split('-').map(s => s.trim());
     return {
@@ -80,16 +86,10 @@ export default function CaregiverEditSeniorMenuScreen({
   const [eveningStart, setEveningStart] = useState(initialTimes.eveningStart);
   const [eveningEnd, setEveningEnd] = useState(initialTimes.eveningEnd);
   const [timeDropdownVisible, setTimeDropdownVisible] = useState(false);
-  const [editingTimeIndex, setEditingTimeIndex] = useState(1);
+  const [editingTimeIndex, setEditingTimeIndex] = useState(1); // 1=mStart, 2=mEnd, 3=eStart, 4=eEnd
   const [settingsMessage, setSettingsMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [timeSaving, setTimeSaving] = useState(false);
-
-  // Unlink state — caregiver removes senior from their account.
-  // The senior's account itself stays intact: only the Senior_has_Caregiver
-  // junction row is deleted on the backend.
-  const [unlinkConfirmVisible, setUnlinkConfirmVisible] = useState(false);
-  const [removingSenior, setRemovingSenior] = useState(false);
 
   const getTimeValue = (timeStr) => {
     const match = String(timeStr || '').trim().match(/^(1[0-2]|[1-9]):([0-5]\d)\s?(AM|PM)$/i);
@@ -132,7 +132,7 @@ export default function CaregiverEditSeniorMenuScreen({
       if (!response.ok) {
         throw new Error(body?.error || 'Failed to save check-in times.');
       }
-
+      
       setSettingsMessage('Check-in times saved successfully.');
       if (onRefresh) await onRefresh(authenticatedUser);
     } catch (err) {
@@ -142,45 +142,11 @@ export default function CaregiverEditSeniorMenuScreen({
     }
   };
 
-  const removeSeniorFromCaregiver = async () => {
-    if (!apiBase || !senior?.senior_id || !authenticatedUser?.user_id) {
-      setSettingsError('Unable to remove — no connection to server.');
-      return;
-    }
-
-    setRemovingSenior(true);
-    setUnlinkConfirmVisible(false);
-
-    try {
-      const response = await fetch(
-        `${apiBase}/seniors/${senior.senior_id}/caregivers/${authenticatedUser.user_id}`,
-        { method: 'DELETE' }
-      );
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || body?.message || 'Unable to remove senior.');
-      }
-
-      // Refresh caregiver roster so this senior disappears from it.
-      if (onRefresh) {
-        try { await onRefresh(authenticatedUser); } catch {}
-      }
-      if (onGoBack) {
-        onGoBack();
-      }
-    } catch (err) {
-      setSettingsError(err?.message || 'Failed to remove. Please try again.');
-    } finally {
-      setRemovingSenior(false);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
-      <Header
-        title={`Update ${seniorName}`}
-        subtitle="Manage senior profile and reminders"
+      <Header 
+        title={`Update ${seniorName}`} 
+        subtitle="Manage senior profile and reminders" 
         rightContent={(
           <TouchableOpacity onPress={onGoBack} style={{ padding: 8 }}>
             <Text style={{ color: '#2563EB', fontSize: 16, fontWeight: 'bold' }}>Done</Text>
@@ -213,24 +179,6 @@ export default function CaregiverEditSeniorMenuScreen({
           <Ionicons name="chevron-forward" size={23} color="#6B7280" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.unlinkRow}
-          onPress={() => setUnlinkConfirmVisible(true)}
-          activeOpacity={0.86}
-          disabled={removingSenior}
-        >
-          <View style={styles.unlinkIcon}>
-            <Ionicons name="person-remove-outline" size={23} color="#DC2626" />
-          </View>
-          <Text style={styles.unlinkText}>Remove Senior from My Caregiver Account</Text>
-          <Ionicons name="chevron-forward" size={23} color="#DC2626" />
-        </TouchableOpacity>
-
-        {settingsError ? (
-          <View style={{ marginTop: 8 }}>
-            <Text style={styles.errorText}>{settingsError}</Text>
-          </View>
-        ) : null}
       </ScrollView>
 
       <CaregiverBottomNav
@@ -240,40 +188,6 @@ export default function CaregiverEditSeniorMenuScreen({
         onStatus={onGoToStatus}
         onSettings={onSettings}
       />
-
-      {unlinkConfirmVisible ? (
-        <View style={styles.modalOverlay}>
-          <View style={styles.confirmCard}>
-            <View style={styles.unlinkConfirmIcon}>
-              <Ionicons name="person-remove-outline" size={34} color="#DC2626" />
-            </View>
-            <Text style={styles.confirmTitle}>Remove {seniorName}?</Text>
-            <Text style={styles.confirmMessage}>
-              This will unlink {seniorName} from your caregiver account. Their account,
-              check-in history, rewards, and other data will be preserved. They will
-              need to generate a new link code to be re-linked to another caregiver.
-            </Text>
-            <TouchableOpacity
-              style={styles.dangerButton}
-              onPress={removeSeniorFromCaregiver}
-              activeOpacity={0.86}
-              disabled={removingSenior}
-            >
-              <Text style={styles.dangerButtonText}>
-                {removingSenior ? 'Removing…' : 'Yes, Remove'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setUnlinkConfirmVisible(false)}
-              activeOpacity={0.86}
-              disabled={removingSenior}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
 
       {timeDropdownVisible ? (
         <View style={[styles.modalOverlay, { zIndex: 30 }]}>
@@ -285,12 +199,12 @@ export default function CaregiverEditSeniorMenuScreen({
             <Text style={styles.dropdownTitle}>Select Time</Text>
             <ScrollView style={styles.dropdownList}>
               {((editingTimeIndex === 1 || editingTimeIndex === 2) ? MORNING_TIMES : EVENING_TIMES).map((time) => {
-                const isSelected =
+                const isSelected = 
                   (editingTimeIndex === 1 && time === morningStart) ||
                   (editingTimeIndex === 2 && time === morningEnd) ||
                   (editingTimeIndex === 3 && time === eveningStart) ||
                   (editingTimeIndex === 4 && time === eveningEnd);
-
+                  
                 return (
                   <TouchableOpacity
                     key={time}
@@ -300,7 +214,7 @@ export default function CaregiverEditSeniorMenuScreen({
                       else if (editingTimeIndex === 2) setMorningEnd(time);
                       else if (editingTimeIndex === 3) setEveningStart(time);
                       else if (editingTimeIndex === 4) setEveningEnd(time);
-
+                      
                       setTimeDropdownVisible(false);
                       setSettingsMessage('');
                       setSettingsError('');
@@ -429,27 +343,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   settingText: { flex: 1, color: '#111827', fontSize: 19, fontWeight: '900' },
-  unlinkRow: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    minHeight: 72,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  unlinkIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  unlinkText: { flex: 1, color: '#B91C1C', fontSize: 17, fontWeight: '900' },
   modalOverlay: {
     position: 'absolute',
     top: 0,
@@ -539,49 +432,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   primaryButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900' },
-  confirmCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 22,
-    alignItems: 'center',
-  },
-  unlinkConfirmIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  confirmTitle: { color: '#111827', fontSize: 24, fontWeight: '900', textAlign: 'center' },
-  confirmMessage: {
-    color: '#4B5563',
-    fontSize: 15,
-    lineHeight: 21,
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  dangerButton: {
-    backgroundColor: '#DC2626',
-    width: '100%',
-    minHeight: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  dangerButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900' },
-  cancelButton: {
-    backgroundColor: '#EFF6FF',
-    width: '100%',
-    minHeight: 54,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: { color: '#2563EB', fontSize: 17, fontWeight: '900' },
   dropdownOverlay: {
     flex: 1,
     backgroundColor: 'rgba(17, 24, 39, 0.55)',
@@ -607,7 +457,9 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 12,
   },
-  dropdownList: {},
+  dropdownList: {
+    // optional list styles
+  },
   dropdownItem: {
     paddingVertical: 14,
     borderBottomWidth: 1,
