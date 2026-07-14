@@ -63,6 +63,15 @@ export default function SeniorSettingsScreen({
   // meaning as `!linkageComplete` (no profile involvement) so the nav
   // restriction is unchanged.
   restrictedMode = false,
+  // Set by App.js from `isSeniorProfileComplete(currentSenior)`. The
+  // Caregiver row + modal below use a STRICTER rule than restrictedMode:
+  // `restrictedMode && !isProfileComplete` (= Case 4 — genuinely brand-
+  // new account). For an existing senior with completed personal
+  // details like Margaret Tan, this is true and the row + modal are
+  // hidden so she cannot accidentally re-open the Generate Link Code
+  // modal. The auto-open path in handleLogin Case 4 still works because
+  // Case 4 implies both flags are true.
+  isProfileComplete = false,
 }) {
   const { t } = useTranslation();
   const { fontScale, setFontScale } = useFontScale();
@@ -146,49 +155,6 @@ export default function SeniorSettingsScreen({
 
       setLinkCode(body?.link_code || generatedCode);
       setLinkStatusMessage(t('settings.shareCode'));
-
-      // RE-LINK POLLING: trigger App.js's refreshAll() so it re-fetches
-      // /seniors/:id/linkage-summary on the next refresh tick. When
-      // Caregiver 2 successfully runs POST /caregiver/link-senior on
-      // their own device, Senior 1's linkageComplete state will flip
-      // from false → true on the very next senior-triggered refresh,
-      // which automatically clears the restricted surface (Home full
-      // view, Community tab visible, Profile yellow popup goes away).
-      // We don't need to expose fetchLinkageSummary as a separate prop
-      // because refreshAll() already fans out the linkage fetch
-      // internally (see App.js refreshAll).
-      //
-      // IMPORTANT: Fire-and-forget — DO NOT await. Awaiting would
-      // block the outer try/finally from reaching
-      // `setLinkSaving(false)`, keeping the "Generate New Code"
-      // button visually disabled (and the spinner showing) for the
-      // entire duration of refreshAll() — up to ~9 seconds on a slow
-      // backend (8s linkage-summary timeout + standard fetch jitter).
-      // A fire-and-forget call returns control to the modal
-      // immediately so the senior sees the freshly-generated code,
-      // while the background refresh polls the linkage state and
-      // updates React state when Caregiver 2's POST /caregiver/link-
-      // senior completes on the other device. Errors are silenced so
-      // a transient refreshAll throw doesn't propagate up and end up
-      // clobbering the just-set linkCode / linkStatusMessage in the
-      // catch block below.
-      if (typeof onRefresh === 'function') {
-        // onRefresh is App.js's refreshAll — always async / always
-        // returns a Promise — so we can call .catch() directly without
-        // wrapping in Promise.resolve(). The wrapping was only needed
-        // when this used to be `await`-ed inside a try/catch.
-        onRefresh().catch((refreshErr) => {
-          // Diagnostic log only — never block the UI on a refreshed
-          // failure. If this throws regularly we'd want a "Last
-          // refresh failed" banner; for now we trust refreshAll's
-          // own internal safeJson logging + the next user-triggered
-          // refresh to self-correct.
-          console.log(
-            'SeniorSettingsScreen: post-link-code refresh failed:',
-            refreshErr?.message || refreshErr
-          );
-        });
-      }
     } catch (err) {
       setLinkStatusError(err?.message || 'Unable to generate link code.');
     } finally {
@@ -200,17 +166,17 @@ export default function SeniorSettingsScreen({
     <SafeAreaView style={styles.container}>
       <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Caregiver row appears whenever the senior is restricted
-            (i.e. has no active caregiver link). This covers BOTH the
-            genuinely-brand-new account case AND the re-onboarding case
-            where the previous caregiver removed them — both need a way
-            to surface the Generate Link Code modal from this screen.
-            The matching modal below is gated by the same flag so the
-            initialModal='Caregiver' auto-open from handleLogin (the
-            re-onboarding navigate-into-Settings path) is the canonical
-            way to land on the modal, and the row is the manual re-open
-            path for any unlinked senior who has navigated away. */}
-        {restrictedMode ? (
+        {/* Caregiver row only appears for genuinely brand-new onboarding
+            accounts: BOTH unlinked (restrictedMode true) AND still missing
+            their personal details (isProfileComplete false). Linked seniors
+            AND profile-complete seniors (Margaret Tan's case) never see
+            this row, so they cannot accidentally re-open the "Generate
+            Link Code" modal. The matching modal render is gated by the
+            same conjunction below so the initialModal='Caregiver'
+            forced-on-mount in handleLogin Case 4 (always true on both
+            flags) is the ONLY legitimate way to surface the modal on
+            this screen. */}
+        {restrictedMode && !isProfileComplete ? (
           <TouchableOpacity
             style={styles.settingRow}
             onPress={() => setActiveModal('Caregiver')}
@@ -261,7 +227,7 @@ export default function SeniorSettingsScreen({
 
 
 
-      {activeModal === 'Caregiver' && restrictedMode ? (
+      {activeModal === 'Caregiver' && restrictedMode && !isProfileComplete ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
