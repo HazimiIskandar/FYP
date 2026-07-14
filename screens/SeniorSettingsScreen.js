@@ -156,20 +156,30 @@ export default function SeniorSettingsScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity
-          style={styles.settingRow}
-          onPress={() => setActiveModal('Caregiver')}
-          activeOpacity={0.86}
-        >
-          <View style={styles.settingIcon}>
-            <Ionicons name="heart-outline" size={24} color="#2563EB" />
-          </View>
-          <Text style={[styles.settingText, { fontSize: 19 * fontScale }]}>{t('settings.caregiver')}</Text>
-          <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
-        </TouchableOpacity>
+      <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Caregiver row only appears for seniors who are still in the
+            onboarding / restricted flow (linked flag OFF). For a fully-linked,
+            “done-setup” senior the row no longer roams the user's screen, so
+            tapping it and accidentally re-opening the “Generate Link Code”
+            modal is impossible — matching the rule that the Generate Link
+            Code CTA is reserved for brand-new accounts waiting on their
+            caregiver. The matching modal render is also gated below so the
+            initialModal='Caregiver' forced-on-mount in handleLogin Case 4
+            (where restrictedMode is necessarily true) is the ONLY legitimate
+            way to surface the modal on this screen. */}
+        {restrictedMode ? (
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => setActiveModal('Caregiver')}
+            activeOpacity={0.86}
+          >
+            <View style={styles.settingIcon}>
+              <Ionicons name="heart-outline" size={24} color="#2563EB" />
+            </View>
+            <Text style={[styles.settingText, { fontSize: 19 * fontScale }]}>{t('settings.caregiver')}</Text>
+            <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
+          </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           style={styles.settingRow}
@@ -207,7 +217,8 @@ export default function SeniorSettingsScreen({
 
 
 
-      {activeModal === 'Caregiver' ? (
+
+      {activeModal === 'Caregiver' && restrictedMode ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
