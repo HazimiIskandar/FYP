@@ -167,6 +167,12 @@ export default function App() {
       // Pathological preconditions (no API base resolved / no senior
       // row at all). Treat as unlinked-but-only-on-initial-mount; the
       // safe default here is the conservative one.
+      console.log(
+        '[linkage] fetchLinkageSummary: missing prerequisites — targetBase=' +
+          String(targetBase) + ' seniorId=' + String(seniorId) +
+          ' -> returning UNLINKED. If Margaret Tan style cases keep failing ' +
+          "this line, the app didn't have a resolved backend base at the time of the call."
+      );
       setLinkageComplete(false);
       return LINKAGE_STATES.UNLINKED;
     }
@@ -186,19 +192,31 @@ export default function App() {
         // Settings, which is the safer default for an already-linked
         // senior whose backend hiccupped at login.
         console.log(
-          `fetchLinkageSummary: non-OK ${response.status} for senior_id=${seniorId} — leaving linkageComplete untouched`
+          `[linkage] non-OK ${response.status} for senior_id=${seniorId} on ${targetBase}/seniors/${seniorId}/linkage-summary — leaving linkageComplete untouched. Margaret Tan cases: inspect this line to confirm the right senior_id is being queried.`
         );
         return LINKAGE_STATES.ERROR;
       }
       const data = await response.json().catch(() => null);
       const isLinked = Boolean(data && data.is_fully_linked);
+      // DIAGNOSTIC: dump the full response so a Margaret Tan or any
+      // other "caregiver portal says linked but senior app says
+      // restricted" case can be root-caused directly from the browser
+      // console without needing to deploy additional telemetry. The
+      // voluntary refresh button on the restricted Home card (see
+      // SeniorHomeScreen.js onRefreshLinkage) is what a senior taps
+      // to invoke this line on demand.
+      console.log(
+        `[linkage] response senior_id=${seniorId} payload=${JSON.stringify(data)} is_fully_linked=${isLinked} -> ${
+          isLinked ? 'LINKED' : 'UNLINKED'
+        }. If this prints UNLINKED for a Margaret Tan who the caregiver portal shows as linked, then either (a) the senior_id here is wrong (refreshAll found a phantom duplicate Senior row instead of the linked one), or (b) the underlying Senior_has_Caregiver row is genuinely missing.`
+      );
       setLinkageComplete(isLinked);
       return isLinked ? LINKAGE_STATES.LINKED : LINKAGE_STATES.UNLINKED;
     } catch (err) {
       // Network error / abort / timeout — also leave linkageComplete
       // intact and signal 'error'. Caller falls back to Home.
       console.log(
-        `fetchLinkageSummary failed senior_id=${seniorId} err=${err?.message || err} — leaving linkageComplete untouched`
+        `[linkage] fetch exception senior_id=${seniorId} on ${targetBase}/seniors/${seniorId}/linkage-summary err=${err?.message || err} — leaving linkageComplete untouched`
       );
       return LINKAGE_STATES.ERROR;
     }
@@ -1099,10 +1117,83 @@ export default function App() {
         );
         if (updated) setAuthenticatedUser(updated);
 
-        const matchingSenior = normalizedSeniors.find(
-          (s) => String(s.user_id) === String(effectiveUser.user_id)
+        // Filter (NOT .find) so we can DETECT + LOG when multiple Senior
+        // rows match the same user_id — a data-integrity hazard that
+        // surfaced as the Margaret Tan case where the caregiver portal
+        // shows her linked but her own senior app shows restricted,
+        // because Array.find blindly picked the first row (which happens
+        to be an orphan phantom Senior row never linked to a caregiver)
+        // instead of the row that's actually in Senior_has_Caregiver.
+        // Once we surface the candidate senior_ids via this console.warn,
+        // the right operational fix is a backend cleanup migration that
+        // (a) deletes phantom orphan Senior rows and (b) adds
+        // ALTER TABLE Senior ADD UNIQUE (user_id) so future duplicates
+        // can't slip through. Without the UNIQUE constraint, the
+        // duplicate row can re-materialise after any future buggy
+        // POST /seniors call.
+        const matchingSeniorCandidates = (Array.isArray(normalizedSeniors) ? normalizedSeniors : []).filter(
+          (s) => String(s?.user_id) === String(effectiveUser?.user_id)
         );
-        updatedSeniorWithExtras = matchingSenior || null;
+
+        // DISAMBIGUATION: when multiple Senior rows point at the same
+        // user_id (the Margaret Tan data-hygiene case — a phantom orphan
+        // Senior row created in the past before a UNIQUE(user_id) INDEX
+        // was on the backend, plus the originally-linked row that the
+        // caregiver portal shows as linked), we probe /linkage-summary
+        // for each candidate and prefer the one whose is_fully_linked
+        // toggles true. Falls back to the first candidate if none do.
+        // Bounded to one extra round-trip per duplicate candidate so
+        // normal users (one Senior row) pay nothing; users with
+        // duplicates get one round-trip per extra row, capped at 4s
+        // per candidate so a slow backend can't stall login.
+        let matchingSenior = matchingSeniorCandidates[0] || null;
+
+        if (matchingSeniorCandidates.length > 1) {
+          console.warn(
+            '[refreshAll] DATA INTEGRITY: multiple Senior rows for user_id=' +
+              String(effectiveUser?.user_id) +
+              ' candidate_ids=' +
+              JSON.stringify(matchingSeniorCandidates.map((c) => c.senior_id)) +
+              ' picked_preliminary=' +
+              String(matchingSenior?.senior_id) +
+              ' -> running per-candidate /linkage-summary to find the linked one'
+          );
+
+          for (const candidate of matchingSeniorCandidates) {
+            const cid = candidate?.senior_id;
+            if (cid === undefined || cid === null) continue;
+            try {
+              const lsResponse = await fetchWithTimeout(
+                `${apiBase}/seniors/${cid}/linkage-summary`,
+                {},
+                4000
+              );
+              if (!lsResponse.ok) continue;
+              const lsData = await lsResponse.json().catch(() => null);
+              if (lsData && lsData.is_fully_linked === true) {
+                matchingSenior = candidate;
+                console.log(
+                  '[refreshAll] disambiguation: chose candidate senior_id=' +
+                    String(cid) +
+                    ' because /linkage-summary returned is_fully_linked=true'
+                );
+                break;
+              }
+            } catch (lsErr) {
+              // skip this candidate; try the next
+            }
+          }
+
+          if (matchingSenior) {
+            console.log(
+              '[refreshAll] disambiguation final pick: senior_id=' +
+                String(matchingSenior.senior_id) +
+                ' (user_id=' + String(effectiveUser?.user_id) + ')'
+            );
+          }
+        }
+
+        updatedSeniorWithExtras = matchingSenior;
 
         if (matchingSenior?.senior_id && apiBase) {
           try {
@@ -1426,6 +1517,20 @@ export default function App() {
             // reached in one tap from the prominent Home CTA.
             setOpenCaregiverLinkOnSettings(true);
             setCurrentScreen('SeniorSettings');
+          }}
+          // Optional 'Refresh Linkage Status' button on the restricted
+          // card — fires refreshAll() which fans out fetchLinkageSummary
+          // in the background. The diagnostic console.log inside
+          // fetchLinkageSummary prints the senior_id + full response so
+          // any Margaret Tan style mis-routing is debuggable directly
+          // from the browser console. If the response flips to
+          // is_fully_linked: true, the senior's restricted card
+          // vanishes on the next React render and they get the full
+          // Home dashboard automatically (no logout/login needed).
+          onRefreshLinkage={() => {
+            if (refreshAll) {
+              refreshAll(authenticatedUser);
+            }
           }}
         />
       );

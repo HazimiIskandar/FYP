@@ -139,6 +139,44 @@ export default function SeniorHomeScreen({
               {t('home.generateLinkCodeCta')}
             </Text>
           </TouchableOpacity>
+
+          {/* RE-FETCH LINKAGE STATUS: a small secondary button that lets a
+              senior who landed on the restricted surface due to a stale /
+              transient /linkage-summary response manually re-poll the
+              backend without needing a full logout + login cycle. The
+              callback is wired in App.js to call refreshAll(), which fans
+              out fetchLinkageSummary in the background; if the response
+              flips to { is_fully_linked: true }, React's setLinkageComplete
+              will update linkageComplete → isLinkageIncomplete flips to
+              false → the screen falls through to the full Home dashboard
+              automatically. Styled as a subtle secondary action so the
+              primary Generate Link Code CTA stays prominent. */}
+          {typeof onRefreshLinkage === 'function' ? (
+            <TouchableOpacity
+              style={styles.refreshLinkageButton}
+              onPress={() => {
+                if (typeof onRefreshLinkage === 'function') {
+                  onRefreshLinkage();
+                }
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={
+                t('home.refreshLinkageCta') || 'Refresh linkage status'
+              }
+            >
+              <Ionicons name="refresh-outline" size={18} color="#2563EB" />
+              <Text
+                style={[
+                  styles.refreshLinkageText,
+                  { fontSize: 15 * fontScale },
+                ]}
+                numberOfLines={1}
+              >
+                {t('home.refreshLinkageCta') || 'Refresh linkage status'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
 
         <SeniorBottomNav
@@ -437,6 +475,28 @@ const styles = StyleSheet.create({
   generateLinkCodeText: {
     color: '#FFFFFF',
     fontWeight: '900',
+    textAlign: 'center',
+  },
+  // Secondary 'refresh linkage' button styled as a subtle outline below
+  // the primary Generate Link Code CTA. Same width as the primary button
+  // for visual rhythm; thin border + blue text + soft background so it
+  // reads as a recovery action rather than a primary CTA.
+  refreshLinkageButton: {
+    width: '100%',
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
+  },
+  refreshLinkageText: {
+    color: '#2563EB',
+    fontWeight: '800',
     textAlign: 'center',
   },
 });
