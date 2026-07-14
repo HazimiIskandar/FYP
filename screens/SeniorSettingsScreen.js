@@ -58,20 +58,12 @@ export default function SeniorSettingsScreen({
   onRefresh,
   initialModal,
   onInitialModalConsumed,
-  // Forwarded to SeniorBottomNav so the bottom nav also hides the
-  // Community tab from this Settings screen. `restrictedMode` keeps its
-  // meaning as `!linkageComplete` (no profile involvement) so the nav
-  // restriction is unchanged.
+  // Forwarded to SeniorBottomNav so the bottom nav hides the
+  // Community tab from this Settings screen for unlinked seniors
+  // (Rule 1+2). Single condition: if the senior is not linked,
+  // they cannot reach the Community games regardless of how they
+  // got to Settings.
   restrictedMode = false,
-  // Set by App.js from `isSeniorProfileComplete(currentSenior)`. The
-  // Caregiver row + modal below use a STRICTER rule than restrictedMode:
-  // `restrictedMode && !isProfileComplete` (= Case 4 — genuinely brand-
-  // new account). For an existing senior with completed personal
-  // details like Margaret Tan, this is true and the row + modal are
-  // hidden so she cannot accidentally re-open the Generate Link Code
-  // modal. The auto-open path in handleLogin Case 4 still works because
-  // Case 4 implies both flags are true.
-  isProfileComplete = false,
 }) {
   const { t } = useTranslation();
   const { fontScale, setFontScale } = useFontScale();
@@ -91,30 +83,6 @@ export default function SeniorSettingsScreen({
     setActiveModal(initialModal);
     if (onInitialModalConsumed) onInitialModalConsumed();
   }, [initialModal, onInitialModalConsumed]);
-
-  // --- Notification permission helpers (kept for future use) ---
-  // const requestNotificationPermission = async () => {
-  //   try {
-  //     const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  //     let finalStatus = existingStatus;
-  //     if (existingStatus !== 'granted') {
-  //       const { status } = await Notifications.requestPermissionsAsync();
-  //       finalStatus = status;
-  //     }
-  //     return finalStatus === 'granted';
-  //   } catch (error) {
-  //     console.log('Error requesting notification permission:', error);
-  //     return false;
-  //   }
-  // };
-
-  // --- Schedule local notifications (kept for future use) ---
-  // const scheduleLocalReminders = async () => {
-  //   if (!isValidCheckInTime(checkInTime)) return;
-  //   const hasPermission = await requestNotificationPermission();
-  //   if (!hasPermission) return;
-  //   await scheduleCheckInReminders(seniorName, checkInTime);
-  // };
 
   const openCaregiverModal = () => {
     setLinkCode('');
@@ -166,17 +134,13 @@ export default function SeniorSettingsScreen({
     <SafeAreaView style={styles.container}>
       <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Caregiver row only appears for genuinely brand-new onboarding
-            accounts: BOTH unlinked (restrictedMode true) AND still missing
-            their personal details (isProfileComplete false). Linked seniors
-            AND profile-complete seniors (Margaret Tan's case) never see
-            this row, so they cannot accidentally re-open the "Generate
-            Link Code" modal. The matching modal render is gated by the
-            same conjunction below so the initialModal='Caregiver'
-            forced-on-mount in handleLogin Case 4 (always true on both
-            flags) is the ONLY legitimate way to surface the modal on
-            this screen. */}
-        {restrictedMode && !isProfileComplete ? (
+        {/* Caregiver row appears for any unlinked senior (Rule 1+2:
+            linked → no surfaces, not linked → every Generate Link Code
+            surface). The auto-modal render below keys off the same
+            `restrictedMode` prop, so this is the single source of
+            truth for both affordances and stays in sync with
+            SeniorHomeScreen's restricted Home card. */}
+        {restrictedMode ? (
           <TouchableOpacity
             style={styles.settingRow}
             onPress={() => setActiveModal('Caregiver')}
@@ -224,10 +188,7 @@ export default function SeniorSettingsScreen({
         restrictedMode={restrictedMode}
       />
 
-
-
-
-      {activeModal === 'Caregiver' && restrictedMode && !isProfileComplete ? (
+      {activeModal === 'Caregiver' && restrictedMode ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
