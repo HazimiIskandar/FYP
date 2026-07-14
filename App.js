@@ -3,7 +3,7 @@ import './i18n';
 import i18n from './i18n';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { AppState, Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { getSgtDateKey } from './utils/time';
 
 // Screens
@@ -64,31 +64,6 @@ export default function App() {
   // caregiver has linked them. /seniors/SeniorEditProfileScreen.js etc
   // receive `restrictedMode = !linkageComplete` from this state.
   const [linkageComplete, setLinkageComplete] = useState(false);
-
-// Poll the linkage summary while a senior is logged in. Picks up caregiver-side
-// INSERT/DELETE on Senior_has_Caregiver within 10s and flips access automatically.
-// Also refresh on app foreground (caregiver finished linking from another phone).
-useEffect(() => {
-  if (currentScreen !== 'SeniorHome' || !currentSenior?.senior_id) return;
-
-  const runOnce = async () => {
-    try {
-      await fetchLinkageSummary(currentSenior.senior_id, apiBase, { timeoutMs: 8000 });
-    } catch {}
-  };
-
-  runOnce();
-  const id = setInterval(runOnce, 10000);
-
-  const sub = AppState?.addEventListener?.('change', (state) => {
-    if (state === 'active') runOnce();
-  });
-
-  return () => {
-    clearInterval(id);
-    sub?.remove?.();
-  };
-}, [currentScreen, currentSenior?.senior_id, apiBase]);
   // Tracks whether the senior has tapped OK on the Profile yellow
   // warning popup during the current session. Stays sticky for the
   // rest of the app session and is reset to false on logout so a
@@ -161,55 +136,66 @@ useEffect(() => {
     return null;
   };
 
-  // Fetch the senior's caregiver + NOK link counts. Returns a tri-state
-  // envelope so handleLogin can route correctly:
-  //   { state: 'linked',   isLinked: true }   - 200 OK + is_fully_linked: true
-  //   { state: 'unlinked', isLinked: false }  - 200 OK + is_fully_linked: false
-  //   { state: 'error',    isLinked: false }  - non-OK OR fetch exception / timeout
-  // On the success path (200 OK) we mirror is_fully_linked into
-  // linkageComplete so all restricted surfaces flip automatically.
-  // On 'error' we LEAVE any prior linkageComplete intact (state-level
-  // fail-open) because transient hiccups must not revoke a linked
-  // senior's access. `options.timeoutMs` overrides the default 8s
-  // window so handleLogin can use a tighter 4s cap. `options.setStateOnError`
-  // lets handleLogin apply an optimistic-linked fallback for fresh
-  // logins.
-  const fetchLinkageSummary = async (
-    seniorId,
-    baseOverride = null,
-    options = {}
-  ) => {
+  // Fetch the senior's caregiver + NOK link counts. Returns the
+  // `is_fully_linked` boolean from the backend so callers can route
+  // synchronously without waiting for the React state to settle. We
+  // mirror the value into `linkageComplete` so downstream renders
+  // (SeniorHomeScreen, SeniorProfileScreen, BottomNav) flip to/from
+  // restricted mode automatically.
+  //
+  // IMPORTANT: only `setLinkageComplete(false)` when the backend
+  // returned a *positive proof of unlinked* (200 OK with
+  // `is_fully_linked: false`). On non-OK responses and on catch
+  // (network/timeout/exceptions), we LEAVE any prior `linkageComplete`
+  // state intact instead of clobbering it to false — a background
+  // fire-and-forget call from `refreshAll` (e.g. after a Profile save)
+  // would otherwise silently revoke a fully-linked senior's full
+  // Home access on a single transient 5xx / 8-second timeout, which
+  // manifested as the senior briefly flashing the full Home view
+  // then flickering back to the restricted "Generate Link Code"
+  // surface. Confirmed in the live diagnostic: the deployed
+  // `/seniors/13/linkage-summary` endpoint reliably returns
+  // `is_fully_linked: true` for Ah Beng, so transient failures here are
+  // almost always a network blip — the user-facing state should not
+  // be punished for that.
+  const fetchLinkageSummary = async (seniorId, baseOverride = null) => {
     const targetBase = baseOverride || apiBase;
-    const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 8000;
-    const setStateOnError = typeof options.setStateOnError === 'function'
-      ? options.setStateOnError
-      : null;
     if (!targetBase || !seniorId) {
-      return { state: 'error', isLinked: false, reason: 'missing-preconditions' };
+      // Pathological preconditions (no API base resolved / no senior
+      // row at all). Treat as unlinked-but-only-on-initial-mount; the
+      // safe default here is the conservative one.
+      setLinkageComplete(false);
+      return false;
     }
     try {
       const response = await fetchWithTimeout(
         `${targetBase}/seniors/${seniorId}/linkage-summary`,
         {},
-        timeoutMs
+        8000
       );
       if (!response.ok) {
+        // Transient or server error — leave any prior linkageComplete
+        // state intact. The user has already proved they're linked via
+        // an earlier successful fetch; a single !ok on a background
+        // re-fetch shouldn't tear down their access.
         console.log(
-          `fetchLinkageSummary: non-OK ${response.status} for senior_id=${seniorId}`
+          `fetchLinkageSummary: non-OK ${response.status} for senior_id=${seniorId} — leaving linkageComplete untouched`
         );
-        if (setStateOnError) setStateOnError();
-        return { state: 'error', isLinked: false, reason: 'non-ok-' + response.status };
+        return false;
       }
       const data = await response.json().catch(() => null);
       const isLinked = Boolean(data && data.is_fully_linked);
       setLinkageComplete(isLinked);
-      return { state: isLinked ? 'linked' : 'unlinked', isLinked, reason: 'ok' };
+      return isLinked;
     } catch (err) {
+      // Network error / abort / timeout — also leave linkageComplete
+      // intact. The logged-in senior already demonstrated their link
+      // in the synchronous handleLogin path; we never want a delayed
+      // failure from this background call to revoke their features.
       console.log(
-        `fetchLinkageSummary failed senior_id=${seniorId} err=${err?.message || err}`
+        `fetchLinkageSummary failed senior_id=${seniorId} err=${err?.message || err} — leaving linkageComplete untouched`
       );
-      if (setStateOnError) setStateOnError();
-      return { state: 'error', isLinked: false, reason: 'exception' };
+      return false;
     }
   };
 
@@ -355,12 +341,20 @@ useEffect(() => {
     }
   };
 
-  // isSeniorProfileComplete removed — the access gate is now
-  // linked-vs-unlinked only per the user's Rules 1+2. The personal
-  // profile fields (dob, address, phone, etc.) remain editable in
-  // SeniorEditProfileScreen + persistable to User_Account via PUT
-  // /users/:user_id; they no longer factor into the restricted/
-  // unrestricted routing decision.
+  const isSeniorProfileComplete = (senior) => {
+    if (!senior) return false;
+    if (!senior.senior_id) return false;
+
+    return [
+      senior.full_name,
+      senior.dob,
+      senior.gender,
+      senior.address,
+      senior.postal_code,
+      senior.unit_number || senior.unit_no,
+      senior.phone_number || senior.contact,
+    ].every((value) => `${value ?? ''}`.trim().length > 0);
+  };
 
   const capitalizeWords = (value) =>
     String(value || '')
@@ -486,22 +480,21 @@ useEffect(() => {
         // on Home or Settings (the previous `await` introduced an
         // up-to-8-second stall when the backend hiccupped on a
         // senior's first login). Failures inside
-        // AWAIT the linkage summary synchronously so the next render of
-        // SeniorHomeScreen reflects the correct gated/unrestricted view
-        // before we navigate. On a transient backend hiccup, fall back to
-        // optimistic-true and run a fire-and-forget verification fetch
-        // that will correct the gate if it has a definitive answer.
-        await fetchLinkageSummary(
+        // fetchLinkageSummary intentionally leave linkageComplete
+        // untouched; an extra .catch here is belt-and-braces for
+        // the rare case where the document path throws on a
+        // completely unexpected state (e.g. fetchWithTimeout
+        // rejecting after the response body has already arrived).
+        fetchLinkageSummary(
           loggedInSenior.senior_id,
-          activeBase,
-          {
-            timeoutMs: 4000,
-            setStateOnError: ({ setState, refresh }) => {
-              setState(true);
-              refresh();
-            },
-          }
-        );
+          activeBase
+        ).catch((err) => {
+          console.log(
+            'handleLogin linkage fetch failed senior_id=' +
+              String(loggedInSenior.senior_id) +
+              ' err=' + ((err && err.message) || String(err))
+          );
+        });
       } else {
         setLinkageComplete(false);
       }
@@ -1246,16 +1239,17 @@ useEffect(() => {
     [seniors, checkIns, emergencyEvents]
   );
 
-  // Single-condition access gate per the user's Rules 1+2: linked
-  // (is_fully_linked from /seniors/:senior_id/linkage-summary) →
-  // full Home view + all features; not linked → restricted Home
-  // card with single Generate Link Code CTA + auto-modal on
-  // Settings + yellow warning popup on Profile + Community tab
-  // hidden. Nothing else (profile completeness, account age, etc.)
-  // affects this gate. Caregiver-side mutations on Senior_has_Caregiver
-  // flip the app between full Home and restricted Home within 10s
-  // (polling) or immediately on app foreground (AppState listener).
-  const isRestricted = !linkageComplete;
+  // Single source of truth for "this senior is in the brand-new-account
+  // onboarding flow" — i.e. unlinked AND personal profile still incomplete.
+  // Used to gate every restricted surface (SeniorHomeScreen's Setup
+  // Required card, SeniorSettingsScreen's Caregiver row + modal, the
+  // yellow popup on SeniorProfileScreen, AND the hidden-Community-tab
+  // behaviour in SeniorBottomNav which gets fed by restrictedMode on
+  // every screen). Keeping the conjunction here eliminates drift
+  // where one screen accidentally hides the Community tab for an
+  // existing profile-complete unlinked senior (Case 5).
+  const isNewAccount =
+    !linkageComplete && !isSeniorProfileComplete(currentSenior);
 
   // -------------------------
   // SCREEN ROUTING
@@ -1372,7 +1366,7 @@ useEffect(() => {
           isLinkageIncomplete={
             !linkageComplete && !isSeniorProfileComplete(currentSenior)
           }
-          
+          isProfileComplete={isSeniorProfileComplete(currentSenior)}
           onGenerateLinkCode={() => {
             // Reuse the existing Caregiver modal flow. Same UX as
             // tapping the "Caregiver" row inside SeniorSettings, just
@@ -1399,10 +1393,10 @@ useEffect(() => {
           onHome={() => setCurrentScreen('Home')}
           onCommunity={() => setCurrentScreen('Community')}
           onSettings={() => setCurrentScreen('SeniorSettings')}
-          isLinkageIncomplete={isRestricted}
-          restrictedMode={isRestricted}
+          isLinkageIncomplete={isNewAccount}
+          restrictedMode={isNewAccount}
           showLinkageWarning={
-            isRestricted && !dismissedSetupNotice
+            isNewAccount && !dismissedSetupNotice
           }
           onDismissLinkageWarning={() => setDismissedSetupNotice(true)}
         />
@@ -1420,7 +1414,7 @@ useEffect(() => {
           onBack={() => setCurrentScreen('SeniorSettings')}
           onProfile={() => setCurrentScreen('SeniorProfile')}
           onRefresh={refreshAll}
-          restrictedMode={isRestricted}
+          restrictedMode={isNewAccount}
         />
       );
     }
@@ -1444,8 +1438,8 @@ useEffect(() => {
           onEditProfile={() => setCurrentScreen('SeniorEditProfile')}
           onLogout={handleLogout}
           onRefresh={refreshAll}
-          restrictedMode={isRestricted}
-          
+          restrictedMode={isNewAccount}
+          isProfileComplete={isSeniorProfileComplete(currentSenior)}
         />
       );
     }
