@@ -485,26 +485,16 @@ export default function App() {
         // the rare case where the document path throws on a
         // completely unexpected state (e.g. fetchWithTimeout
         // rejecting after the response body has already arrived).
-        const linkageResult = await fetchLinkageSummary(
+        fetchLinkageSummary(
           loggedInSenior.senior_id,
-          activeBase,
-          {
-            setStateOnError: ({ setState, refresh }) => {
-              // Transient backend hiccup at login: stay
-              // optimistic-linked (true) so the senior lands on full
-              // Home, and run a verification refresh that will correct
-              // the gate if linkage is genuinely false.
-              setState(true);
-              refresh();
-            },
-          }
-        );
-        // For login-time routing we only treat a definitive 'unlinked'
-        // answer as unlinked. 'linked' or 'error' (optimistic-true)
-        // both keep the senior on full Home. The verification refresh
-        // above (fired only on the error branch) corrects the gate
-        // within subseconds if needed.
-        const isLinked = linkageResult?.state !== 'unlinked';
+          activeBase
+        ).catch((err) => {
+          console.log(
+            'handleLogin linkage fetch failed senior_id=' +
+              String(loggedInSenior.senior_id) +
+              ' err=' + ((err && err.message) || String(err))
+          );
+        });
       } else {
         setLinkageComplete(false);
       }
@@ -514,22 +504,19 @@ export default function App() {
       } else if (roleId === 2 || roleName.includes('caregiver')) {
         setCurrentScreen('CaregiverHome');
       } else if (isSeniorRole) {
-        // Senior role routing policy:
-        // - Linked (or transient error with optimistic-true) → Home
-        //   for full feature access.
-        // - Definitive unlinked (caregiver removed, never linked,
-        //   or new account with no caregiver) → SeniorSettings with
-        //   the Caregiver modal pre-opened so the Generate Link
-        //   Code UI is the FIRST thing the senior sees. This is
-        //   the user's requested onboarding flow: skip the
-        //   restricted Home card entirely and present the link-code
-        //   dialog immediately.
-        if (!isLinked) {
-          setOpenCaregiverLinkOnSettings(true);
-          setCurrentScreen('SeniorSettings');
-        } else {
-          setCurrentScreen('Home');
-        }
+        // Senior role: ALWAYS land on Home — see the post-login
+        // decision block above for the full rationale. New accounts
+        // (genuinely-empty profile + unlinked) still hit the
+        // onboarding flow via the Home screen's restricted Setup
+        // Required card. Existing seniors no longer get hijacked
+        // into SeniorSettings when one of the seven
+        // `isSeniorProfileComplete` fields is unexpectedly NULL.
+        // We deliberately do NOT call setOpenCaregiverLinkOnSettings
+        // here — that flag is now only flipped when the senior taps
+        // the "Generate Link Code" CTA inside the Home restricted
+        // card (see onGenerateLinkCode below), so there's no
+        // session-to-session leak after logout either.
+        setCurrentScreen('Home');
       }
       // Unrecognised role: leave them on the screen they were on
       // (Login by default). This silent fall-through is intentional
