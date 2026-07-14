@@ -341,6 +341,21 @@ export default function App() {
     }
   };
 
+  const isSeniorProfileComplete = (senior) => {
+    if (!senior) return false;
+    if (!senior.senior_id) return false;
+
+    return [
+      senior.full_name,
+      senior.dob,
+      senior.gender,
+      senior.address,
+      senior.postal_code,
+      senior.unit_number || senior.unit_no,
+      senior.phone_number || senior.contact,
+    ].every((value) => `${value ?? ''}`.trim().length > 0);
+  };
+
   const capitalizeWords = (value) =>
     String(value || '')
       .replace(/\d/g, '')
@@ -431,41 +446,46 @@ export default function App() {
         nokContacts: [],
       };
 
-      // Decide the post-login screen. The senior's landing screen is
-      // driven entirely by linkage status:
-      //   1. AIC staff (role_id === 3 | role_name ~ 'aic')  -> AICPortal
-      //   2. Caregiver   (role_id === 2 | role_name ~ 'caregiver') -> CaregiverHome
-      //   3. Senior role AND linked (Senior_has_Caregiver row exists) -> Home
-      //      with the full I'm-Okay / SOS / Community dashboard.
-      //   4. Senior role AND NOT linked -> SeniorSettings with the
-      //      Caregiver modal auto-opened so the senior can hand a
-      //      fresh 6-digit code to a NEW caregiver. This handles TWO
-      //      unlinked scenarios equivalently:
-      //        (a) brand-new senior account (no profile data yet)
-      //        (b) previously-linked senior whose old caregiver just
-      //            removed Senior_has_Caregiver on their side — the
-      //            senior's own rows (User_Account, Senior,
-      //            Daily_CheckIn, Reward_Streak, Senior_Medical_Condition,
-      //            Senior_has_NOK, NOK) are untouched by the deletion
-      //            and so all their points / history / profile are
-      //            preserved for re-attachment to a fresh caregiver.
-      //      Same UI surface for both — the senior doesn't need to
-      //      know (or care) whether they were newly registered or
-      //      "re-onboarded after caregiver handoff".
-      //
-      // The await on `fetchLinkageSummary` is required here: the
-      // routing decision must be correct on the FIRST paint, not
-      // after a flicker. An unlinked senior who briefly sees the
-      // full Home view could tap I'm-Okay or SOS and create incident
-      // telemetry for someone who has no caregiver watching them yet.
-      // `fetchLinkageSummary` has an 8-second timeout so the worst-case
-      // stall is bounded; on error/resolution-failed we fail-CLOSED
-      // (default `linkageOk = false`) and route through SeniorSettings
-      // so the senior can still generate a code. The next login will
-      // re-attempt the linkage fetch naturally.
-      let linkageOk = false;
+      // Decide the post-login screen:
+      //   1. AIC staff (role_id === 3)  -> AICPortal
+      //   2. Caregiver   (role_id === 2) -> CaregiverHome
+      //   3. Senior role (any user_id with role_id === 1 OR a role
+      //      name containing "senior") → Home. This is unconditional
+      //      because the previous case-by-case branching kept sending
+      //      *existing* seniors (Margaret Tan and others) into the
+      //      Settings onboarding flow whenever one of the seven
+      //      isSeniorProfileComplete fields happened to be NULL on
+      //      the User_Account row — even though linkageOk came back
+      //      true and the senior had clearly used the app before.
+      //      Existing seniors must always reach Home on login. New
+      //      accounts (Case 4: unlinked AND profile empty) still
+      //      hit the onboarding flow, just visually: they land on
+      //      Home, see a full-width Setup Required card with a
+      //      prominent "Generate Link Code" CTA, and tapping that
+      //      CTA navigates them to SeniorSettings with the Caregiver
+      //      modal auto-opened (see onGenerateLinkCode below). One
+      //      extra tap versus being auto-routed at login is a
+      //      deliberate tradeoff — the user explicitly rejected the
+      //      "auto-modal-on-login" behaviour for existing seniors
+      //      and we want it gone for everyone rather than
+      //      maintaining two parallel routing paths that depend on
+      //      a strict, brittle profile-completion check.
+      //   4. Anything else → no screen transition.
       if (loggedInSenior && loggedInSenior.senior_id) {
-        linkageOk = await fetchLinkageSummary(
+        // Fire-and-forget the linkage fetch so `linkageComplete`
+        // mirrors the latest backend state for downstream renders.
+        // We deliberately do NOT await here — the routing decision
+        // is profile-completeness-based, so a slow / missing / failed
+        // linkage-summary call should not delay the senior landing
+        // on Home or Settings (the previous `await` introduced an
+        // up-to-8-second stall when the backend hiccupped on a
+        // senior's first login). Failures inside
+        // fetchLinkageSummary intentionally leave linkageComplete
+        // untouched; an extra .catch here is belt-and-braces for
+        // the rare case where the document path throws on a
+        // completely unexpected state (e.g. fetchWithTimeout
+        // rejecting after the response body has already arrived).
+        fetchLinkageSummary(
           loggedInSenior.senior_id,
           activeBase
         ).catch((err) => {
@@ -474,10 +494,6 @@ export default function App() {
               String(loggedInSenior.senior_id) +
               ' err=' + ((err && err.message) || String(err))
           );
-          // Fail-closed: treat as unlinked on transient backend error
-          // — the user can still generate a link code from the
-          // SeniorSettings modal and the next login will re-fetch.
-          return false;
         });
       } else {
         setLinkageComplete(false);
@@ -487,30 +503,25 @@ export default function App() {
         setCurrentScreen('AICPortal');
       } else if (roleId === 2 || roleName.includes('caregiver')) {
         setCurrentScreen('CaregiverHome');
-      } else if (isSeniorRole && linkageOk) {
-        // Case 3 / Case 6 — linked senior (any profile state).
-        // Restore the full Home view: I'm-Okay, SOS, Community all
-        // enabled. Profile possibly empty (Case 6) — the senior can
-        // fill it via Edit Profile, no Settings routing required.
-        setCurrentScreen('Home');
       } else if (isSeniorRole) {
-        // Senior with NO active caregiver link — either brand new
-        // or freshly unlinked (caregiver handoff). Funnel them into
-        // the SeniorSettings + Caregiver modal flow so they can hand
-        // a fresh 6-digit code to a new caregiver. Their existing
-        // data is preserved because the only DB write during
-        // caregiver removal is `DELETE FROM Senior_has_Caregiver`
-        // (see /seniors/:senior_id/caregivers/:caregiver_id in
-        // backend_api/routes/seniorRoutes.js) — every other row
-        // (User_Account, Senior, Daily_CheckIn, Reward_Streak,
-        // Senior_Medical_Condition, Senior_has_NOK) stays intact.
-        setOpenCaregiverLinkOnSettings(true);
-        setCurrentScreen('SeniorSettings');
+        // Senior role: ALWAYS land on Home — see the post-login
+        // decision block above for the full rationale. New accounts
+        // (genuinely-empty profile + unlinked) still hit the
+        // onboarding flow via the Home screen's restricted Setup
+        // Required card. Existing seniors no longer get hijacked
+        // into SeniorSettings when one of the seven
+        // `isSeniorProfileComplete` fields is unexpectedly NULL.
+        // We deliberately do NOT call setOpenCaregiverLinkOnSettings
+        // here — that flag is now only flipped when the senior taps
+        // the "Generate Link Code" CTA inside the Home restricted
+        // card (see onGenerateLinkCode below), so there's no
+        // session-to-session leak after logout either.
+        setCurrentScreen('Home');
       }
       // Unrecognised role: leave them on the screen they were on
       // (Login by default). This silent fall-through is intentional
       // — a future admin role will be added as its own branch above
-      // rather than auto-routed into the senior Home or Settings.
+      // rather than auto-routed into the senior Home.
     } catch (err) {
       console.log('Login error:', err);
       setLoginError(err?.message || 'Login failed');
@@ -1229,25 +1240,16 @@ export default function App() {
   );
 
   // Single source of truth for "this senior is in the brand-new-account
-  // OR re-onboarding flow" — i.e. they have NO active caregiver link.
-  // Used to gate every restricted surface:
-  //   * SeniorHomeScreen's Setup Required card + hidden Community tab
-  //     in the bottom nav,
-  //   * SeniorSettingsScreen's Caregiver row + auto-Caregiver-modal
-  //     (now a uniform surface regardless of whether the profile is
-  //     empty — handler-removal case + new-account case both funnel
-  //     through here so the senior can hand the new caregiver a fresh
-  //     6-digit code),
-  //   * the yellow popup on SeniorProfileScreen,
-  //   * AND the hidden-Community-tab behaviour in SeniorBottomNav
-  //     which gets fed by `restrictedMode` on every screen.
-  // The previous derivation AND-combined `!linkageComplete &&
-  // !isSeniorProfileComplete(...)` so a senior who HAD a complete
-  // profile but was unlinked landed in full-Home. That made Margaret
-  // Tan style accounts usable without a caregiver — which the user
-  // has now explicitly rejected: features require an active caregiver
-  // regardless of how complete the senior's own data is.
-  const isNewAccount = !linkageComplete;
+  // onboarding flow" — i.e. unlinked AND personal profile still incomplete.
+  // Used to gate every restricted surface (SeniorHomeScreen's Setup
+  // Required card, SeniorSettingsScreen's Caregiver row + modal, the
+  // yellow popup on SeniorProfileScreen, AND the hidden-Community-tab
+  // behaviour in SeniorBottomNav which gets fed by restrictedMode on
+  // every screen). Keeping the conjunction here eliminates drift
+  // where one screen accidentally hides the Community tab for an
+  // existing profile-complete unlinked senior (Case 5).
+  const isNewAccount =
+    !linkageComplete && !isSeniorProfileComplete(currentSenior);
 
   // -------------------------
   // SCREEN ROUTING
@@ -1353,15 +1355,18 @@ export default function App() {
               saveLanguagePreference(authenticatedUser.user_id, langCode);
             }
           }}
-          // The restricted Home view is reserved for seniors with NO
-          // active caregiver link (brand-new account OR the post-
-          // caregiver-removal re-onboarding case). Features require
-          // linkage regardless of whether the senior’s own profile
-          // data is fully populated — the Setup Required card makes
-          // the senior generate a fresh 6-digit code so a new
-          // caregiver can pair with them. Once paired, the full
-          // Home view (I'm-Okay / SOS / Community widgets) lights up.
-          isLinkageIncomplete={!linkageComplete}
+          // The restricted Home view is reserved for genuinely NEW accounts:
+          // unlinked + personal profile hasn't been filled in yet (Case 4).
+          // Once a senior has completed their personal details they are
+          // “existing” — even if still unlinked — and the full dashboard
+          // (check-in, SOS, community, etc.) is what they should see. This
+          // is the rule the user requested after Margaret Tan’s account
+          // showed the Setup-Required card with the Generate Link Code
+          // button even though all her personal details were filled in.
+          isLinkageIncomplete={
+            !linkageComplete && !isSeniorProfileComplete(currentSenior)
+          }
+          isProfileComplete={isSeniorProfileComplete(currentSenior)}
           onGenerateLinkCode={() => {
             // Reuse the existing Caregiver modal flow. Same UX as
             // tapping the "Caregiver" row inside SeniorSettings, just
@@ -1415,14 +1420,12 @@ export default function App() {
     }
 
     if (currentScreen === 'SeniorSettings') {
-      // `restrictedMode` drives BOTH the inline Caregiver row AND the
-      // modal render gate inside SeniorSettingsScreen. As of the
-      // re-onboarding fix this flag is the single source of truth
-      // (`isNewAccount = !linkageComplete`) — the row stays visible
-      // for any senior without an active caregiver link (brand-new
-      // account OR post-removal re-onboarding), and the same flag
-      // gates the modal render so force-on-mount via handleLogin
-      // is the only legitimate way to surface it.
+      // `restrictedMode` is the central isNewAccount conjunction. The
+      // screen itself combines restrictedMode with isProfileComplete
+      // for the inline Caregiver row + modal gate; with the new
+      // restrictedMode both factors in profile completion, so the
+      // row stays visible only for Case 4 and the modal can't be
+      // re-opened by anyone whose profile is complete.
       return (
         <SeniorSettingsScreen
           senior={currentSenior}
@@ -1436,6 +1439,7 @@ export default function App() {
           onLogout={handleLogout}
           onRefresh={refreshAll}
           restrictedMode={isNewAccount}
+          isProfileComplete={isSeniorProfileComplete(currentSenior)}
         />
       );
     }
