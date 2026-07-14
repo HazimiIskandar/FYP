@@ -17,14 +17,20 @@ export default function SeniorHomeScreen({
   onSettings,
   currentStreak,
   onSelectLanguage,
-  // Set by App.js to true ONLY for a genuinely brand-new account —
-  // i.e. the senior is BOTH unlinked (per /seniors/:id/linkage-summary)
-  // AND has not yet filled in their personal details. App.js owns the
-  // conjunction (see its isLinkageIncomplete prop), so this screen
-  // just reads the resulting boolean and renders the single
-  // Generate-Link-Code card when true. Existing seniors whose
-  // personal details are already complete (Margaret Tan etc.) fall
-  // through to the full dashboard below.
+  // Set by App.js to true whenever the senior has NO active caregiver
+  // link — i.e. linkageComplete is false (derived from the
+  // /seniors/:id/linkage-summary endpoint). This covers TWO scenarios:
+  //   * brand-new account: the senior just registered and no
+  //     Senior_has_Caregiver row exists yet.
+  //   * re-onboarding handover: a previously-linked senior whose
+  //     caregiver removed them via DELETE FROM Senior_has_Caregiver
+  //     (the user's current top-priority scenario — Caregiver 1 walks
+  //     away, Caregiver 2 takes over).
+  // Both cases surface the single Generate-Link-Code card below so
+  // the senior cannot exercise I'm-Okay / SOS / Community / games
+  // before a caregiver has linked them. A previously-linked senior
+  // with a complete profile no longer falls through to the full
+  // dashboard — that was the user-rejected Margaret Tan concession.
   // The CTA defers to `onGenerateLinkCode`, which App.js wires to the
   // same Caregiver modal SeniorSettingsScreen opens via
   // `initialModal='Caregiver'`.
