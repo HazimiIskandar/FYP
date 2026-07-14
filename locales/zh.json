@@ -66,6 +66,7 @@
     "generateLinkCode": "生成链接代码",
     "generating": "生成中...",
     "shareCode": "将此代码分享给您的看护者。",
+    "caregiverWaitingForLink": "正在等待看护者输入此代码……账户链接成功后，应用将自动切换回主页。",
     "logOutTitle": "退出登录？",
     "logOutMessage": "您确定要结束您的会话吗？",
     "yesLogOut": "是的，退出登录",
@@ -106,7 +107,7 @@
     "notRecorded": "未记录",
     "noMedicalConditions": "没有记录医疗状况。",
     "noEmergencyContacts": "没有记录紧急联系人。",
-    "setupRequiredNotice": "您还未设置账户。请先让您的看护者关联您的账户并完成个人资料设置,然后再使用此应用。",
+    "setupRequiredNotice": "您的账户尚未链接到看护者。请联系您的看护者使用链接代码链接您的账户，然后再使用此应用。",
     "setupRequiredOk": "好的",
 
     "relationships": {

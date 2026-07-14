@@ -63,14 +63,12 @@ export default function SeniorSettingsScreen({
   // meaning as `!linkageComplete` (no profile involvement) so the nav
   // restriction is unchanged.
   restrictedMode = false,
-  // Set by App.js from `isSeniorProfileComplete(currentSenior)`. The
-  // Caregiver row + modal below use a STRICTER rule than restrictedMode:
-  // `restrictedMode && !isProfileComplete` (= Case 4 — genuinely brand-
-  // new account). For an existing senior with completed personal
-  // details like Margaret Tan, this is true and the row + modal are
-  // hidden so she cannot accidentally re-open the Generate Link Code
-  // modal. The auto-open path in handleLogin Case 4 still works because
-  // Case 4 implies both flags are true.
+  // Kept for back-compat with older App.js callers that still pass it;
+  // we no longer AND-combine it with `restrictedMode` for the
+  // Caregiver row + modal gate — any unlinked senior (whether their
+  // personal profile is filled in or not) must be able to mint a new
+  // link code from this screen, so the Caregiver row + modal surface
+  // are gated on `restrictedMode` alone.
   isProfileComplete = false,
 }) {
   const { t } = useTranslation();
@@ -166,17 +164,18 @@ export default function SeniorSettingsScreen({
     <SafeAreaView style={styles.container}>
       <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Caregiver row only appears for genuinely brand-new onboarding
-            accounts: BOTH unlinked (restrictedMode true) AND still missing
-            their personal details (isProfileComplete false). Linked seniors
-            AND profile-complete seniors (Margaret Tan's case) never see
-            this row, so they cannot accidentally re-open the "Generate
-            Link Code" modal. The matching modal render is gated by the
-            same conjunction below so the initialModal='Caregiver'
-            forced-on-mount in handleLogin Case 4 (always true on both
-            flags) is the ONLY legitimate way to surface the modal on
-            this screen. */}
-        {restrictedMode && !isProfileComplete ? (
+        {/* Caregiver row surfaces for ANY unlinked senior — whether
+            their personal profile is filled in or not. This handles
+            both brand-new accounts AND the caregiver-removal/handoff
+            scenario (an existing senior whose previous caregiver just
+            unlinked them via /seniors/:id/caregivers/:caregiver_id).
+            The matching modal render below is gated by the same flag
+            so the initialModal='Caregiver' forced-on-mount in
+            handleLogin (which fires when an unlinked senior logs in)
+            is the primary way to surface the modal, while this row is
+            the manual entry point for seniors who closed the modal
+            earlier and want to mint a fresh link code. */}
+        {restrictedMode ? (
           <TouchableOpacity
             style={styles.settingRow}
             onPress={() => setActiveModal('Caregiver')}
@@ -227,7 +226,7 @@ export default function SeniorSettingsScreen({
 
 
 
-      {activeModal === 'Caregiver' && restrictedMode && !isProfileComplete ? (
+      {activeModal === 'Caregiver' && restrictedMode ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
@@ -246,6 +245,12 @@ export default function SeniorSettingsScreen({
                 <Text style={styles.linkCode}>{linkCode}</Text>
                 {linkStatusError ? <Text style={styles.errorText}>{linkStatusError}</Text> : null}
                 {linkStatusMessage ? <Text style={styles.savedText}>{linkStatusMessage}</Text> : null}
+                {/* Polling hint: tells the senior the app is actively
+                    checking for the new caregiver to enter this code,
+                    and that they'll be auto-bounced to Home when it
+                    happens. Reuses the muted-grey body-text styling so
+                    it doesn't compete with the link code itself. */}
+                <Text style={styles.waitingText}>{t('settings.caregiverWaitingForLink')}</Text>
                 <TouchableOpacity
                   style={[styles.primaryButton, linkSaving && styles.disabledButton]}
                   onPress={generateSeniorLinkCode}
@@ -536,6 +541,7 @@ const styles = StyleSheet.create({
   helperText: { color: '#6B7280', fontSize: 13, fontWeight: '700', marginTop: 8, lineHeight: 18 },
   savedText: { color: '#15803D', fontSize: 14, fontWeight: '800', textAlign: 'center', marginTop: 12 },
   errorText: { color: '#DC2626', fontSize: 14, fontWeight: '800', textAlign: 'center', marginTop: 12 },
+  waitingText: { color: '#6B7280', fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: 12, lineHeight: 18 },
   primaryButton: {
     backgroundColor: '#2563EB',
     minHeight: 56,

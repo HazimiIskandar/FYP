@@ -66,6 +66,7 @@
     "generateLinkCode": "Hasilkan Kod Pautan",
     "generating": "Menghasilkan...",
     "shareCode": "Kongsi kod ini dengan penjaga anda.",
+    "caregiverWaitingForLink": "Menunggu penjaga anda memasukkan kod ini... apl akan kembali ke skrin utama secara automatik setelah akaun anda dipautkan.",
     "logOutTitle": "Log keluar?",
     "logOutMessage": "Adakah anda pasti mahu menamatkan sesi anda?",
     "yesLogOut": "Ya, Log Keluar",
@@ -106,7 +107,7 @@
     "notRecorded": "Tidak direkodkan",
     "noMedicalConditions": "Tiada keadaan perubatan direkodkan.",
     "noEmergencyContacts": "Tiada kenalan kecemasan direkodkan.",
-    "setupRequiredNotice": "Anda belum menyediakan akaun anda. Sila minta penjaga anda untuk memautkan akaun anda dan melengkapkan butiran profil anda sebelum menggunakan aplikasi.",
+    "setupRequiredNotice": "Akaun anda belum dipautkan dengan penjaga. Sila minta penjaga anda memautkan akaun anda menggunakan kod pautan sebelum menggunakan apl.",
     "setupRequiredOk": "OK",
     "relationships": {
       "son": "Anak lelaki",
