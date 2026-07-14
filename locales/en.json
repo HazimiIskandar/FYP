@@ -66,7 +66,6 @@
     "generateLinkCode": "Generate Link Code",
     "generating": "Generating...",
     "shareCode": "Share this code with your caregiver.",
-    "caregiverWaitingForLink": "Waiting for your caregiver to enter this code... the app will switch back to your home screen automatically once your account is linked.",
     "logOutTitle": "Log out?",
     "logOutMessage": "Are you sure you want to end your session?",
     "yesLogOut": "Yes",
@@ -107,7 +106,7 @@
     "notRecorded": "Not recorded",
     "noMedicalConditions": "No medical conditions recorded.",
     "noEmergencyContacts": "No emergency contacts recorded.",
-    "setupRequiredNotice": "Your account is not yet linked to a caregiver. Please ask your caregiver to link your account using a link code before using the app.",
+    "setupRequiredNotice": "You have not set up your account yet. Please ask your caregiver to link your account and complete setting up your profile details before using the app.",
     "setupRequiredOk": "OK",
     "relationships": {
       "son": "Son",
