@@ -78,6 +78,13 @@ router.get('/:caregiver_id/seniors', (req, res) => {
     return res.status(400).json({ error: 'Caregiver user ID is required.' });
   }
 
+  // LEFT JOIN User_Account (instead of INNER JOIN) so that a missing or
+  // orphaned User_Account row for a linked senior cannot cause that senior
+  // to silently disappear from the caregiver's roster. Previously an
+  // INNER JOIN here manifested as Amanda Lee's caregiver portal showing
+  // 0 seniors even though Senior_has_Caregiver held 5 linkage rows --
+  // any transient inconsistency between the linkage table and the User_Account
+  // row would drop the row entirely before it reached the front-end.
   const sql = `
     SELECT
       s.senior_id,
@@ -95,10 +102,14 @@ router.get('/:caregiver_id/seniors', (req, res) => {
     FROM Senior s
     JOIN Senior_has_Caregiver shc
       ON s.senior_id = shc.senior_id
-    JOIN User_Account ua
+    LEFT JOIN User_Account ua
       ON s.user_id = ua.user_id
     WHERE shc.caregiver_id = ?
-    ORDER BY ua.full_name ASC
+    -- Push NULL full_names (orphaned senior) to the bottom of the roster
+    -- rather than letting MySQL sort them to the top by default for ASC.
+    -- This keeps Amanda's 5 named seniors in alphabetical order, with any
+    -- accidentally-left-joined NULL row showing last and easy to spot.
+    ORDER BY ua.full_name IS NULL ASC, ua.full_name ASC
   `;
 
   db.query(sql, [caregiver_id], (err, rows) => {

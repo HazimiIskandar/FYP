@@ -940,10 +940,18 @@ export default function App() {
       const userMap = new Map(
         (Array.isArray(usersData) ? usersData : []).map((user) => [user.user_id, user])
       );
+      // IMPORTANT: do NOT filter out placeholder "Unknown Senior" rows here.
+      // A legacy filter dropped any senior whose User_Account.full_name was
+      // missing/blank, which silently shrank Amanda Lee's roster from 5 to 0
+      // in production: even after the backend's INNER JOIN had passed the
+      // link through, normalizeSenior's fallback to 'Unknown Senior' kicked
+      // in for any senior with a NULL or empty-string `full_name`, and this
+      // .filter then deleted the row before the caregiver ever saw it.
+      // Caregivers must see every Senior_has_Caregiver linkage regardless of
+      // display-name integrity -- placeholders are far easier to debug than
+      // a silently empty roster.
       const normalizedSeniors = Array.isArray(seniorsData)
-        ? seniorsData
-            .map((senior) => normalizeSenior(senior, userMap))
-            .filter((normalizedSenior) => normalizedSenior.full_name !== 'Unknown Senior')
+        ? seniorsData.map((senior) => normalizeSenior(senior, userMap))
         : [];
       setUsers(Array.isArray(usersData) ? usersData : []);
       setCheckIns(Array.isArray(checkinsData) ? checkinsData : []);
