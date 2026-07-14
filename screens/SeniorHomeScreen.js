@@ -207,9 +207,6 @@ export default function SeniorHomeScreen({
                 <Text style={[styles.giantCircleText, { fontSize: 32 * fontScale }]} adjustsFontSizeToFit numberOfLines={2}>
                   {t('home.iAmOkay')}
                 </Text>
-                <Text style={[styles.giantCircleSubtext, { fontSize: 16 * fontScale }]} adjustsFontSizeToFit numberOfLines={2}>
-                  {t('home.checkInNow')}
-                </Text>
               </TouchableOpacity>
             </Animated.View>
           )}

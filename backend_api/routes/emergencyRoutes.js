@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const { createSosIncident } = require("../services/sosServiceNow");
 
 // TRIGGER EMERGENCY (manual SOS from app)
 //
@@ -23,9 +24,31 @@ router.post("/trigger", (req, res) => {
   db.query(sql, [senior_id], (err, result) => {
     if (err) return res.status(500).json(err);
 
+    const eventId = result.insertId;
+
+    // Fetch the Senior's name so we can put it in the ServiceNow description
+    const nameSql = `
+      SELECT ua.full_name 
+      FROM Senior s 
+      JOIN User_Account ua ON s.user_id = ua.user_id 
+      WHERE s.senior_id = ?
+    `;
+    
+    db.query(nameSql, [senior_id], (nameErr, nameResult) => {
+      let seniorName = "Unknown Senior";
+      if (!nameErr && nameResult.length > 0) {
+        seniorName = nameResult[0].full_name;
+      }
+
+      // Fire-and-forget: Send the SOS alert to the user's personal ServiceNow instance
+      setImmediate(() => {
+        createSosIncident(senior_id, seniorName);
+      });
+    });
+
     res.json({
       message: "Emergency triggered",
-      event_id: result.insertId
+      event_id: eventId
     });
   });
 });

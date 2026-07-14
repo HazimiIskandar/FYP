@@ -1603,7 +1603,16 @@ export default function App() {
       return (
         <EmergencyScreen
           onCancel={() => setCurrentScreen('Home')}
-          onCallHelp={() => setCurrentScreen('FakeCall')}
+          onCallHelp={() => {
+            if (apiBase && currentSenior?.senior_id) {
+              fetch(`${apiBase}/emergency/trigger`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ senior_id: currentSenior.senior_id })
+              }).catch(err => console.log('SOS trigger failed:', err));
+            }
+            setCurrentScreen('FakeCall');
+          }}
         />
       );
     }
