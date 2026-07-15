@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import './i18n';
 import i18n from './i18n';
+// import i18n, { hasPersistedLanguageChoice } from './i18n';
+
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -44,7 +46,24 @@ const APP_LANGUAGE_CODES = ['en', 'zh', 'ms', 'ta'];
 
 export default function App() {
 
+  // First-launch routing: if a language is already saved in localStorage
+  // (i.e. the user has gone through LanguageScreen at least once), skip
+  // the onboarding screen and land on Login. hasPersistedLanguageChoice
+  // reads localStorage synchronously, so this lazy initializer runs once
+  // at component mount with the correct answer before any render paints.
+  // The Language screen is still reachable at any time via the existing
+  // `onLanguage` callback wired into LoginScreen, CreateAccountScreen,
+  // and SeniorHomeScreen's language modal — we just no longer auto-show
+  // it on every relaunch.
+
+  /*
+  const [currentScreen, setCurrentScreen] = useState(() =>
+    hasPersistedLanguageChoice() ? 'Login' : 'Language'
+  );
+  */
+
   const [currentScreen, setCurrentScreen] = useState('Language');
+
   const [previousScreen, setPreviousScreen] = useState(null);
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [selectedSenior, setSelectedSenior] = useState(null);
