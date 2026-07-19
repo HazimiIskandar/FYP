@@ -71,7 +71,19 @@ export default function SeniorSettingsScreen({
   // hidden so she cannot accidentally re-open the Generate Link Code
   // modal. The auto-open path in handleLogin Case 4 still works because
   // Case 4 implies both flags are true.
-  isProfileComplete = false,
+  //
+  // INTENTIONALLY ACCEPTED BUT UNUSED ON THIS SCREEN: previously used by
+  // the `restrictedMode && !isProfileComplete` gate on the Caregiver
+  // row + modal render. That gate was removed so the Generate Link
+  // Code feature is reachable for ALL seniors (the user reported it
+  // had disappeared for existing seniors like Margaret Tan). The prop
+  // is kept in the destructure so App.js's `isProfileComplete={
+  // isSeniorProfileComplete(currentSenior)}` forwarding stays valid and
+  // any future gated surface that wants `isProfileComplete` can read
+  // it without re-plumbing App.js. If it stays unreferenced through
+  // the next several refactors it should be deleted in a coordinated
+  // edit with App.js.
+  isProfileComplete = false, // eslint-disable-line no-unused-vars
 }) {
   const { t } = useTranslation();
   const { fontScale, setFontScale } = useFontScale();
@@ -166,30 +178,6 @@ export default function SeniorSettingsScreen({
     <SafeAreaView style={styles.container}>
       <Header title={t('settings.title')} subtitle={t('settings.subtitle')} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Caregiver row only appears for genuinely brand-new onboarding
-            accounts: BOTH unlinked (restrictedMode true) AND still missing
-            their personal details (isProfileComplete false). Linked seniors
-            AND profile-complete seniors (Margaret Tan's case) never see
-            this row, so they cannot accidentally re-open the "Generate
-            Link Code" modal. The matching modal render is gated by the
-            same conjunction below so the initialModal='Caregiver'
-            forced-on-mount in handleLogin Case 4 (always true on both
-            flags) is the ONLY legitimate way to surface the modal on
-            this screen. */}
-        {restrictedMode && !isProfileComplete ? (
-          <TouchableOpacity
-            style={styles.settingRow}
-            onPress={() => setActiveModal('Caregiver')}
-            activeOpacity={0.86}
-          >
-            <View style={styles.settingIcon}>
-              <Ionicons name="heart-outline" size={24} color="#2563EB" />
-            </View>
-            <Text style={[styles.settingText, { fontSize: 19 * fontScale }]}>{t('settings.caregiver')}</Text>
-            <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
-          </TouchableOpacity>
-        ) : null}
-
         <TouchableOpacity
           style={styles.settingRow}
           onPress={() => setActiveModal('FontSize')}
@@ -199,6 +187,33 @@ export default function SeniorSettingsScreen({
             <Ionicons name="text-outline" size={24} color="#2563EB" />
           </View>
           <Text style={[styles.settingText, { fontSize: 19 * fontScale }]}>{t('settings.changeFontSize')}</Text>
+          <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
+        </TouchableOpacity>
+
+        {/*
+          Caregiver / Generate Link Code row. Rendered directly under the
+          Font Size row at all times — every senior, linked or not, new or
+          existing, can re-open the modal whenever they need to share a
+          fresh code with their caregiver. Previously this row was gated
+          behind `restrictedMode && !isProfileComplete` so it only
+          surfaced during the brand-new-account (Case 4) onboarding
+          flow; this meant existing seniors like Margaret Tan could not
+          regenerate a code if the first one expired or got lost, which
+          is the exact scenario the senior-side link code generation is
+          for. The modal auto-open path (initialModal='Caregiver' set
+          in App.js handleLogin Case 4) still works because
+          activeModal is set in the same effect regardless of this
+          row's visibility.
+        */}
+        <TouchableOpacity
+          style={styles.settingRow}
+          onPress={openCaregiverModal}
+          activeOpacity={0.86}
+        >
+          <View style={styles.settingIcon}>
+            <Ionicons name="heart-outline" size={24} color="#2563EB" />
+          </View>
+          <Text style={[styles.settingText, { fontSize: 19 * fontScale }]}>{t('settings.caregiver')}</Text>
           <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
         </TouchableOpacity>
 
@@ -227,7 +242,7 @@ export default function SeniorSettingsScreen({
 
 
 
-      {activeModal === 'Caregiver' && restrictedMode && !isProfileComplete ? (
+      {activeModal === 'Caregiver' ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
