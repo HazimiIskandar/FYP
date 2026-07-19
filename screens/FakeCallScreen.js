@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function FakeCallScreen({ onEndCall }) {
+export default function FakeCallScreen({ onEndCall, title = "Calling Caregiver..." }) {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export default function FakeCallScreen({ onEndCall }) {
           <Ionicons name="person" size={90} color="#FFFFFF" />
         </View>
 
-        <Text style={styles.callingText}>Calling Caregiver...</Text>
+        <Text style={styles.callingText}>{title}</Text>
         <Text style={styles.timerText}>{formatTime()}</Text>
       </View>
 
@@ -78,6 +78,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 34,
     fontWeight: '900',
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 
   timerText: {

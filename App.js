@@ -5,7 +5,7 @@ import i18n from './i18n';
 
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, Linking, Alert } from 'react-native';
 import { getSgtDateKey } from './utils/time';
 
 // Screens
@@ -20,6 +20,7 @@ import SeniorProfileScreen from './screens/SeniorProfileScreen';
 import SeniorEditProfileScreen from './screens/SeniorEditProfileScreen';
 import SeniorSettingsScreen from './screens/SeniorSettingsScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
+import CaregiverEmergencyScreen from './screens/CaregiverEmergencyScreen';
 import CaregiverHomeScreen from './screens/CaregiverHomeScreen';
 import CaregiverSeniorsListScreen from './screens/CaregiverSeniorsListScreen';
 import CaregiverRosterScreen from './screens/CaregiverRosterScreen';
@@ -1477,6 +1478,7 @@ export default function App() {
       const topPriorityLatestCheckIn = topPrioritySenior
         ? getLatestCheckInFor(topPrioritySenior.senior_id)
         : null;
+
       return (
         <CaregiverHomeScreen
           summary={{
@@ -1495,9 +1497,60 @@ export default function App() {
           prioritySenior={topPrioritySenior}
           latestCheckIn={topPriorityLatestCheckIn}
           activeTicket={emergencyEvents?.[0]}
+          onCallEmergencyContact={() => setCurrentScreen('CaregiverEmergency')}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
           onSettings={() => setCurrentScreen('StaffSettings')}
+        />
+      );
+    }
+
+    if (currentScreen === 'CaregiverEmergency') {
+      const topPrioritySenior =
+        decoratedSeniors.find((s) => s.status === 'Urgent') ||
+        decoratedSeniors.find((s) => s.status === 'Pending') ||
+        decoratedSeniors[0];
+      
+      const primary = Array.isArray(topPrioritySenior?.nokContacts) ? topPrioritySenior.nokContacts[0] : null;
+      let phone =
+        topPrioritySenior?.emergency_contact_phone ||
+        topPrioritySenior?.next_of_kin_phone ||
+        primary?.phone_number ||
+        null;
+        
+      const seniorName =
+        topPrioritySenior?.full_name ||
+        topPrioritySenior?.name ||
+        [topPrioritySenior?.first_name, topPrioritySenior?.last_name].filter(Boolean).join(' ') ||
+        'Senior';
+
+      return (
+        <CaregiverEmergencyScreen
+          seniorName={seniorName}
+          onCancel={() => setCurrentScreen('CaregiverHome')}
+          onCallHelp={() => {
+            if (phone) {
+              const cleanPhone = String(phone).replace(/\D/g, '');
+              Linking.openURL(`tel:${cleanPhone}`);
+            }
+
+            fetch(`${apiBase}/emergency/caregiver-action`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ senior_name: seniorName })
+            }).catch(err => console.log('Caregiver action error:', err));
+            
+            setCurrentScreen('CaregiverFakeCall');
+          }}
+        />
+      );
+    }
+
+    if (currentScreen === 'CaregiverFakeCall') {
+      return (
+        <FakeCallScreen 
+          title="Calling Emergency Contact..."
+          onEndCall={() => setCurrentScreen('CaregiverHome')}
         />
       );
     }

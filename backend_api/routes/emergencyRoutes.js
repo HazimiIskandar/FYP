@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const { createSosIncident } = require("../services/sosServiceNow");
+const { updateIncidentToInProgress } = require("../services/caregiverServiceNow");
 
 // TRIGGER EMERGENCY (manual SOS from app)
 //
@@ -66,6 +67,24 @@ router.get("/:senior_id", (req, res) => {
     if (err) return res.status(500).json(err);
 
     res.json(result);
+  });
+});
+
+// CAREGIVER ACTION (Trigger Missed check-in workflow)
+router.post("/caregiver-action", (req, res) => {
+  const { senior_name } = req.body;
+
+  if (!senior_name) {
+    return res.status(400).json({ error: "senior_name is required" });
+  }
+
+  // Fire-and-forget: update the incident in ServiceNow
+  setImmediate(() => {
+    updateIncidentToInProgress(senior_name);
+  });
+
+  res.json({
+    message: "Caregiver action triggered",
   });
 });
 
