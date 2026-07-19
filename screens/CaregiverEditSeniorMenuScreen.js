@@ -39,22 +39,37 @@ const formatCheckInTime = (value) => {
 };
 
 const MORNING_TIMES = [
-  '4:00 AM - 10:00 AM',
-  '5:00 AM - 11:00 AM',
-  '6:00 AM - 12:00 PM',
-  '7:00 AM - 1:00 PM',
-  '8:00 AM - 2:00 PM',
-  '9:00 AM - 3:00 PM',
-  '10:00 AM - 4:00 PM'
+  '5:00 AM',
+  '6:00 AM',
+  '7:00 AM',
+  '8:00 AM',
+  '9:00 AM',
+  '10:00 AM'
 ];
 
 const EVENING_TIMES = [
-  '4:00 PM - 10:00 PM',
-  '5:00 PM - 11:00 PM',
-  '6:00 PM - 12:00 AM',
-  '7:00 PM - 1:00 AM',
-  '8:00 PM - 2:00 AM'
+  '4:00 PM',
+  '5:00 PM',
+  '6:00 PM',
+  '7:00 PM',
+  '8:00 PM',
+  '9:00 PM'
 ];
+
+const getEndTime = (timeStr) => {
+  const match = String(timeStr).match(/^([01]?\d):([0-5]\d)\s?(AM|PM)$/i);
+  if (!match) return timeStr;
+  let hour = Number(match[1]);
+  const minute = match[2];
+  let period = match[3].toUpperCase();
+
+  hour += 6;
+  if (hour >= 12) {
+    if (hour > 12) hour -= 12;
+    period = period === 'AM' ? 'PM' : 'AM';
+  }
+  return `${hour}:${minute} ${period}`;
+};
 
 export default function CaregiverEditSeniorMenuScreen({
   senior = {},
@@ -70,33 +85,29 @@ export default function CaregiverEditSeniorMenuScreen({
 }) {
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
-    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '5:00 AM - 10:00 AM, 6:00 PM - 10:00 PM';
+    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '6:00 AM - 12:00 PM, 6:00 PM - 12:00 AM';
     const parts = String(raw).split(',').map(s => s.trim());
     // In old format (4 slots), parts[1] might be e.g. "11:00 AM - 12:00 PM". We seamlessly migrate by reading the first slot of morning and first slot of evening, or if it's already migrated, we just read the two ranges.
     // However, if the old format had 4 parts, parts[2] is the Evening.
     // If it has 2 parts, parts[1] is Evening.
     const isOldFormat = parts.length > 2;
-    const morningPart = parts[0] || '5:00 AM - 10:00 AM';
-    const eveningPart = isOldFormat ? (parts[2] || '6:00 PM - 10:00 PM') : (parts[1] || '6:00 PM - 10:00 PM');
+    const morningPart = parts[0] || '6:00 AM - 12:00 PM';
+    const eveningPart = isOldFormat ? (parts[2] || '6:00 PM - 12:00 AM') : (parts[1] || '6:00 PM - 12:00 AM');
     
     const mSplit = morningPart.split('-').map(s => s.trim());
     const eSplit = eveningPart.split('-').map(s => s.trim());
     return {
-      morningStart: mSplit[0] || '5:00 AM',
-      morningEnd: mSplit[1] || '10:00 AM',
+      morningStart: mSplit[0] || '6:00 AM',
       eveningStart: eSplit[0] || '6:00 PM',
-      eveningEnd: eSplit[1] || '10:00 PM',
     };
   };
 
   const initialTimes = useMemo(() => getInitialTimes(senior), [senior]);
   const [activeModal, setActiveModal] = useState(null);
   const [morningStart, setMorningStart] = useState(initialTimes.morningStart);
-  const [morningEnd, setMorningEnd] = useState(initialTimes.morningEnd);
   const [eveningStart, setEveningStart] = useState(initialTimes.eveningStart);
-  const [eveningEnd, setEveningEnd] = useState(initialTimes.eveningEnd);
   const [timeDropdownVisible, setTimeDropdownVisible] = useState(false);
-  const [editingTimeIndex, setEditingTimeIndex] = useState(1); // 1=mStart, 2=mEnd, 3=eStart, 4=eEnd
+  const [editingTimeIndex, setEditingTimeIndex] = useState(1); // 1=mStart, 3=eStart
   const [settingsMessage, setSettingsMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [timeSaving, setTimeSaving] = useState(false);
@@ -113,8 +124,8 @@ export default function CaregiverEditSeniorMenuScreen({
   };
 
   const saveCheckInTime = async () => {
-    if (!morningStart || !morningEnd || !eveningStart || !eveningEnd) {
-      setSettingsError('Please select all start and end times.');
+    if (!morningStart || !eveningStart) {
+      setSettingsError('Please select morning and evening start times.');
       setSettingsMessage('');
       return;
     }
@@ -130,7 +141,7 @@ export default function CaregiverEditSeniorMenuScreen({
     setSettingsMessage('');
 
     try {
-      const combinedTimes = `${morningStart} - ${morningEnd}, ${eveningStart} - ${eveningEnd}`;
+      const combinedTimes = `${morningStart} - ${getEndTime(morningStart)}, ${eveningStart} - ${getEndTime(eveningStart)}`;
       const response = await fetch(`${apiBase}/seniors/${senior.senior_id}/checkin-time`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -208,12 +219,10 @@ export default function CaregiverEditSeniorMenuScreen({
           <View style={styles.dropdownModal}>
             <Text style={styles.dropdownTitle}>Select Time</Text>
             <ScrollView style={styles.dropdownList}>
-              {((editingTimeIndex === 1 || editingTimeIndex === 2) ? MORNING_TIMES : EVENING_TIMES).map((time) => {
+              {(editingTimeIndex === 1 ? MORNING_TIMES : EVENING_TIMES).map((time) => {
                 const isSelected = 
                   (editingTimeIndex === 1 && time === morningStart) ||
-                  (editingTimeIndex === 2 && time === morningEnd) ||
-                  (editingTimeIndex === 3 && time === eveningStart) ||
-                  (editingTimeIndex === 4 && time === eveningEnd);
+                  (editingTimeIndex === 3 && time === eveningStart);
                   
                 return (
                   <TouchableOpacity
@@ -221,9 +230,7 @@ export default function CaregiverEditSeniorMenuScreen({
                     style={styles.dropdownItem}
                     onPress={() => {
                       if (editingTimeIndex === 1) setMorningStart(time);
-                      else if (editingTimeIndex === 2) setMorningEnd(time);
                       else if (editingTimeIndex === 3) setEveningStart(time);
-                      else if (editingTimeIndex === 4) setEveningEnd(time);
                       
                       setTimeDropdownVisible(false);
                       setSettingsMessage('');
@@ -272,41 +279,23 @@ export default function CaregiverEditSeniorMenuScreen({
 
             <Text style={styles.inputLabel}>Morning Check-In Window</Text>
             <View style={styles.rangeContainer}>
-              <Text style={styles.rangeText}>from</Text>
               <TouchableOpacity
-                style={styles.rangeSelectBox}
+                style={[styles.rangeSelectBox, { flex: 1, paddingVertical: 14 }]}
                 onPress={() => { setEditingTimeIndex(1); setTimeDropdownVisible(true); }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.selectBoxText}>{morningStart}</Text>
-              </TouchableOpacity>
-              <Text style={styles.rangeText}>to</Text>
-              <TouchableOpacity
-                style={styles.rangeSelectBox}
-                onPress={() => { setEditingTimeIndex(2); setTimeDropdownVisible(true); }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.selectBoxText}>{morningEnd}</Text>
+                <Text style={[styles.selectBoxText, { fontSize: 18 }]}>{morningStart}</Text>
               </TouchableOpacity>
             </View>
 
             <Text style={[styles.inputLabel, { marginTop: 12 }]}>Evening Check-In Window</Text>
             <View style={styles.rangeContainer}>
-              <Text style={styles.rangeText}>from</Text>
               <TouchableOpacity
-                style={styles.rangeSelectBox}
+                style={[styles.rangeSelectBox, { flex: 1, paddingVertical: 14 }]}
                 onPress={() => { setEditingTimeIndex(3); setTimeDropdownVisible(true); }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.selectBoxText}>{eveningStart}</Text>
-              </TouchableOpacity>
-              <Text style={styles.rangeText}>to</Text>
-              <TouchableOpacity
-                style={styles.rangeSelectBox}
-                onPress={() => { setEditingTimeIndex(4); setTimeDropdownVisible(true); }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.selectBoxText}>{eveningEnd}</Text>
+                <Text style={[styles.selectBoxText, { fontSize: 18 }]}>{eveningStart}</Text>
               </TouchableOpacity>
             </View>
 
