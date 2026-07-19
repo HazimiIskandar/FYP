@@ -204,6 +204,22 @@ router.post("/link-caregiver", (req, res) => {
   const linkCode = String(req.body?.link_code || "").trim();
   const caregiverId = req.body?.caregiver_id;
 
+  // Defense-in-depth copy of the per-caregiver senior cap that lives in
+  // /caregiver/link-senior (the canonical reach inside the React Native
+  // app's `CaregiverSeniorsListScreen.js`). The senior-side route
+  // /seniors/link-caregiver isn't currently called from any front-end
+  // flow (verified by grepping screens/* for `link-caregiver`), but if
+  // a future admin tool, integration test, or external client invokes
+  // it we still want the same MAX_SENIORS_PER_CAREGIVER guard rather
+  // than silently letting the caregiver's roster grow without bound.
+  // The cap constant is duplicated here deliberately — importing from
+  // caregiverRoutes into seniorRoutes would create a sibling-route
+  // cross-dependency that complicates unit testing both files in
+  // isolation. Bumping the cap requires updating both files; the
+  // multi-line comment block in caregiverRoutes.js documents the
+  // reason for the duplication.
+  const MAX_SENIORS_PER_CAREGIVER = 5;
+
   if (!/^\d{6}$/.test(linkCode)) {
     return res.status(400).json({ error: "A valid 6-digit link code is required." });
   }
@@ -239,30 +255,55 @@ router.post("/link-caregiver", (req, res) => {
         return res.status(403).json({ error: "Only caregiver accounts can link to a senior." });
       }
 
-      const duplicateSql = `
-        SELECT senior_id, caregiver_id
+      // Capacity gate — identical contract to /caregiver/link-senior so
+      // any client receives the same error shape, error code, and the
+      // structured current_count / max_count fields.
+      const countSql = `
+        SELECT COUNT(*) AS total
         FROM Senior_has_Caregiver
-        WHERE senior_id = ? AND caregiver_id = ?
-        LIMIT 1
+        WHERE caregiver_id = ?
       `;
 
-      db.query(duplicateSql, [seniorId, caregiverId], (duplicateErr, duplicateRows) => {
-        if (duplicateErr) return res.status(500).json({ error: duplicateErr.message || duplicateErr });
-        if (duplicateRows.length) {
-          return res.status(409).json({ error: "This senior is already linked to your caregiver account." });
+      db.query(countSql, [caregiverId], (countErr, countRows) => {
+        if (countErr) return res.status(500).json({ error: countErr.message || countErr });
+
+        const currentCount = Number(countRows?.[0]?.total) || 0;
+        if (currentCount >= MAX_SENIORS_PER_CAREGIVER) {
+          return res.status(409).json({
+            error: `You have reached the maximum of ${MAX_SENIORS_PER_CAREGIVER} seniors per caregiver. Please remove a senior before adding a new one.`,
+            code: 'CAREGIVER_AT_SENIOR_LIMIT',
+            current_count: currentCount,
+            max_count: MAX_SENIORS_PER_CAREGIVER,
+          });
         }
 
-        const insertSql = `
-          INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
-          VALUES (?, ?)
+        const duplicateSql = `
+          SELECT senior_id, caregiver_id
+          FROM Senior_has_Caregiver
+          WHERE senior_id = ? AND caregiver_id = ?
+          LIMIT 1
         `;
 
-        db.query(insertSql, [seniorId, caregiverId], (insertErr) => {
-          if (insertErr) return res.status(500).json({ error: insertErr.message || insertErr });
-          res.status(201).json({
-            message: "Senior linked to caregiver successfully.",
-            senior_id: seniorId,
-            caregiver_id: Number(caregiverId),
+        db.query(duplicateSql, [seniorId, caregiverId], (duplicateErr, duplicateRows) => {
+          if (duplicateErr) return res.status(500).json({ error: duplicateErr.message || duplicateErr });
+          if (duplicateRows.length) {
+            return res.status(409).json({ error: "This senior is already linked to your caregiver account." });
+          }
+
+          const insertSql = `
+            INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
+            VALUES (?, ?)
+          `;
+
+          db.query(insertSql, [seniorId, caregiverId], (insertErr) => {
+            if (insertErr) return res.status(500).json({ error: insertErr.message || insertErr });
+            res.status(201).json({
+              message: "Senior linked to caregiver successfully.",
+              senior_id: seniorId,
+              caregiver_id: Number(caregiverId),
+              current_count: currentCount + 1,
+              max_count: MAX_SENIORS_PER_CAREGIVER,
+            });
           });
         });
       });

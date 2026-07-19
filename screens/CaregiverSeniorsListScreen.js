@@ -15,6 +15,23 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CaregiverBottomNav from '../components/CaregiverBottomNav';
 
+// Maximum number of seniors a single caregiver is allowed to have linked
+// at the same time. Caregivers can effectively monitor and check in on
+// their assigned seniors only when their roster is bounded; capping at 5
+// forces caregivers to drop an existing senior before tracking a new
+// one instead of silently growing the roster indefinitely. Keep this in
+// sync with MAX_SENIORS_PER_CAREGIVER in
+// backend_api/routes/caregiverRoutes.js so the front-end banner and
+// back-end gate agree on the same number.
+const MAX_SENIORS_PER_CAREGIVER = 5;
+
+// Single source of truth for the limit-reached hint surfaced everywhere
+// on this screen (inline banner, button hint, modal submitError fallback,
+// backend-error short-circuit). Keeping the wording in one place means
+// a future translation / re-phrasing edit doesn't quietly drift between
+// the four places that need to agree on the same sentence.
+const MAX_REACHED_MESSAGE = `You have reached the maximum of ${MAX_SENIORS_PER_CAREGIVER} seniors per caregiver. Please remove a senior before adding a new one.`;
+
 export default function CaregiverSeniorsListScreen({
   seniors = [],
   onGoToHome,
@@ -35,6 +52,28 @@ export default function CaregiverSeniorsListScreen({
   const [searchQuery, setSearchQuery] = useState('');
 
   const getRawText = (value) => (value ?? '').toString();
+
+  // Number of seniors currently linked to this caregiver, plus the
+  // derived `isAtLimit` flag the banner + add-button check both read.
+  // `Array.isArray` guard keeps `seniors` undefined-safe (default prop
+  // is `[]`, but defensive code here prevents a future caller from
+  // crashing the screen by passing e.g. a fetch error body).
+  const seniorCount = Array.isArray(seniors) ? seniors.length : 0;
+  const isAtLimit = seniorCount >= MAX_SENIORS_PER_CAREGIVER;
+
+  const openAddModal = () => {
+    // Defensive: even if the disabled-button tap somehow fires (e.g.
+    // a screen-reader activation), refuse to surface the modal once
+    // the caregiver is at the cap and instead surface the same
+    // limit-reached hint the banner already shows.
+    if (isAtLimit) {
+      setSubmitError(MAX_REACHED_MESSAGE);
+      return;
+    }
+    setAddModalVisible(true);
+    setSubmitMessage('');
+    setSubmitError('');
+  };
 
   const closeAddModal = () => {
     if (isSubmitting) return;
@@ -80,7 +119,15 @@ export default function CaregiverSeniorsListScreen({
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setSubmitError(payload?.error || 'Unable to add senior. Please verify the code and try again.');
+        // Special-case the backend's CAREGIVER_AT_SENIOR_LIMIT error so a
+        // back-end rejection presents the same message the inline banner
+        // shows on the main screen. Falls back to the generic message for
+        // every other error so we never surface incomplete data.
+        if (payload?.code === 'CAREGIVER_AT_SENIOR_LIMIT') {
+          setSubmitError(MAX_REACHED_MESSAGE);
+        } else {
+          setSubmitError(payload?.error || 'Unable to add senior. Please verify the code and try again.');
+        }
         return;
       }
 
@@ -163,17 +210,108 @@ export default function CaregiverSeniorsListScreen({
         </View>
 
         <TouchableOpacity
-          style={styles.addSeniorButton}
-          onPress={() => {
-            setAddModalVisible(true);
-            setSubmitMessage('');
-            setSubmitError('');
-          }}
+          style={[
+            styles.addSeniorButton,
+            // Visually mute the CTA when the caregiver is at the cap so
+            // tapping it cues the user that the action is blocked, before
+            // the inline banner + openAddModal short-circuit cover the
+            // other two layers of "this is disabled".
+            isAtLimit ? styles.addSeniorButtonDisabled : null,
+          ]}
           activeOpacity={0.86}
+          // RN's TouchableOpacity honours `disabled` natively and skips
+          // both the press handler AND the press-down active-opacity dim,
+          // so setting it gives us cheaper + more accurate behaviour than
+          // only checking it inside openAddModal. accessibilityState is
+          // still set so screen readers announce the disabled state.
+          disabled={isAtLimit}
+          accessibilityState={{ disabled: isAtLimit }}
+          accessibilityHint={
+            isAtLimit
+              ? 'Maximum of 5 seniors reached. Remove a senior to add another.'
+              : undefined
+          }
+          onPress={openAddModal}
         >
-          <Ionicons name="add-circle" size={22} color="#FFFFFF" />
-          <Text style={styles.addSeniorButtonText} numberOfLines={1}>Add New Senior</Text>
+          <Ionicons
+            name="add-circle"
+            size={22}
+            color={isAtLimit ? '#6B7280' : '#FFFFFF'}
+          />
+          <Text
+            style={[
+              styles.addSeniorButtonText,
+              isAtLimit ? styles.addSeniorButtonTextDisabled : null,
+            ]}
+            numberOfLines={1}
+          >
+            Add New Senior
+          </Text>
         </TouchableOpacity>
+
+        {/*
+          Limit-reached banner. Rendered ABOVE the Add Senior button so the
+          caregiver sees the reason the button is disabled before tapping
+          it, and below the button so the natural reading order on the
+          screen is: search bar → CTA → warning (which is the same order
+          the eye lands on when scrolling). Uses an alert-amber palette
+          (rather than red) because the situation is a soft warning, not
+          an error — the caregiver can still interact with the rest of
+          their roster normally, and clearing one slot will re-enable
+          the CTA on the very next refresh tick.
+        */}
+        {isAtLimit ? (
+          <View
+            style={styles.limitBanner}
+            // accessibilityRole="alert" + accessibilityLiveRegion="polite"
+            // tell VoiceOver / TalkBack to announce the limit warning as
+            // soon as it appears on screen. Without these the banner is
+            // visually obvious but silent for screen-reader users, which
+            // is the exact inverse of the "show me why the button is
+            // disabled" question a caregiver would otherwise ask aloud.
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={`Maximum reached: ${seniorCount} of ${MAX_SENIORS_PER_CAREGIVER} senior slots used. You can't add more seniors unless one is removed.`}
+          >
+            <View
+              style={styles.limitBannerIconWrap}
+              // Mark the icon wrapper as decorative so VoiceOver / TalkBack
+              // doesn't announce an isolated "warning" graphic *before*
+              // the parent's accessibilityLabel ("Maximum reached …"). With
+              // this flag the screen-reader jumps straight to the labelled
+              // sentence instead of tripping over the visual symbol.
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no"
+            >
+              <Ionicons name="warning" size={22} color="#B45309" />
+            </View>
+            <View style={styles.limitBannerCopy}>
+              <Text style={styles.limitBannerTitle}>
+                Maximum reached ({seniorCount}/{MAX_SENIORS_PER_CAREGIVER})
+              </Text>
+              <Text style={styles.limitBannerBody}>
+                You can&apos;t add more seniors unless one is removed.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+        {!isAtLimit && seniorCount > 0 ? (
+          <Text style={styles.slotHint} numberOfLines={2}>
+            {seniorCount}/{MAX_SENIORS_PER_CAREGIVER} senior slots used
+          </Text>
+        ) : null}
+
+        {/*
+          Submit-error notice rendered ABOVE the roster so a stray tap on
+          the disabled button (e.g. via screen-reader accessibility) still
+          surfaces the same limit-reached hint the banner is displaying.
+          Kept separate from the modal's submitError so the message
+          remains visible AFTER the modal has been dismissed / never
+          opened.
+        */}
+        {!addModalVisible && submitError ? (
+          <Text style={styles.errorText}>{submitError}</Text>
+        ) : null}
 
         {rosterItems.length > 0 ? (
           rosterItems.map((item) => (
@@ -292,7 +430,68 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 18,
   },
+  // Disabled state for the Add Senior CTA when the caregiver has hit
+  // the per-caregiver cap. Mirrors the existing grey-100 / grey-500
+  // disabled palette used by the other TouchableOpacity buttons on
+  // this screen (see `cancelButton`) so the visual cue is consistent
+  // with the rest of the screen rather than introducing a fresh
+  // grey shade for a single tap target.
+  addSeniorButtonDisabled: {
+    backgroundColor: '#E5E7EB',
+    marginBottom: 14,
+  },
   addSeniorButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900', flexShrink: 1 },
+  addSeniorButtonTextDisabled: { color: '#6B7280' },
+  // Inline alert shown when the caregiver has hit the 5-senior cap.
+  // Amber palette was chosen over red because the situation is a soft
+  // warning (the caregiver can still see / tap their existing
+  // roster), not an outright error — the deep amber icons stay
+  // legible on the larger FontSizeContext scales without a layout
+  // shift when the message wraps to two lines on smaller phones.
+  limitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+    gap: 12,
+  },
+  limitBannerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FDE68A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  limitBannerCopy: { flex: 1, flexShrink: 1 },
+  limitBannerTitle: {
+    color: '#92400E',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  limitBannerBody: {
+    color: '#78350F',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+    flexShrink: 1,
+  },
+  // Subtle grey line under the Add Senior CTA when below cap, showing
+  // {used}/{total} slots so the caregiver always knows how close they
+  // are to the limit. Hidden at the limit itself because the louder
+  // amber banner takes over the same slot.
+  slotHint: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
   rosterCard: {
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',

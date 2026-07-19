@@ -4,6 +4,18 @@ const db = require('../config/db');
 
 const normalizeLinkCode = (value) => String(value || '').trim().toUpperCase();
 
+// Maximum number of seniors a single caregiver is allowed to have linked
+// at the same time. Surfaced on /caregiver/link-senior so a caregiver
+// who tries to add a 6th senior is rejected with a clear, actionable
+// error message instead of silently succeeding. Keep this in sync with
+// the same constant on the RN side (`MAX_SENIORS_PER_CAREGIVER` in
+// screens/CaregiverSeniorsListScreen.js) so the front-end banner and
+// the back-end gate agree on the same number. Bumping the limit here
+// without a matching front-end banner change would let caregivers add
+// one more slot but the UI would still report them as over-limit —
+// the two constants intentionally mirror each other for that reason.
+const MAX_SENIORS_PER_CAREGIVER = 5;
+
 router.post('/link-senior', (req, res) => {
   const link_code = normalizeLinkCode(req.body?.link_code);
   const { caregiver_id } = req.body;
@@ -44,27 +56,62 @@ router.post('/link-senior', (req, res) => {
         return res.status(403).json({ error: 'Only caregiver accounts can link to a senior.' });
       }
 
-      const duplicateSql = `
-        SELECT senior_id, caregiver_id
+      // Capacity gate: count the caregiver's existing linkages BEFORE the
+      // duplicate / link steps so an over-limit caregiver is rejected
+      // deterministically regardless of whether the new code points to a
+      // duplicate senior or a brand-new one. Without this guard, legacy
+      // caregivers were free to keep adding seniors without bound,
+      // making it impossible for a single caregiver to effectively
+      // monitor their roster. We reject at_exactly the limit (>=) so a
+      // caregiver who somehow ended up with 6+ linkage rows from a
+      // previous version of the app can never grow further.
+      const countSql = `
+        SELECT COUNT(*) AS total
         FROM Senior_has_Caregiver
-        WHERE senior_id = ? AND caregiver_id = ?
-        LIMIT 1
+        WHERE caregiver_id = ?
       `;
 
-      db.query(duplicateSql, [senior_id, caregiver_id], (duplicateErr, duplicateRows) => {
-        if (duplicateErr) return res.status(500).json({ error: duplicateErr.message || duplicateErr });
-        if (duplicateRows.length) {
-          return res.status(409).json({ error: 'This senior is already linked to your caregiver account.' });
+      db.query(countSql, [caregiver_id], (countErr, countRows) => {
+        if (countErr) return res.status(500).json({ error: countErr.message || countErr });
+
+        const currentCount = Number(countRows?.[0]?.total) || 0;
+        if (currentCount >= MAX_SENIORS_PER_CAREGIVER) {
+          return res.status(409).json({
+            error: `You have reached the maximum of ${MAX_SENIORS_PER_CAREGIVER} seniors per caregiver. Please remove a senior before adding a new one.`,
+            code: 'CAREGIVER_AT_SENIOR_LIMIT',
+            current_count: currentCount,
+            max_count: MAX_SENIORS_PER_CAREGIVER,
+          });
         }
 
-        const linkSql = `
-          INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
-          VALUES (?, ?)
+        const duplicateSql = `
+          SELECT senior_id, caregiver_id
+          FROM Senior_has_Caregiver
+          WHERE senior_id = ? AND caregiver_id = ?
+          LIMIT 1
         `;
 
-        db.query(linkSql, [senior_id, caregiver_id], (linkErr) => {
-          if (linkErr) return res.status(500).json({ error: linkErr.message || linkErr });
-          res.status(201).json({ message: 'Senior linked to caregiver successfully.', senior_id, caregiver_id });
+        db.query(duplicateSql, [senior_id, caregiver_id], (duplicateErr, duplicateRows) => {
+          if (duplicateErr) return res.status(500).json({ error: duplicateErr.message || duplicateErr });
+          if (duplicateRows.length) {
+            return res.status(409).json({ error: 'This senior is already linked to your caregiver account.' });
+          }
+
+          const linkSql = `
+            INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
+            VALUES (?, ?)
+          `;
+
+          db.query(linkSql, [senior_id, caregiver_id], (linkErr) => {
+            if (linkErr) return res.status(500).json({ error: linkErr.message || linkErr });
+            res.status(201).json({
+              message: 'Senior linked to caregiver successfully.',
+              senior_id,
+              caregiver_id,
+              current_count: currentCount + 1,
+              max_count: MAX_SENIORS_PER_CAREGIVER,
+            });
+          });
         });
       });
     });
