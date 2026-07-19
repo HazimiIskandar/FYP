@@ -34,7 +34,7 @@ const formatCheckInTime = (value) => {
   const match = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
 
   if (!match) {
-    return '9:00 AM - 10:00 AM';
+    return '6:00 AM - 12:00 PM';
   }
 
   const hour24 = Number(match[1]);

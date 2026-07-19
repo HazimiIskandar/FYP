@@ -25,6 +25,10 @@
   "home": {
     "goodMorning": "காலை வணக்கம்",
     "goodMorningName": "காலை வணக்கம், {{name}}",
+    "goodAfternoon": "மதிய வணக்கம்",
+    "goodAfternoonName": "மதிய வணக்கம், {{name}}",
+    "goodEvening": "மாலை வணக்கம்",
+    "goodEveningName": "மாலை வணக்கம், {{name}}",
     "tapToCheckIn": "நீங்கள் நலமாக இருப்பதாக உங்கள் பராமரிப்பாளருக்குத் தெரிவிக்க ஒருமுறை தட்டவும்",
     "checkedInToday": "இன்று நீங்கள் சோதனை செய்துள்ளீர்கள்",
     "checkInReady": "தினசரி சோதனை தயாராக உள்ளது",

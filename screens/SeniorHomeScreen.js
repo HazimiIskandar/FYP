@@ -96,11 +96,20 @@ export default function SeniorHomeScreen({
   // so we don't allocate a second Animated.Value (React would still
   // be happy, but keeping hooks call-count flat makes the conditional
   // render path easier to reason about).
+
+  const getGreetingConfig = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { general: 'home.goodMorning', name: 'home.goodMorningName' };
+    if (hour < 18) return { general: 'home.goodAfternoon', name: 'home.goodAfternoonName' };
+    return { general: 'home.goodEvening', name: 'home.goodEveningName' };
+  };
+  const greetingConfig = getGreetingConfig();
+
   if (isLinkageIncomplete) {
     return (
       <SafeAreaView style={styles.container}>
         <Header
-          title={seniorName ? t('home.goodMorningName', { name: seniorName }) : t('home.goodMorning')}
+          title={seniorName ? t(greetingConfig.name, { name: seniorName }) : t(greetingConfig.general)}
           subtitle={t('home.setupRequiredTitle')}
         />
 
@@ -150,7 +159,7 @@ export default function SeniorHomeScreen({
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title={seniorName ? t('home.goodMorningName', { name: seniorName }) : t('home.goodMorning')}
+        title={seniorName ? t(greetingConfig.name, { name: seniorName }) : t(greetingConfig.general)}
         subtitle={isMorning ? t('home.checkInMorning') : t('home.checkInEvening')}
         rightContent={(
           <TouchableOpacity

@@ -25,6 +25,10 @@
   "home": {
     "goodMorning": "Good morning",
     "goodMorningName": "Good morning, {{name}}",
+    "goodAfternoon": "Good afternoon",
+    "goodAfternoonName": "Good afternoon, {{name}}",
+    "goodEvening": "Good evening",
+    "goodEveningName": "Good evening, {{name}}",
     "tapToCheckIn": "Tap once to let your caregiver know you are okay",
     "checkedInToday": "You checked in today",
     "checkInReady": "Daily check-in is ready",

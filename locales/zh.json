@@ -25,6 +25,10 @@
   "home": {
     "goodMorning": "早上好",
     "goodMorningName": "早上好，{{name}}",
+    "goodAfternoon": "下午好",
+    "goodAfternoonName": "下午好，{{name}}",
+    "goodEvening": "晚上好",
+    "goodEveningName": "晚上好，{{name}}",
     "tapToCheckIn": "点击一次让您的看护者知道您没事",
     "checkedInToday": "您今天已签到",
     "checkInReady": "每日签到已准备就绪",

@@ -146,7 +146,7 @@ router.post("/", (req, res) => {
       return res.json({ senior_id: findRows[0].senior_id, message: "Senior record already exists." });
     }
 
-    const insertSeniorSql = `INSERT INTO Senior (user_id, preferred_checkin_time) VALUES (?, '9:00 AM - 10:00 AM, 5:00 PM - 6:00 PM')`;
+    const insertSeniorSql = `INSERT INTO Senior (user_id, preferred_checkin_time) VALUES (?, '6:00 AM - 12:00 PM, 6:00 PM - 12:00 AM')`;
 
     db.query(insertSeniorSql, [user_id], (insertErr, insertResult) => {
       if (insertErr) return res.status(500).json({ error: insertErr.message || insertErr });

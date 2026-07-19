@@ -25,6 +25,10 @@
   "home": {
     "goodMorning": "Selamat pagi",
     "goodMorningName": "Selamat pagi, {{name}}",
+    "goodAfternoon": "Selamat petang",
+    "goodAfternoonName": "Selamat petang, {{name}}",
+    "goodEvening": "Selamat malam",
+    "goodEveningName": "Selamat malam, {{name}}",
     "tapToCheckIn": "Tekan sekali untuk beritahu penjaga anda bahawa anda okay",
     "checkedInToday": "Anda telah daftar masuk hari ini",
     "checkInReady": "Daftar masuk harian sudah sedia",
