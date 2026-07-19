@@ -84,19 +84,45 @@ router.post('/link-senior', (req, res) => {
           });
         }
 
-        const duplicateSql = `
-          SELECT senior_id, caregiver_id
-          FROM Senior_has_Caregiver
-          WHERE senior_id = ? AND caregiver_id = ?
+        // Self-healing duplicate probe. Replaces a bare-existence check on
+        // Senior_has_Caregiver with a LEFT JOIN against the Senior table
+        // so we can distinguish THREE states from a single round-trip:
+        //
+        //   1. NO linkage row at all: clean insertion path.
+        //   2. Linkage row + Senior row both present: legitimate duplicate
+        //      — the caregiver really does already have this senior on
+        //      their roster, reject with 409.
+        //   3. Linkage row present but Senior row MISSING (denoted by
+        //      `senior_row_present IS NULL` from the LEFT JOIN): this is
+        //      a DANGLING FK reference. The most common production
+        //      cause is a previous removal flow that deleted the Senior
+        //      record (or its User_Account) but somehow left the linkage
+        //      row behind — the JOIN-driven /caregiver/:id/seniors GET
+        //      silently drops the orphan so the senior disappears from
+        //      the caregiver's roster, but a bare-existence duplicate
+        //      check would still find the row and reject any re-add as
+        //      "already linked". The user reported exactly this with
+        //      Cheng Boon. We delete the orphan and proceed with the
+        //      fresh INSERT so the caregiver can re-add the senior
+        //      they thought they'd already removed, without dragging
+        //      them through an admin tool to clean database state.
+        const probeSql = `
+          SELECT
+            shc.senior_id,
+            shc.caregiver_id,
+            s.senior_id AS senior_row_present
+          FROM Senior_has_Caregiver shc
+          LEFT JOIN Senior s
+            ON s.senior_id = shc.senior_id
+          WHERE shc.senior_id = ? AND shc.caregiver_id = ?
           LIMIT 1
         `;
 
-        db.query(duplicateSql, [senior_id, caregiver_id], (duplicateErr, duplicateRows) => {
-          if (duplicateErr) return res.status(500).json({ error: duplicateErr.message || duplicateErr });
-          if (duplicateRows.length) {
-            return res.status(409).json({ error: 'This senior is already linked to your caregiver account.' });
-          }
-
+        // Shared insertion helper so the dangling-cleanup branch and the
+        // no-existing-linkage branch can both produce the same 201
+        // response shape (including current_count / max_count tags that
+        // the front-end uses for the slot-of-N hint).
+        const insertLinkage = () => {
           const linkSql = `
             INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
             VALUES (?, ?)
@@ -112,6 +138,37 @@ router.post('/link-senior', (req, res) => {
               max_count: MAX_SENIORS_PER_CAREGIVER,
             });
           });
+        };
+
+        db.query(probeSql, [senior_id, caregiver_id], (probeErr, probeRows) => {
+          if (probeErr) return res.status(500).json({ error: probeErr.message || probeErr });
+
+          if (probeRows.length) {
+            if (probeRows[0].senior_row_present) {
+              // Branch 2 — legitimate duplicate. Both rows exist.
+              return res.status(409).json({
+                error: 'This senior is already linked to your caregiver account.',
+              });
+            }
+            // Branch 3 — dangling linkage. Delete the orphan row and
+            // fall through to the fresh INSERT via insertLinkage.
+            // Logged so production / dev can spot how often self-heal
+            // has to run.
+            db.query(
+              'DELETE FROM Senior_has_Caregiver WHERE senior_id = ? AND caregiver_id = ?',
+              [senior_id, caregiver_id],
+              (cleanupErr) => {
+                if (cleanupErr) {
+                  return res.status(500).json({ error: cleanupErr.message || cleanupErr });
+                }
+                insertLinkage();
+              }
+            );
+            return;
+          }
+
+          // Branch 1 — no existing linkage, clean insert.
+          insertLinkage();
         });
       });
     });

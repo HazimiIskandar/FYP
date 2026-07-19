@@ -277,19 +277,36 @@ router.post("/link-caregiver", (req, res) => {
           });
         }
 
-        const duplicateSql = `
-          SELECT senior_id, caregiver_id
-          FROM Senior_has_Caregiver
-          WHERE senior_id = ? AND caregiver_id = ?
+        // Self-healing duplicate probe. Mirrors /caregiver/link-senior so
+        // the senior-side route behaves the same way: a stale Senior_has_Caregiver
+        // row whose Senior row is missing (e.g. a previous removal flow
+        // deleted the Senior record without the linkage CASCADE catching
+        // up) is treated as a dangling reference and auto-cleaned, so that
+        // re-linking the same SeniorId + CaregiverId just Works rather
+        // than confusing the user with a false-positive "already linked"
+        // 409. The probe's LEFT JOIN against Senior distinguishes:
+        //   * senior_row_present IS NOT NULL — both rows exist; this is a
+        //     genuine duplicate and we 409.
+        //   * senior_row_present IS NULL — the linker row is orphaned;
+        //     we DELETE it and fall through to the fresh INSERT.
+        // * No linker row at all — proceed straight to INSERT.
+        const probeSql = `
+          SELECT
+            shc.senior_id,
+            shc.caregiver_id,
+            s.senior_id AS senior_row_present
+          FROM Senior_has_Caregiver shc
+          LEFT JOIN Senior s
+            ON s.senior_id = shc.senior_id
+          WHERE shc.senior_id = ? AND shc.caregiver_id = ?
           LIMIT 1
         `;
 
-        db.query(duplicateSql, [seniorId, caregiverId], (duplicateErr, duplicateRows) => {
-          if (duplicateErr) return res.status(500).json({ error: duplicateErr.message || duplicateErr });
-          if (duplicateRows.length) {
-            return res.status(409).json({ error: "This senior is already linked to your caregiver account." });
-          }
-
+        // Shared insertion helper so the dangling-cleanup branch and the
+        // no-existing-linkage branch both surface the same 201 response
+        // shape (including the current_count / max_count tags that the RN
+        // banner relies on).
+        const insertLinkage = () => {
           const insertSql = `
             INSERT INTO Senior_has_Caregiver (senior_id, caregiver_id)
             VALUES (?, ?)
@@ -305,6 +322,33 @@ router.post("/link-caregiver", (req, res) => {
               max_count: MAX_SENIORS_PER_CAREGIVER,
             });
           });
+        };
+
+        db.query(probeSql, [seniorId, caregiverId], (probeErr, probeRows) => {
+          if (probeErr) return res.status(500).json({ error: probeErr.message || probeErr });
+
+          if (probeRows.length) {
+            if (probeRows[0].senior_row_present) {
+              return res.status(409).json({
+                error: "This senior is already linked to your caregiver account.",
+              });
+            }
+            // Dangling linkage — same self-heal path as /caregiver/link-senior.
+            db.query(
+              'DELETE FROM Senior_has_Caregiver WHERE senior_id = ? AND caregiver_id = ?',
+              [seniorId, caregiverId],
+              (cleanupErr) => {
+                if (cleanupErr) {
+                  return res.status(500).json({ error: cleanupErr.message || cleanupErr });
+                }
+                insertLinkage();
+              }
+            );
+            return;
+          }
+
+          // No existing linkage at all — clean insert.
+          insertLinkage();
         });
       });
     });
