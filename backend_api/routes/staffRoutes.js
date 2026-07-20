@@ -9,6 +9,23 @@ const db = require("../config/db");
 // AIC_Staff row is linked to the logged-in user):
 //   - ea.staff_id IS NULL  => unassigned, shown to every AIC staff
 //   - ea.staff_id = ?       => explicitly assigned to this staff
+//
+// We additionally INNER JOIN Senior + User_Account and require a non-empty
+// `full_name`. This filters out:
+//   1. Orphan events whose `senior_id` points to a Senior row that has been
+//      deleted (the FK would normally forbid this, but legacy rows from
+//      before the CASCADE constraint landed may still slip through).
+//   2. Events whose linked Senior has a NULL or blank `full_name` in
+//      User_Account — these would surface to AIC staff as "Unknown Senior"
+//      rows, which are entirely unactionable (no name means no caller ID,
+//      no dispatch context, and no roster row to navigate to).
+// Filtering at the SQL level keeps the AIC portal payload lean and is the
+// single source of truth for "should this case be shown?".
+//
+// IMPORTANT: the `ea.staff_id` OR clause MUST stay wrapped in parentheses
+// when adding new AND filters — `AND` has higher precedence than `OR` in
+// MySQL, so dropping the parens would silently short-circuit the staff
+// assignment condition and break the unassigned-case fallback.
 const ASSIGNED_CASES_SQL = `
         SELECT
             ee.senior_id,
@@ -20,9 +37,15 @@ const ASSIGNED_CASES_SQL = `
         FROM Escalation_History eh
         JOIN Emergency_Event ee
             ON eh.event_id = ee.event_id
+        JOIN Senior s
+            ON ee.senior_id = s.senior_id
+        JOIN User_Account ua
+            ON s.user_id = ua.user_id
         LEFT JOIN Escalation_Assignment ea
             ON eh.escalation_id = ea.escalation_id
-        WHERE ea.staff_id IS NULL OR ea.staff_id = ?
+        WHERE (ea.staff_id IS NULL OR ea.staff_id = ?)
+          AND ua.full_name IS NOT NULL
+          AND TRIM(ua.full_name) <> ''
         GROUP BY
             ee.event_id,
             ee.senior_id,
