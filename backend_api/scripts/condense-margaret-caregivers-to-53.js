@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------------
 // backend_api/scripts/condense-margaret-caregivers-to-53.js
 //
-// One-shot fix script. The user wants the live-tap email to land EXACTLY in
-// fififi0641@gmail.com — no Amanda Lee, no Leficgg. So this:
+// One-shot fix script. Condenses all caregiver linkages for a senior down to
+// a single caregiver. Update TARGET_EMAIL below to the actual caregiver email.
 //
-//   1. Verifies user_id=53 still has email = 'fififi0641@gmail.com'
+//   1. Verifies user_id=53 still has email = '<TARGET_EMAIL>'
 //   2. Lists existing Senior_has_Caregiver rows for Margaret (senior_id=1)
 //   3. Deletes every existing caregiver link for Margaret
 //   4. Re-inserts a single new row linking Margaret → user_id=53
@@ -25,7 +25,7 @@ const db = require("../config/db");
 
 const MARGARET_ID = 1;
 const TARGET_CAREGIVER_ID = 53;
-const TARGET_EMAIL = "fififi0641@gmail.com";
+const TARGET_EMAIL = "caregiver@example.com";
 
 function dbQueryAsync(sql, params) {
   return new Promise(function (resolve) {

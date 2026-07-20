@@ -19,6 +19,7 @@
 //   u_aic_staff_count   Integer       default 0
 //   u_caregiver_count   Integer       default 0
 //   u_nok_count         Integer       default 0
+//   u_caregiver_email   String        (comma-separated caregiver email addresses)
 //
 // Auth:
 //   OAuth2 client_credentials grant against {INSTANCE_URL}/oauth_token.do. The
@@ -196,6 +197,7 @@ function buildPayload(ctx) {
     u_aic_staff_count: coerceInt(c.aic_staff_count, 0),
     u_caregiver_count: coerceInt(c.caregiver_count, 0),
     u_nok_count: coerceInt(c.nok_count, 0),
+    u_caregiver_email: c.caregiver_email || null,
   };
   // Conditionally attach u_workflow_route — omit entirely when null so SN
   // never sees an explicit null for a Choice column. The calling site's

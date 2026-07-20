@@ -3,7 +3,7 @@
 //
 // One-shot diagnostic specific to "why does Cheng Boon tap not deliver email?".
 // Prints 6 self-contained steps, ends with one real SMTP send so we get
-// observable evidence in fififi0641@gmail.com Inbox/Spam.
+// observable evidence in the caregiver's Inbox/Spam.
 //
 // Will create at most one extra SMTP send per run. Re-running sends more.
 // ---------------------------------------------------------------------------------
