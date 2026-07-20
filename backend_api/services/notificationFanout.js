@@ -4,14 +4,8 @@
 // Replaces the inline `fanOutCheckIn(...)` previously living in
 // `backend_api/routes/checkInRoutes.js`. Both the I-am-okay button path AND
 // the community-game activity path call `dispatchEngagement(...)` so they
-// produce identical Notification audit rows + Gmail SMTP notifications +
-// ServiceNow `u_checkin_response` rows from a single code path.
-//
-// Telegram was the previous third sink; it has been swapped for email so a
-// caregiver receives a real inbox notification when a senior checks in.
-// telegramService.js / telegramRecipients.js remain in the repo as
-// reference but are no longer wired into dispatchEngagement — see git
-// history for the Option-A keep-but-don't-call decision.
+// produce identical Notification audit rows + Telegram pings + ServiceNow
+// `u_checkin_response` rows from a single code path.
 //
 // Contract:
 //   - Never throws. Errors inside any sink are swallowed by
@@ -26,8 +20,7 @@
 
 const db = require("../config/db");
 const { createNotification } = require("./notificationService");
-const emailRecipients = require("../emailRecipients");
-const emailService = require("./emailService");
+const { notifyCheckIn } = require("./telegramService");
 const servicenow = require("./servicenow");
 
 // Local helper that mirrors checkInRoutes.dbQueryAsync semantics — silently
@@ -49,7 +42,7 @@ function dbQueryAsync(sql, params) {
 }
 
 /**
- * Dispatch a senior-engagement fan-out (Notification row + Gmail SMTP +
+ * Dispatch a senior-engagement fan-out (Notification row + Telegram ping +
  * ServiceNow row).
  *
  * @param {Object}   args
@@ -164,46 +157,12 @@ async function dispatchEngagement({
       nok_count: nokCount,
     };
 
-    // Email fan-out resolves the recipient Gmail addresses per seniorId
-    // from MySQL User_Account.email (joined via Senior_has_Caregiver) and
-    // dispatches one SMTP send per recipient. Wrapped in a self-catching
-    // IIFE so the outer Promise.allSettled never sees a rejection and an
-    // SMTP outage from one sink can never break the other two sinks.
-    const emailDispatch = (async function () {
-      try {
-        const recipients = await emailRecipients.getEmailRecipientsForWorkflowRoute(
-          bucket,
-          seniorId
-        );
-        if (!recipients.length) {
-          return { ok: false, error: "no-email-recipients", recipients: 0 };
-        }
-        const sendResults = await Promise.allSettled(
-          recipients.map(function (r) {
-            return emailService.sendCheckInNotificationEmail({
-              to: r.email,
-              seniorName: seniorName,
-            });
-          })
-        );
-        const failed = sendResults.filter(function (r) {
-          return r.status !== "fulfilled" || !(r.value && r.value.ok);
-        });
-        if (!failed.length) {
-          return { ok: true, recipients: recipients.length };
-        }
-        return {
-          ok: false,
-          error: failed.length + "/" + recipients.length + " sends failed",
-          recipients: recipients.length,
-        };
-      } catch (err) {
-        return {
-          ok: false,
-          error: (err && err.message) || String(err),
-        };
-      }
-    })();
+    const tgPayload = {
+      seniorFullName: seniorName,
+      eventType,
+      imOkay,
+      checkinTimestamp,
+    };
 
     // ---------- 3. Fire all three sinks in parallel ----------
     // createNotification is now Promise-returning (notificationService.js
@@ -230,10 +189,10 @@ async function dispatchEngagement({
         null, // event_id — community/button flows don't carry one
         checkinId
       ),
-      emailDispatch,
+      notifyCheckIn(bucket, tgPayload),
       servicenow.createCheckInResponse(snCtx),
     ]);
-    const [notifResult, emailResult, snResult] = sinkResults;
+    const [notifResult, tgResult, snResult] = sinkResults;
 
     if (notifResult.status === "fulfilled" && notifResult.value && notifResult.value.ok) {
       // success path — already logged inside createNotification
@@ -248,16 +207,10 @@ async function dispatchEngagement({
           " reason=" + (reason && reason.message ? reason.message : JSON.stringify(reason))
       );
     }
-    if (emailResult.status === "fulfilled") {
-      const v = emailResult.value || {};
-      console.log(
-        "[fanout] email source=" + source +
-          " result=" + (v.ok ? "OK recipients=" + v.recipients : "FAILED recipients=" + (v.recipients || 0) + " reason=" + (v.error || "unknown"))
-      );
-    } else {
+    if (tgResult.status === "rejected") {
       console.warn(
-        "[fanout] email FAILED source=" + source +
-          " reason=" + (emailResult.reason && emailResult.reason.message ? emailResult.reason.message : String(emailResult.reason))
+        "[fanout] telegram FAILED source=" + source +
+          " reason=" + (tgResult.reason && tgResult.reason.message ? tgResult.reason.message : String(tgResult.reason))
       );
     }
     if (snResult.status === "fulfilled") {
