@@ -7,27 +7,77 @@ const db = require("../config/db");
 // A missed check-in is a SYSTEM-triggered event with NO physical sensor
 // source, so alert_id / sensor_id stay NULL. event_type='Missed Check-In'
 // distinguishes it from manual SOS and from real sensor alerts.
+//
+// De-duplication: monitorCheckIns runs every 10 minutes via server.js's
+// setInterval, and previously escalated UNCONDITIONALLY on each tick —
+// producing ~144 Emergency_Event rows per senior per missed day and
+// ballooning the AIC portal past 8,000 cases. We now SELECT-first and
+// skip INSERT if a Missed Check-In row already exists for the same
+// senior today. The check covers any event_status (Open, Resolved, etc.)
+// because re-opening or re-throttling an escalation on the same day
+// is never the desired behavior at the system level — the caregiver
+// or AIC staff must explicitly close out and re-trigger via the
+// existing Escalation_Assignment pathway if they want to re-engage.
+//
+// Timezone dependency: `DATE(created_at) = CURDATE()` looks like a
+// cross-timezone bug at first glance, but it is NOT. `config/db.js`
+// forces every pooled connection to `SET time_zone = '+08:00'` so
+// `created_at` (CURRENT_TIMESTAMP) and CURDATE() are both evaluated
+// in SGT. Do NOT "fix" this by swapping to `UTC_DATE()` without
+// auditing the senior-local-day boundary semantics — that change
+// would split a 23:00 SGT missed check-in into the wrong escalation
+// bucket.
+//
+// Concurrency note: the SELECT-then-INSERT has a tiny race window, but
+// server.js currently runs a single Node process / single setInterval,
+// so the window cannot fire today. If the backend is ever scaled
+// horizontally, this de-dup should be promoted to a DB-level
+// UNIQUE (senior_id, event_type, DATE(created_at)) constraint via a
+// migration — deferring that until scale forces it.
 const escalateCheckIn = (senior_id) => {
-    const createEvent = `
-        INSERT INTO Emergency_Event
-        (senior_id, event_type, event_status, escalation_level)
-        VALUES (?, 'Missed Check-In', 'Open', 'Level 1')
+    const dedupeSql = `
+        SELECT event_id
+        FROM Emergency_Event
+        WHERE senior_id = ?
+          AND event_type = 'Missed Check-In'
+          AND DATE(created_at) = CURDATE()
+        LIMIT 1
     `;
 
-    db.query(createEvent, [senior_id], (err, result) => {
-        if (err) {
-            console.error("Escalation creation failed:", err);
+    db.query(dedupeSql, [senior_id], (dedupeErr, dedupeRows) => {
+        if (dedupeErr) {
+            console.error("Escalation dedupe check failed:", dedupeErr);
             return;
         }
 
-        const event_id = result.insertId;
-        console.log("Level 1 Emergency created", event_id);
+        // A Missed Check-In event already exists for this senior today
+        // (any status). Skip — the caregiver / AIC flow drives re-open
+        // explicitly, not silently via a fresh row every 10 minutes.
+        if (Array.isArray(dedupeRows) && dedupeRows.length > 0) {
+            return;
+        }
 
-        logEscalation(event_id, "Caregiver App", "Level 1");
+        const createEvent = `
+            INSERT INTO Emergency_Event
+            (senior_id, event_type, event_status, escalation_level)
+            VALUES (?, 'Missed Check-In', 'Open', 'Level 1')
+        `;
 
-        setTimeout(() => {
-            escalateLevel(event_id, senior_id, "Level 2 - Staff Alert");
-        }, 10000);
+        db.query(createEvent, [senior_id], (err, result) => {
+            if (err) {
+                console.error("Escalation creation failed:", err);
+                return;
+            }
+
+            const event_id = result.insertId;
+            console.log("Level 1 Emergency created", event_id);
+
+            logEscalation(event_id, "Caregiver App", "Level 1");
+
+            setTimeout(() => {
+                escalateLevel(event_id, senior_id, "Level 2 - Staff Alert");
+            }, 10000);
+        });
     });
 };
 

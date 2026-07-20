@@ -22,10 +22,19 @@ const db = require("../config/db");
 // Filtering at the SQL level keeps the AIC portal payload lean and is the
 // single source of truth for "should this case be shown?".
 //
-// IMPORTANT: the `ea.staff_id` OR clause MUST stay wrapped in parentheses
-// when adding new AND filters — `AND` has higher precedence than `OR` in
-// MySQL, so dropping the parens would silently short-circuit the staff
-// assignment condition and break the unassigned-case fallback.
+// We also EXCLUDE `event_type = 'Missed Check-In'` from the AIC portal.
+// The escalation engine (backend_api/routes/escalationRoutes.js) fires
+// every 10 minutes via server.js's setInterval; without filtering, the AIC
+// portal accumulated ~144 duplicate "Missed Check-In" rows per senior per
+// day (one per monitor tick), quickly ballooning past 8,000 rows on
+// production. Missed check-ins are a CAREGIVER/NOK concern (Notification
+// fanout already routes them), so the AIC triage queue is reserved for
+// real emergencies (SOS / Sensor Alert / Fall Detected) — anyone who taps
+// the caregiver "I handled this" path can escalate the case to AIC staff
+// deliberately via Escalation_Assignment. The parens around the OR clause
+// below are required: `AND` has higher precedence than `OR` in MySQL,
+// so dropping them would silently short-circuit the staff-assignment
+// fallback and break the unassigned-case flow.
 const ASSIGNED_CASES_SQL = `
         SELECT
             ee.senior_id,
@@ -46,6 +55,7 @@ const ASSIGNED_CASES_SQL = `
         WHERE (ea.staff_id IS NULL OR ea.staff_id = ?)
           AND ua.full_name IS NOT NULL
           AND TRIM(ua.full_name) <> ''
+          AND (ee.event_type <> 'Missed Check-In' OR ee.event_type IS NULL)
         GROUP BY
             ee.event_id,
             ee.senior_id,
