@@ -4,23 +4,22 @@
 // Replaces the inline `fanOutCheckIn(...)` previously living in
 // `backend_api/routes/checkInRoutes.js`. Both the I-am-okay button path AND
 // the community-game activity path call `dispatchEngagement(...)` so they
-// produce identical Notification audit rows + Telegram pings + ServiceNow
-// `u_checkin_response` rows from a single code path.
+// produce identical Notification audit rows + ServiceNow `u_checkin_response`
+// rows (with caregiver email for SN workflow to send the notification).
 //
 // Contract:
 //   - Never throws. Errors inside any sink are swallowed by
 //     Promise.allSettled and logged inside the sink.
 //   - The function does NOT touch src routes — call from inside
 //     `setImmediate(...)` so the user's HTTP response is never blocked by
-//     a Notification INSERT / Telegram POST / ServiceNow POST.
-//   - Self-quiet when TELEGRAM_BOT_TOKEN / SN_OAUTH_CLIENT_ID /
-//     SN_OAUTH_CLIENT_SECRET env vars are missing — each sink skips on its
-//     own (see services/telegramService.js + services/servicenow.js).
+//     a Notification INSERT / ServiceNow POST.
+//   - ServiceNow is self-quiet when SN_OAUTH_CLIENT_ID / SN_OAUTH_CLIENT_SECRET
+//     are unset (see services/servicenow.js).
 // ---------------------------------------------------------------------------------
 
 const db = require("../config/db");
 const { createNotification } = require("./notificationService");
-const { notifyCheckIn } = require("./telegramService");
+const { getEmailRecipientsForWorkflowRoute } = require("../emailRecipients");
 const servicenow = require("./servicenow");
 
 // Local helper that mirrors checkInRoutes.dbQueryAsync semantics — silently
@@ -42,16 +41,14 @@ function dbQueryAsync(sql, params) {
 }
 
 /**
- * Dispatch a senior-engagement fan-out (Notification row + Telegram ping +
- * ServiceNow row).
+ * Dispatch a senior-engagement fan-out (Notification row + ServiceNow row
+ * with caregiver email for SN workflow to send the notification email).
  *
  * @param {Object}   args
  * @param {number}   args.checkinId       Daily_CheckIn.checkin_id (link target)
  * @param {number}   args.seniorId        Senior.senior_id
- * @param {string}   [args.bucket]        Telegram routing bucket
- *                                        ('caregiver_nok_aic' default, or
- *                                        'caregiver_aic'). Must key into
- *                                        `telegramRecipients.js`.
+ * @param {string}   [args.bucket]        Routing bucket ('caregiver_nok_aic'
+ *                                        default, or 'caregiver_aic').
  * @param {number}   [args.newStreak]     Diagnostic-only streak count
  * @param {number}   [args.newTotalPoints] Diagnostic-only kopi point total
  * @param {string}   [args.eventType]     Maps to SN u_event_type choice.
@@ -142,7 +139,23 @@ async function dispatchEngagement({
     const nokCount =
       (nokCountRows && nokCountRows[0] && Number(nokCountRows[0].n)) || 0;
 
-    // ---------- 2. Build payloads for each sink ----------
+    // ---------- 2. Resolve caregiver email recipients ----------
+    const recipients = await getEmailRecipientsForWorkflowRoute(bucket, seniorId);
+    const caregiverEmails = recipients
+      .filter(function (r) { return r.role === "caregiver"; })
+      .map(function (r) { return r.email; });
+    const caregiverEmailStr = caregiverEmails.length > 0
+      ? caregiverEmails.join(",")
+      : "";
+
+    console.log(
+      "[fanout] resolved " + recipients.length +
+        " recipient(s) for source=" + source +
+        " senior_id=" + String(seniorId) +
+        " emails=" + (caregiverEmailStr || "(none)")
+    );
+
+    // ---------- 3. Build payloads for each sink ----------
     const checkinTimestamp = new Date().toISOString();
 
     const snCtx = {
@@ -155,32 +168,20 @@ async function dispatchEngagement({
       aic_staff_count: aicCount,
       caregiver_count: caregiverCount,
       nok_count: nokCount,
+      caregiver_email: caregiverEmailStr,
     };
 
-    const tgPayload = {
-      seniorFullName: seniorName,
-      eventType,
-      imOkay,
-      checkinTimestamp,
-    };
-
-    // ---------- 3. Fire all three sinks in parallel ----------
-    // createNotification is now Promise-returning (notificationService.js
-    // wraps the db.query callback in a Promise, so the INSERT actually
-    // settles before we proceed). notifyCheckIn and servicenow.createCheck*
-    // are already thenables. We consume the per-sink settled results so a
-    // future render-log dive shows EXACTLY which sink failed and why — the
-    // previous version fire-and-forgot createNotification which masked
-    // silent INSERT failures behind console.log only.
+    // ---------- 4. Fire all sinks in parallel ----------
+    // createNotification is Promise-returning (notificationService.js wraps
+    // the db.query callback in a Promise, so the INSERT actually settles
+    // before we proceed). servicenow.createCheckInResponse is a thenable.
     //
     // When `bucket` is null (senior has no caregiver + no NOK linked) the
     // routing still flows through every sink — the SN `u_workflow_route`
-    // is posted as `null` (empty in the table), the Notification audit row
-    // is stamped with recipient_type="unlinked" so the failure-mode is
-    // searchable in MySQL, and Telegram gracefully no-ops because
-    // telegramRecipients[null] is undefined → empty chat_ids → skip.
-    // This keeps the per-sink Promise.allSettled shape stable for the
-    // post-sink logging below.
+    // is posted as `null` (empty in the table) and the Notification audit
+    // row is stamped with recipient_type="unlinked" so the failure-mode is
+    // searchable in MySQL. The SN Flow can check u_caregiver_email to
+    // decide whether to send the notification email.
     const sinkResults = await Promise.allSettled([
       createNotification(
         bucket || "unlinked",
@@ -189,10 +190,9 @@ async function dispatchEngagement({
         null, // event_id — community/button flows don't carry one
         checkinId
       ),
-      notifyCheckIn(bucket, tgPayload),
       servicenow.createCheckInResponse(snCtx),
     ]);
-    const [notifResult, tgResult, snResult] = sinkResults;
+    const [notifResult, snResult] = sinkResults;
 
     if (notifResult.status === "fulfilled" && notifResult.value && notifResult.value.ok) {
       // success path — already logged inside createNotification
@@ -207,18 +207,14 @@ async function dispatchEngagement({
           " reason=" + (reason && reason.message ? reason.message : JSON.stringify(reason))
       );
     }
-    if (tgResult.status === "rejected") {
-      console.warn(
-        "[fanout] telegram FAILED source=" + source +
-          " reason=" + (tgResult.reason && tgResult.reason.message ? tgResult.reason.message : String(tgResult.reason))
-      );
-    }
+
     if (snResult.status === "fulfilled") {
       const wasOk =
         snResult.value && typeof snResult.value === "object" && snResult.value.sys_id;
       console.log(
         "[fanout] servicenow source=" + source +
-          " result=" + (wasOk ? "OK sys_id=" + wasOk : "null")
+          " result=" + (wasOk ? "OK sys_id=" + wasOk : "null") +
+          " emails=" + (caregiverEmailStr || "(empty)")
       );
     } else {
       console.warn(
@@ -247,6 +243,8 @@ async function dispatchEngagement({
         nokCount +
         " aic=" +
         aicCount +
+        " emails=" +
+        (caregiverEmailStr || "(none)") +
         " streak=" +
         (newStreak == null ? "n/a" : String(newStreak)) +
         " total_points=" +

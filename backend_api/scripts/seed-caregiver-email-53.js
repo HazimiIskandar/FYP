@@ -1,12 +1,12 @@
 // ---------------------------------------------------------------------------------
 // backend_api/scripts/seed-caregiver-email-53.js
 //
-// Phase 4 SQL seed: set email = 'fififi0641@gmail.com' on the caregiver row
-// with user_id = 53, so dispatchEngagement's email sink finds a recipient
-// when Margaret taps "I am OK" and the SMTP faucet delivers to fififi0641.
+// Phase 4 SQL seed: set a caregiver's email on a given user_id row so
+// dispatchEngagement's email sink finds a recipient when the senior taps
+// "I am OK". Update TARGET_EMAIL below to the actual caregiver Gmail address.
 //
-// Re-runnable: if the column already has fififi0641@gmail.com, the UPDATE
-// reports affectedRows = 0 (still safe to run). Idempotent.
+// Re-runnable: if the column already has that email, the UPDATE reports
+// affectedRows = 0 (still safe to run). Idempotent.
 //
 // Run from backend_api/:
 //   node scripts/seed-caregiver-email-53.js
@@ -15,7 +15,7 @@
 const db = require("../config/db");
 
 const TARGET_USER_ID = 53;
-const TARGET_EMAIL = "fififi0641@gmail.com";
+const TARGET_EMAIL = "caregiver@example.com";
 
 function preview(then) {
   db.query(

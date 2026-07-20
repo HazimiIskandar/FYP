@@ -3,9 +3,10 @@
 //
 // Sends the "Senior check-in confirmed" notification through Gmail SMTP.
 // Auth is via App Password (not the user's real password) on the same Gmail
-// account that owns the recipient inbox — the FYP demo's single-account
-// setup keeps FROM and RCPT-TO on fififi0641@gmail.com so configuration is
-// one .env pair instead of two.
+// account that authenticates the SMTP session. The recipient address is
+// resolved dynamically from User_Account.email via the Senior_has_Caregiver
+// linkage, so the Send-As (GMAIL_USER) and the recipient addresses can be
+// different accounts. One .env pair is all that's needed for auth.
 //
 // Required env:
 //   GMAIL_USER         — Gmail address that authenticates the SMTP session

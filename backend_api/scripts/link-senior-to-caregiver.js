@@ -50,7 +50,7 @@ function printHelp() {
       "  show-seniors                        Print all senior_id + name pairs\n" +
       "  show-caregivers                     Print all caregiver user_id + email\n" +
       "  help                                This text\n" +
-      "\nDefault (no args) = add 3 53 (Su Cheng Boon → user_id=53 with email fififi0641@gmail.com)."
+      "\nDefault (no args) = add 3 53 (Su Cheng Boon → user_id=53 with email from User_Account)."
   );
 }
 
