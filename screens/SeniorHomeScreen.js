@@ -109,6 +109,12 @@ export default function SeniorHomeScreen({
     return (
       <SafeAreaView style={styles.container}>
         <Header
+          badge={
+            <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4 }}>
+              <Ionicons name="person" size={14} color="#16A34A" />
+              <Text style={{ color: '#16A34A', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }}>SENIOR</Text>
+            </View>
+          }
           title={seniorName ? t(greetingConfig.name, { name: seniorName }) : t(greetingConfig.general)}
           subtitle={t('home.setupRequiredTitle')}
         />
@@ -159,6 +165,12 @@ export default function SeniorHomeScreen({
   return (
     <SafeAreaView style={styles.container}>
       <Header
+        badge={
+          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4 }}>
+            <Ionicons name="person" size={14} color="#16A34A" />
+            <Text style={{ color: '#16A34A', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }}>SENIOR</Text>
+          </View>
+        }
         title={seniorName ? t(greetingConfig.name, { name: seniorName }) : t(greetingConfig.general)}
         subtitle={isMorning ? t('home.checkInMorning') : t('home.checkInEvening')}
         rightContent={(

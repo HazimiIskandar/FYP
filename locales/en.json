@@ -41,6 +41,7 @@
     "sosEmergency": "SOS Emergency",
     "language": "Language",
     "checkInMorning": "Morning Check-In",
+    "checkInEvening": "Evening Check-In",
     "doneForMorning": "Done for Morning",
     "doneForEvening": "Done for Evening",
     "setupRequiredTitle": "Set Up Your Account",

@@ -141,7 +141,16 @@ export default function CaregiverHomeScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Caregiver Portal" subtitle="Priority alerts and senior wellbeing" />
+      <Header 
+        title="Caregiver Portal" 
+        subtitle="Priority alerts and senior wellbeing" 
+        badge={
+          <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4 }}>
+            <Ionicons name="medical" size={14} color="#1D4ED8" />
+            <Text style={{ color: '#1D4ED8', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }}>CAREGIVER</Text>
+          </View>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.summaryRow}>
