@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   SafeAreaView,
@@ -62,14 +63,26 @@ export default function CaregiverSeniorsListScreen({
   const isAtLimit = seniorCount >= MAX_SENIORS_PER_CAREGIVER;
 
   const openAddModal = () => {
-    // Defensive: even if the disabled-button tap somehow fires (e.g.
-    // a screen-reader activation), refuse to surface the modal once
-    // the caregiver is at the cap and instead surface the same
-    // limit-reached hint the banner already shows.
+    // Show a warning prompt if they are at or above the recommended limit (5)
     if (isAtLimit) {
-      setSubmitError(MAX_REACHED_MESSAGE);
+      Alert.alert(
+        "Recommended Limit Reached",
+        `You already have ${seniorCount} seniors. We strongly recommend a maximum of ${MAX_SENIORS_PER_CAREGIVER} seniors per caregiver to ensure quality care.\n\nAre you sure you want to continue adding more seniors?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Continue", 
+            onPress: () => {
+              setAddModalVisible(true);
+              setSubmitMessage('');
+              setSubmitError('');
+            }
+          }
+        ]
+      );
       return;
     }
+
     setAddModalVisible(true);
     setSubmitMessage('');
     setSubmitError('');
@@ -210,39 +223,17 @@ export default function CaregiverSeniorsListScreen({
         </View>
 
         <TouchableOpacity
-          style={[
-            styles.addSeniorButton,
-            // Visually mute the CTA when the caregiver is at the cap so
-            // tapping it cues the user that the action is blocked, before
-            // the inline banner + openAddModal short-circuit cover the
-            // other two layers of "this is disabled".
-            isAtLimit ? styles.addSeniorButtonDisabled : null,
-          ]}
+          style={styles.addSeniorButton}
           activeOpacity={0.86}
-          // RN's TouchableOpacity honours `disabled` natively and skips
-          // both the press handler AND the press-down active-opacity dim,
-          // so setting it gives us cheaper + more accurate behaviour than
-          // only checking it inside openAddModal. accessibilityState is
-          // still set so screen readers announce the disabled state.
-          disabled={isAtLimit}
-          accessibilityState={{ disabled: isAtLimit }}
-          accessibilityHint={
-            isAtLimit
-              ? 'Maximum of 5 seniors reached. Remove a senior to add another.'
-              : undefined
-          }
           onPress={openAddModal}
         >
           <Ionicons
             name="add-circle"
             size={22}
-            color={isAtLimit ? '#6B7280' : '#FFFFFF'}
+            color="#FFFFFF"
           />
           <Text
-            style={[
-              styles.addSeniorButtonText,
-              isAtLimit ? styles.addSeniorButtonTextDisabled : null,
-            ]}
+            style={styles.addSeniorButtonText}
             numberOfLines={1}
           >
             Add New Senior
@@ -287,10 +278,10 @@ export default function CaregiverSeniorsListScreen({
             </View>
             <View style={styles.limitBannerCopy}>
               <Text style={styles.limitBannerTitle}>
-                Maximum reached ({seniorCount}/{MAX_SENIORS_PER_CAREGIVER})
+                Recommended Maximum Reached
               </Text>
               <Text style={styles.limitBannerBody}>
-                You can&apos;t add more seniors unless one is removed.
+                You have {seniorCount} seniors. We recommend a max of 5 for quality monitoring.
               </Text>
             </View>
           </View>

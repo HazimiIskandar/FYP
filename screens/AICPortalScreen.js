@@ -190,7 +190,16 @@ export default function AICPortalScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Assigned Cases" subtitle="Sort by urgency and follow up quickly" />
+      <Header 
+        title="Assigned Cases" 
+        subtitle="Sort by urgency and follow up quickly" 
+        badge={
+          <View style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4 }}>
+            <Ionicons name="business" size={14} color="#7E22CE" />
+            <Text style={{ color: '#7E22CE', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }}>AIC STAFF</Text>
+          </View>
+        }
+      />
 
       <View style={[styles.filterArea, { width: '100%' }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={true} contentContainerStyle={styles.filterContent} style={{ flexGrow: 0 }}>
