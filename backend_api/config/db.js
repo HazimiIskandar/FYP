@@ -43,7 +43,7 @@ const pool = mysql.createPool({
   // MySQL client (phpMyAdmin, MySQL Workbench) the user may spin up
   // against the same DB. Bump this via `DB_POOL_LIMIT` env var on Render
   // if you migrate to a host with a higher cap.
-  connectionLimit: Number(process.env.DB_POOL_LIMIT) || 4,
+  connectionLimit: Number(process.env.DB_POOL_LIMIT) || 1,
   waitForConnections: true,
   // Cap the queue so a misbehaving traffic spike cannot buffer thousands
   // of pending requests inside the pool. Beyond this, mysql2 returns
