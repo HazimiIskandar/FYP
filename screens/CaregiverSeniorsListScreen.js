@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -45,6 +46,7 @@ export default function CaregiverSeniorsListScreen({
   onRefresh,
 }) {
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [warningModalVisible, setWarningModalVisible] = useState(false);
   const [linkCode, setLinkCode] = useState('');
   const [submitMessage, setSubmitMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
@@ -65,21 +67,7 @@ export default function CaregiverSeniorsListScreen({
   const openAddModal = () => {
     // Show a warning prompt if they are at or above the recommended limit (5)
     if (isAtLimit) {
-      Alert.alert(
-        "Recommended Limit Reached",
-        `You already have ${seniorCount} seniors. We strongly recommend a maximum of ${MAX_SENIORS_PER_CAREGIVER} seniors per caregiver to ensure quality care.\n\nAre you sure you want to continue adding more seniors?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { 
-            text: "Continue", 
-            onPress: () => {
-              setAddModalVisible(true);
-              setSubmitMessage('');
-              setSubmitError('');
-            }
-          }
-        ]
-      );
+      setWarningModalVisible(true);
       return;
     }
 
@@ -389,6 +377,44 @@ export default function CaregiverSeniorsListScreen({
                 ) : (
                   <Text style={styles.submitButtonText}>Add Senior</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={warningModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setWarningModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setWarningModalVisible(false)} />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Recommended Limit</Text>
+            <Text style={[styles.modalDescription, { marginBottom: 24 }]}>
+              You already have {seniorCount} seniors. We strongly recommend a maximum of {MAX_SENIORS_PER_CAREGIVER} seniors per caregiver to ensure quality care.{"\n\n"}Are you sure you want to continue adding more seniors?
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setWarningModalVisible(false)}
+                style={[styles.modalActionButton, styles.cancelButton]}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setWarningModalVisible(false);
+                  setAddModalVisible(true);
+                  setSubmitMessage('');
+                  setSubmitError('');
+                }}
+                style={[styles.modalActionButton, styles.submitButton]}
+              >
+                <Text style={styles.submitButtonText}>Continue</Text>
               </TouchableOpacity>
             </View>
           </View>

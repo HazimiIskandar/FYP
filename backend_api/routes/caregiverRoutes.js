@@ -75,14 +75,10 @@ router.post('/link-senior', (req, res) => {
         if (countErr) return res.status(500).json({ error: countErr.message || countErr });
 
         const currentCount = Number(countRows?.[0]?.total) || 0;
-        if (currentCount >= MAX_SENIORS_PER_CAREGIVER) {
-          return res.status(409).json({
-            error: `You have reached the maximum of ${MAX_SENIORS_PER_CAREGIVER} seniors per caregiver. Please remove a senior before adding a new one.`,
-            code: 'CAREGIVER_AT_SENIOR_LIMIT',
-            current_count: currentCount,
-            max_count: MAX_SENIORS_PER_CAREGIVER,
-          });
-        }
+        // [REMOVED LIMIT BLOCK]
+        // The frontend now displays a "Recommended Limit" warning but allows
+        // the caregiver to bypass it. We no longer reject the request here.
+        // if (currentCount >= MAX_SENIORS_PER_CAREGIVER) { ... }
 
         // Self-healing duplicate probe. Replaces a bare-existence check on
         // Senior_has_Caregiver with a LEFT JOIN against the Senior table
