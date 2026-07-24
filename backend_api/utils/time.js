@@ -59,50 +59,6 @@ function nowSgtIso() {
 
 /**
  * Return the current instant formatted for ServiceNow Date/Time fields.
- * Format: "yyyy-MM-dd HH:mm:ss" — no T separator, no timezone offset.
- * ServiceNow stores dates in the instance's configured timezone (SGT),
- * so the offset must be omitted to avoid double-conversion.
- *
- * Example output: "2026-07-24 19:30:00"
- */
-function nowSgtDateTime() {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: SGT_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(now);
-
-  const get = (type) => {
-    const p = parts.find((part) => part.type === type);
-    return p ? p.value : "00";
-  };
-
-  let hour = get("hour");
-  if (hour === "24") hour = "00";
-
-  return (
-    get("year") +
-    "-" +
-    get("month") +
-    "-" +
-    get("day") +
-    " " +
-    hour +
-    ":" +
-    get("minute") +
-    ":" +
-    get("second")
-  );
-}
-
-/**
- * Return the current instant formatted for ServiceNow Date/Time fields.
  * Format: "yyyy-MM-dd HH:mm:ss" in UTC.
  *
  * WHY UTC: ServiceNow stores all timestamps internally as UTC and
@@ -119,4 +75,4 @@ function nowUtcDateTime() {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
 }
 
-module.exports = { nowSgtIso, nowSgtDateTime, nowUtcDateTime, SGT_TIMEZONE };
+module.exports = { nowSgtIso, nowUtcDateTime, SGT_TIMEZONE };
