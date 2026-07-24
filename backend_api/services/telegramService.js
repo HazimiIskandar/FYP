@@ -98,7 +98,19 @@ async function notifyCheckIn(seniorId, payload) {
 
     const fullName = payload && payload.seniorFullName ? payload.seniorFullName : "A senior";
     const status = payload && payload.imOkay ? "OK ✅" : "Needs help ⚠️";
-    const ts = payload && payload.checkinTimestamp ? payload.checkinTimestamp : new Date().toISOString();
+    let tsRaw = payload && payload.checkinTimestamp ? payload.checkinTimestamp : new Date().toISOString();
+    let ts = tsRaw;
+    try {
+      ts = new Date(tsRaw).toLocaleString("en-SG", { 
+        timeZone: "Asia/Singapore", 
+        day: "2-digit", 
+        month: "short", 
+        year: "numeric", 
+        hour: "2-digit", 
+        minute: "2-digit",
+        hour12: true 
+      });
+    } catch(e) {}
     const event = payload && payload.eventType ? payload.eventType : "Daily Check-in";
 
     const EVENT_VERBS = {

@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -29,7 +29,7 @@ export default function CaregiverRosterScreen({
   const getRosterLabel = (senior) => {
   const status = getStatusTag(senior);
 
-  if (status === 'Urgent') return `Fall detected`;
+  if (status === 'Urgent') return `Pending check-in`;
   if (status === 'Missed') return `Missed check-in`;
   if (status === 'Checked In') return `Checked in today`;
   return `Pending follow up`;
@@ -208,7 +208,7 @@ export default function CaregiverRosterScreen({
             </View>
             <View style={styles.urgentCopy}>
               <Text style={styles.urgentTitle}>
-                {topUrgent.statusTag === 'Urgent' ? 'Fall detected' : topUrgent.statusTag}
+                {topUrgent.statusTag === 'Urgent' ? 'Pending check-in' : topUrgent.statusTag}
               </Text>
               <Text style={styles.urgentSub}>
                 {`${topUrgent.name} | ${
