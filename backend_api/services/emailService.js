@@ -23,6 +23,7 @@
 // ---------------------------------------------------------------------------------
 
 const nodemailer = require("nodemailer");
+const { nowSgtIso } = require("../utils/time");
 
 let cachedTransport = null;
 
@@ -64,7 +65,7 @@ async function sendCheckInNotificationEmail({ to, seniorName }) {
   }
 
   const subject = `Senior check-in confirmed — ${seniorName || "a senior"}`;
-  const checkinAt = new Date().toISOString();
+  const checkinAt = nowSgtIso();
   const text = [
     "Hello,",
     "",
