@@ -127,7 +127,7 @@ const monitorCheckIns = async () => {
             SELECT s.senior_id, s.preferred_checkin_time 
             FROM Senior s
             JOIN User_Account u ON s.senior_id = u.user_id
-            WHERE u.role = 'Senior'
+            WHERE u.role_id = 1
         `;
         const seniors = await queryAsync(seniorsSql);
 
