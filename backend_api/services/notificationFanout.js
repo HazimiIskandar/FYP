@@ -21,6 +21,7 @@ const db = require("../config/db");
 const { createNotification } = require("./notificationService");
 const { getEmailRecipientsForWorkflowRoute } = require("../emailRecipients");
 const telegramService = require("./telegramService");
+const servicenow = require("./servicenow");
 
 // Local helper that mirrors checkInRoutes.dbQueryAsync semantics — silently
 // resolves to [] on error so enrichment failures can't break the fan-out.
@@ -196,6 +197,7 @@ async function dispatchEngagement({
         imOkay: imOkay,
         checkinTimestamp: checkinTimestamp
       }).catch(e => console.warn("[fanout] telegram FAILED source=" + source + " reason=" + e)),
+      servicenow.createCheckInResponse(snCtx).catch(e => console.warn("[fanout] servicenow FAILED source=" + source + " reason=" + e)),
     ]);
     const [notifResult] = sinkResults;
 
