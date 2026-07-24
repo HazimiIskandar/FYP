@@ -123,7 +123,12 @@ const logEscalation = (event_id, escalated_to, level) => {
 const monitorCheckIns = async () => {
     try {
         // 1. Fetch all Seniors and their check-in times
-        const seniorsSql = `SELECT senior_id, preferred_checkin_time FROM Senior`;
+        const seniorsSql = `
+            SELECT s.senior_id, s.preferred_checkin_time 
+            FROM Senior s
+            JOIN User_Account u ON s.senior_id = u.user_id
+            WHERE u.role = 'Senior'
+        `;
         const seniors = await queryAsync(seniorsSql);
 
         // 2. Fetch today's check-ins for ALL seniors
