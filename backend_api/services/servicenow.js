@@ -37,7 +37,7 @@
 // ---------------------------------------------------------------------------------
 
 const axios = require("axios");
-const { nowSgtDateTime } = require("../utils/time");
+const { nowUtcDateTime } = require("../utils/time");
 
 // ----- CONFIG ------------------------------------------------------------------
 const INSTANCE_URL =
@@ -192,7 +192,7 @@ function buildPayload(ctx) {
       c.senior_id == null || c.senior_id === "" ? null : String(c.senior_id),
     u_senior_full_name: c.senior_full_name ?? null,
     u_checkin_timestamp: coerceDateTime(c.checkin_timestamp),
-    u_received_at: coerceDateTime(c.received_at) || nowSgtDateTime(),
+    u_received_at: coerceDateTime(c.received_at) || nowUtcDateTime(),
     u_event_type: eventType,
     u_im_okay: coerceBool(c.im_okay, true),
     u_aic_staff_count: coerceInt(c.aic_staff_count, 0),

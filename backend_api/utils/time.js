@@ -101,4 +101,22 @@ function nowSgtDateTime() {
   );
 }
 
-module.exports = { nowSgtIso, nowSgtDateTime, SGT_TIMEZONE };
+/**
+ * Return the current instant formatted for ServiceNow Date/Time fields.
+ * Format: "yyyy-MM-dd HH:mm:ss" in UTC.
+ *
+ * WHY UTC: ServiceNow stores all timestamps internally as UTC and
+ * converts to the user's timezone for display. If we send SGT time
+ * without a timezone indicator, ServiceNow misinterprets it as UTC,
+ * then adds +8h on display — producing timestamps 8 hours ahead.
+ * Sending actual UTC avoids this double-conversion.
+ *
+ * Example output: "2026-07-24 14:59:11" (when current time is 22:59 SGT)
+ */
+function nowUtcDateTime() {
+  // toISOString() returns UTC in ISO 8601: "2026-07-24T14:59:11.000Z"
+  // Slice to get "2026-07-24T14:59:11", replace T with space.
+  return new Date().toISOString().slice(0, 19).replace("T", " ");
+}
+
+module.exports = { nowSgtIso, nowSgtDateTime, nowUtcDateTime, SGT_TIMEZONE };

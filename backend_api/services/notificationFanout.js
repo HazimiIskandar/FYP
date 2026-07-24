@@ -22,7 +22,7 @@ const { createNotification } = require("./notificationService");
 const { getEmailRecipientsForWorkflowRoute } = require("../emailRecipients");
 const telegramService = require("./telegramService");
 const servicenow = require("./servicenow");
-const { nowSgtDateTime } = require("../utils/time");
+const { nowUtcDateTime } = require("../utils/time");
 
 // Local helper that mirrors checkInRoutes.dbQueryAsync semantics — silently
 // resolves to [] on error so enrichment failures can't break the fan-out.
@@ -158,7 +158,7 @@ async function dispatchEngagement({
     );
 
     // ---------- 3. Build payloads for each sink ----------
-    const checkinTimestamp = nowSgtDateTime();
+    const checkinTimestamp = nowUtcDateTime();
 
     const snCtx = {
       senior_id: seniorId,
