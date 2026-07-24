@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
@@ -23,16 +23,55 @@ export default function SeniorDetailsScreen({
   const [removeConfirmVisible, setRemoveConfirmVisible] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [settingsError, setSettingsError] = useState('');
-  console.log('=== SENIOR DETAILS SCREEN MOUNTED ===');
-  console.log('Senior prop received:', JSON.stringify(senior, null, 2));
-  console.log('Medical conditions prop:', medicalConditions);
-  
+
+  // Fetch fresh senior data on mount so profile fields (gender, address,
+  // etc.) are always up-to-date. The `senior` prop from App.js may be
+  // stale because refreshAll's mergeSeniorWithUser uses a closure-captured
+  // users state that hasn't been applied yet.
+  const [fetchedSenior, setFetchedSenior] = useState(null);
+  const [fetchedConditions, setFetchedConditions] = useState([]);
+  const [fetchedNoks, setFetchedNoks] = useState([]);
+
+  useEffect(() => {
+    if (!apiBase || !senior?.senior_id) return;
+    let isActive = true;
+
+    const fetchFresh = async () => {
+      try {
+        const [profileRes, condRes, nokRes] = await Promise.all([
+          fetch(`${apiBase}/seniors/${senior.senior_id}`),
+          fetch(`${apiBase}/seniors/${senior.senior_id}/medical-conditions`),
+          fetch(`${apiBase}/seniors/${senior.senior_id}/nok`),
+        ]);
+
+        const profileData = profileRes.ok ? await profileRes.json() : null;
+        const condData = condRes.ok ? await condRes.json() : [];
+        const nokData = nokRes.ok ? await nokRes.json() : [];
+
+        if (!isActive) return;
+        if (profileData && typeof profileData === 'object') {
+          setFetchedSenior(profileData);
+        }
+        setFetchedConditions(Array.isArray(condData) ? condData : []);
+        setFetchedNoks(Array.isArray(nokData) ? nokData : []);
+      } catch (err) {
+        console.log('SeniorDetails fetchFresh error:', err);
+      }
+    };
+
+    fetchFresh();
+    return () => { isActive = false; };
+  }, [apiBase, senior?.senior_id]);
+
+  // Merge prop data with freshly-fetched data; fresh wins.
+  const liveSenior = fetchedSenior ? { ...senior, ...fetchedSenior } : senior;
+
   const name =
-    senior?.full_name ||
+    liveSenior?.full_name ||
     'Unknown Senior';
   const initial = name.charAt(0).toUpperCase();
 
-  const status = (senior?.status || 'Pending').toLowerCase();
+  const status = (liveSenior?.status || 'Pending').toLowerCase();
 
   const getStatusColor = () => {
     if (status.includes('urgent') || status.includes('critical')) return '#DC2626';
@@ -52,15 +91,19 @@ export default function SeniorDetailsScreen({
     );
   };
 
-  // prefer explicit prop, fall back to `senior.medicalConditions` set by App
+  // prefer freshly-fetched data, then explicit prop, then senior prop
   const conditions =
-    (Array.isArray(medicalConditions) && medicalConditions.length > 0)
-      ? medicalConditions
-      : Array.isArray(senior?.medicalConditions)
-        ? senior.medicalConditions
-        : [];
+    fetchedConditions.length > 0
+      ? fetchedConditions
+      : (Array.isArray(medicalConditions) && medicalConditions.length > 0)
+        ? medicalConditions
+        : Array.isArray(senior?.medicalConditions)
+          ? senior.medicalConditions
+          : [];
 
-  const nokContacts = Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
+  const nokContacts = fetchedNoks.length > 0
+    ? fetchedNoks
+    : Array.isArray(senior?.nokContacts) ? senior.nokContacts : [];
 
   const confirmRemoveSenior = async () => {
     if (!apiBase || !senior?.senior_id || !authenticatedUser?.user_id) return;
@@ -104,7 +147,7 @@ export default function SeniorDetailsScreen({
           {showStatusBadge ? (
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
               <Text style={styles.statusText}>
-                {senior?.status || 'Pending'}
+                {liveSenior?.status || 'Pending'}
               </Text>
             </View>
           ) : null}
@@ -117,42 +160,42 @@ export default function SeniorDetailsScreen({
           <View style={styles.row}>
             <Ionicons name="calendar-outline" size={18} color="#6B7280" />
             <Text style={styles.rowText}>
-              Date-of-Birth: {formatDate(senior?.dob, 'Not recorded')}
+              Date-of-Birth: {formatDate(liveSenior?.dob, 'Not recorded')}
             </Text>
           </View>
 
           <View style={styles.row}>
             <Ionicons name="person-outline" size={18} color="#6B7280" />
             <Text style={styles.rowText}>
-              Gender: {senior?.gender || 'Not recorded'}
+              Gender: {liveSenior?.gender || 'Not recorded'}
             </Text>
           </View>
 
           <View style={styles.row}>
             <Ionicons name="home-outline" size={18} color="#6B7280" />
             <Text style={styles.rowText}>
-              Address: {senior?.address || 'Not recorded'}
+              Address: {liveSenior?.address || 'Not recorded'}
             </Text>
           </View>
 
           <View style={styles.row}>
             <Ionicons name="mail-outline" size={18} color="#6B7280" />
             <Text style={styles.rowText}>
-              Postal Code: {senior?.postal_code || 'Not recorded'}
+              Postal Code: {liveSenior?.postal_code || 'Not recorded'}
             </Text>
           </View>
 
           <View style={styles.row}>
             <Ionicons name="business-outline" size={18} color="#6B7280" />
             <Text style={styles.rowText}>
-              Unit Number: {senior?.unit_number || senior?.unit_no || 'Not recorded'}
+              Unit Number: {liveSenior?.unit_number || liveSenior?.unit_no || 'Not recorded'}
             </Text>
           </View>
 
           <View style={styles.row}>
             <Ionicons name="call-outline" size={18} color="#6B7280" />
             <Text style={styles.rowText}>
-              Phone: {senior?.phone_number || senior?.contact || 'Not recorded'}
+              Phone: {liveSenior?.phone_number || liveSenior?.contact || 'Not recorded'}
             </Text>
           </View>
         </View>
