@@ -55,7 +55,7 @@ const ASSIGNED_CASES_SQL = `
         WHERE (ea.staff_id IS NULL OR ea.staff_id = ?)
           AND ua.full_name IS NOT NULL
           AND TRIM(ua.full_name) <> ''
-          AND (ee.event_type NOT LIKE '%Missed%' OR ee.event_type IS NULL)
+          AND ua.role = 'Senior'
         GROUP BY
             ee.event_id,
             ee.senior_id,
