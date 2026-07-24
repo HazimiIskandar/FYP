@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
-const { triggerCheckIn } = require("../services/servicenow");
+const telegramService = require("../services/telegramService");
 
 // ESCALATION ENGINE
 //
@@ -76,10 +76,12 @@ const escalateCheckIn = async (senior_id, timeOfDay = 'Morning') => {
 
         logEscalation(event_id, "Caregiver App", "Level 1");
         
-        // Automatically push this missed check-in to ServiceNow
-        triggerCheckIn(senior_id, eventType, false).catch(e => 
-            console.error("ServiceNow trigger failed:", e)
-        );
+        // Automatically push this missed check-in to Telegram
+        telegramService.notifyCheckIn(senior_id, {
+          seniorFullName: "Senior " + senior_id, // We'll let the frontend query the name if needed, or pass it here
+          eventType,
+          imOkay: false
+        }).catch(e => console.error("Telegram trigger failed:", e));
 
         setTimeout(() => {
             escalateLevel(event_id, senior_id, "Level 2 - Staff Alert");

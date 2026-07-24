@@ -20,7 +20,7 @@
 const db = require("../config/db");
 const { createNotification } = require("./notificationService");
 const { getEmailRecipientsForWorkflowRoute } = require("../emailRecipients");
-const servicenow = require("./servicenow");
+const telegramService = require("./telegramService");
 
 // Local helper that mirrors checkInRoutes.dbQueryAsync semantics — silently
 // resolves to [] on error so enrichment failures can't break the fan-out.
@@ -190,9 +190,14 @@ async function dispatchEngagement({
         null, // event_id — community/button flows don't carry one
         checkinId
       ),
-      servicenow.createCheckInResponse(snCtx),
+      telegramService.notifyCheckIn(seniorId, {
+        seniorFullName: seniorName,
+        eventType: eventType,
+        imOkay: imOkay,
+        checkinTimestamp: checkinTimestamp
+      }).catch(e => console.warn("[fanout] telegram FAILED source=" + source + " reason=" + e)),
     ]);
-    const [notifResult, snResult] = sinkResults;
+    const [notifResult] = sinkResults;
 
     if (notifResult.status === "fulfilled" && notifResult.value && notifResult.value.ok) {
       // success path — already logged inside createNotification
@@ -205,21 +210,6 @@ async function dispatchEngagement({
         "[fanout] notification FAILED source=" + source +
           " checkin_id=" + String(checkinId) +
           " reason=" + (reason && reason.message ? reason.message : JSON.stringify(reason))
-      );
-    }
-
-    if (snResult.status === "fulfilled") {
-      const wasOk =
-        snResult.value && typeof snResult.value === "object" && snResult.value.sys_id;
-      console.log(
-        "[fanout] servicenow source=" + source +
-          " result=" + (wasOk ? "OK sys_id=" + wasOk : "null") +
-          " emails=" + (caregiverEmailStr || "(empty)")
-      );
-    } else {
-      console.warn(
-        "[fanout] servicenow FAILED source=" + source +
-          " reason=" + (snResult.reason && snResult.reason.message ? snResult.reason.message : String(snResult.reason))
       );
     }
 

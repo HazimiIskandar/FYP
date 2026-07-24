@@ -66,67 +66,64 @@ function escapeHtml(value) {
  * empty / duplicate ids so the recipient file can be filled in
  * gradually. Never throws.
  */
-async function notifyCheckIn(bucket, payload) {
+async function notifyCheckIn(seniorId, payload) {
   if (!isTelegramConfigured()) {
-    console.log(
-      `[telegram] Skipping bucket="${bucket}" (TELEGRAM_BOT_TOKEN missing)`
-    );
+    console.log(`[telegram] Skipping for seniorId="${seniorId}" (TELEGRAM_BOT_TOKEN missing)`);
     return;
   }
 
-  const chatIds = Array.isArray(recipients[bucket]) ? recipients[bucket] : [];
+  // Fetch telegram_chat_id for all Caregivers linked to this senior
+  const db = require('../config/db');
+  const sql = `
+    SELECT ua.telegram_chat_id 
+    FROM Senior_has_Caregiver sc
+    JOIN User_Account ua ON sc.caregiver_id = ua.user_id
+    WHERE sc.senior_id = ? AND ua.telegram_chat_id IS NOT NULL AND TRIM(ua.telegram_chat_id) <> ''
+  `;
 
-  // Drop empty / falsy / duplicate ids so a half-filled recipient file
-  // doesn't error during development.
-  const uniqueIds = Array.from(
-    new Set(
-      chatIds
-        .map((id) => `${id == null ? "" : id}`.trim())
-        .filter(Boolean)
-    )
-  );
+  try {
+    const rows = await new Promise((resolve, reject) => {
+      db.query(sql, [seniorId], (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
 
-  if (!uniqueIds.length) {
-    console.warn(
-      `[telegram] bucket="${bucket}" has no chat_ids filled in — skipping`
-    );
-    return;
+    const uniqueIds = Array.from(new Set(rows.map(r => r.telegram_chat_id)));
+
+    if (!uniqueIds.length) {
+      console.warn(`[telegram] No valid telegram_chat_id found for seniorId="${seniorId}" — skipping`);
+      return;
+    }
+
+    const fullName = payload && payload.seniorFullName ? payload.seniorFullName : "A senior";
+    const status = payload && payload.imOkay ? "OK ✅" : "Needs help ⚠️";
+    const ts = payload && payload.checkinTimestamp ? payload.checkinTimestamp : new Date().toISOString();
+    const event = payload && payload.eventType ? payload.eventType : "Daily Check-in";
+
+    const EVENT_VERBS = {
+      "Daily Check-In": { emoji: "✅", verb: "checked in" },
+      "Community Game": { emoji: "🎮", verb: "played a memory match puzzle" },
+      "Missed Check-In": { emoji: "⚠️", verb: "missed a check-in (auto-escalated)" },
+      "Missed Morning Check-In": { emoji: "⚠️", verb: "missed their morning check-in (auto-escalated)" },
+      "Missed Evening Check-In": { emoji: "⚠️", verb: "missed their evening check-in (auto-escalated)" },
+      "SOS": { emoji: "🚨", verb: "triggered an SOS alert" },
+      "Fall Detected": { emoji: "🚑", verb: "had a fall" },
+      "Sensor Alert": { emoji: "📡", verb: "had a sensor alert" },
+      "Emergency": { emoji: "🚨", verb: "triggered an emergency alert" },
+    };
+    const eventInfo = EVENT_VERBS[event] || { emoji: "✅", verb: "checked in" };
+
+    const text =
+      eventInfo.emoji + " <b>" + escapeHtml(fullName) + "</b> " + eventInfo.verb + ".\n" +
+      "Event: " + escapeHtml(event) + "\n" +
+      "Status: " + status + "\n" +
+      "Time: " + ts;
+
+    await Promise.all(uniqueIds.map((id) => sendTo(id, text)));
+  } catch (err) {
+    console.error(`[telegram] Failed to fetch Caregiver Chat IDs for senior ${seniorId}:`, err);
   }
-
-  const fullName =
-    payload && payload.seniorFullName ? payload.seniorFullName : "A senior";
-  const status = payload && payload.imOkay ? "OK ✅" : "Needs help ⚠️";
-  const ts =
-    payload && payload.checkinTimestamp
-      ? payload.checkinTimestamp
-      : new Date().toISOString();
-  const event = payload && payload.eventType ? payload.eventType : "Daily Check-in";
-
-  // Event-to-verb+emoji mapping so the message body matches the source of
-  // engagement (Daily Check-In button -> "checked in", puzzle game -> "played
-  // a memory match puzzle", SOS -> "triggered an SOS alert", etc.). New
-  // `event_type` values in `services/servicenow.js#VALID_EVENT_TYPES` should
-  // add a row here so caregiver / NOK / AIC messages stay accurate.
-  const EVENT_VERBS = {
-    "Daily Check-In": { emoji: "\u2705", verb: "checked in" },
-    "Community Game": { emoji: "\ud83c\udfae", verb: "played a memory match puzzle" },
-    "Missed Check-In": { emoji: "\u26a0\ufe0f", verb: "missed a check-in (auto-escalated)" },
-    "SOS": { emoji: "\ud83d\udea8", verb: "triggered an SOS alert" },
-    "Fall Detected": { emoji: "\ud83d\ude91", verb: "had a fall" },
-    "Sensor Alert": { emoji: "\ud83d\udce1", verb: "had a sensor alert" },
-    "Emergency": { emoji: "\ud83d\udea8", verb: "triggered an emergency alert" },
-  };
-  const eventInfo = EVENT_VERBS[event] || { emoji: "\u2705", verb: "checked in" };
-
-  const text =
-    eventInfo.emoji +
-    " <b>" + escapeHtml(fullName) + "</b> " +
-    eventInfo.verb + ".\n" +
-    "Event: " + escapeHtml(event) + "\n" +
-    "Status: " + status + "\n" +
-    "Time: " + ts;
-
-  await Promise.all(uniqueIds.map((id) => sendTo(id, text)));
 }
 
 module.exports = {

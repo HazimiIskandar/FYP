@@ -1,8 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
-const { createSosIncident } = require("../services/sosServiceNow");
-const { updateIncidentToInProgress } = require("../services/caregiverServiceNow");
+const telegramService = require("../services/telegramService");
 
 // TRIGGER EMERGENCY (manual SOS from app)
 //
@@ -41,9 +40,13 @@ router.post("/trigger", (req, res) => {
         seniorName = nameResult[0].full_name;
       }
 
-      // Fire-and-forget: Send the SOS alert to the user's personal ServiceNow instance
+      // Fire-and-forget: Send the SOS alert to Telegram
       setImmediate(() => {
-        createSosIncident(senior_id, seniorName);
+        telegramService.notifyCheckIn(senior_id, {
+          seniorFullName: seniorName,
+          eventType: "SOS",
+          imOkay: false
+        }).catch(e => console.error("Telegram SOS trigger failed:", e));
       });
     });
 
@@ -78,10 +81,7 @@ router.post("/caregiver-action", (req, res) => {
     return res.status(400).json({ error: "senior_name is required" });
   }
 
-  // Fire-and-forget: update the incident in ServiceNow
-  setImmediate(() => {
-    updateIncidentToInProgress(senior_name);
-  });
+  // No longer using ServiceNow to update incident to In Progress
 
   res.json({
     message: "Caregiver action triggered",

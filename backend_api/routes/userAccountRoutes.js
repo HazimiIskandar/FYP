@@ -45,6 +45,18 @@ db.query("SHOW COLUMNS FROM User_Account LIKE 'preferred_language'", (showErr, s
     );
 });
 
+// Migration: add User_Account.telegram_chat_id if it does not yet exist.
+db.query("SHOW COLUMNS FROM User_Account LIKE 'telegram_chat_id'", (showErr, showRows) => {
+    if (showErr) return;
+    if (Array.isArray(showRows) && showRows.length > 0) return;
+    db.query(
+        "ALTER TABLE User_Account ADD COLUMN telegram_chat_id VARCHAR(50) DEFAULT NULL",
+        (alterErr) => {
+            if (!alterErr) console.log('[userAccountRoutes] Added telegram_chat_id column to User_Account');
+        }
+    );
+});
+
 const capitalizeWords = (value) =>
     String(value || '')
         .replace(/\d/g, '')
@@ -348,6 +360,25 @@ router.put('/:user_id', (req, res) => {
         if (err) return res.status(500).json({ error: err.message || err });
         res.json({ message: 'User updated successfully' });
     });
+});
+
+// Link Telegram Chat ID to a user account
+router.put('/:userId/telegram-link', (req, res) => {
+    const { userId } = req.params;
+    const { telegram_chat_id } = req.body;
+    if (!telegram_chat_id) {
+        return res.status(400).json({ error: 'telegram_chat_id is required' });
+    }
+    
+    db.query(
+        "UPDATE User_Account SET telegram_chat_id = ? WHERE user_id = ?",
+        [telegram_chat_id.trim(), userId],
+        (err, result) => {
+            if (err) return res.status(500).json({ error: err.message || err });
+            if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+            res.json({ message: 'Telegram account linked successfully' });
+        }
+    );
 });
 
 module.exports = router;

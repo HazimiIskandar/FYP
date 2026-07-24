@@ -23,6 +23,13 @@ const isEightDigitPhone = (value) => /^\d{8}$/.test(String(value || '').trim());
 const getRoleName = (user) =>
   `${user?.role || user?.role_name || user?.roleName || ''}`.toLowerCase();
 
+const capitalizeWords = (value) =>
+  String(value || '')
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+
 const isAicStaff = (user) => {
   const roleId = Number(user?.role_id);
   return roleId === 3 || getRoleName(user).includes('aic');
@@ -42,6 +49,8 @@ export default function StaffSettingsScreen({
 
   const [fullName, setFullName] = useState(authenticatedUser?.full_name || '');
   const [phone, setPhone] = useState(authenticatedUser?.phone_number || '');
+  const [telegramChatId, setTelegramChatId] = useState(authenticatedUser?.telegram_chat_id || '');
+  
   const [particularsModalVisible, setParticularsModalVisible] = useState(false);
   const [particularsSaving, setParticularsSaving] = useState(false);
   const [particularsMessage, setParticularsMessage] = useState('');
@@ -51,11 +60,13 @@ export default function StaffSettingsScreen({
   useEffect(() => {
     setFullName(authenticatedUser?.full_name || '');
     setPhone(authenticatedUser?.phone_number || '');
+    setTelegramChatId(authenticatedUser?.telegram_chat_id || '');
   }, [authenticatedUser?.user_id]);
 
   const openParticularsModal = () => {
     setFullName(authenticatedUser?.full_name || '');
     setPhone(authenticatedUser?.phone_number || '');
+    setTelegramChatId(authenticatedUser?.telegram_chat_id || '');
     setParticularsMessage('');
     setParticularsError('');
     setParticularsModalVisible(true);
@@ -92,6 +103,18 @@ export default function StaffSettingsScreen({
       if (!response.ok) {
         throw new Error(body?.error || 'Failed to save particulars.');
       }
+      
+      if (telegramChatId) {
+        const tgResponse = await fetch(`${apiBase}/users/${authenticatedUser.user_id}/telegram-link`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telegram_chat_id: telegramChatId }),
+        });
+        if (!tgResponse.ok) {
+          console.warn("Failed to save telegram chat ID");
+        }
+      }
+
       setParticularsMessage('Particulars saved successfully.');
       if (onRefresh) onRefresh();
     } catch (err) {
@@ -121,17 +144,32 @@ export default function StaffSettingsScreen({
       <Header title="Settings" subtitle="Manage your account and session" />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity
-          style={styles.settingRow}
-          onPress={openParticularsModal}
-          activeOpacity={0.86}
-        >
-          <View style={styles.settingIcon}>
-            <Ionicons name="person-circle-outline" size={23} color="#2563EB" />
+        <View style={styles.profileCard}>
+          <View style={styles.avatarCircle}>
+            <Ionicons name="person" size={40} color="#0056A0" />
           </View>
-          <Text style={styles.settingText}>Update Particulars</Text>
-          <Ionicons name="chevron-forward" size={23} color="#6B7280" />
-        </TouchableOpacity>
+          <Text style={styles.profileName}>
+            {authenticatedUser?.full_name || 'Staff User'}
+          </Text>
+          <Text style={styles.profileRole}>
+            {capitalizeWords(getRoleName(authenticatedUser)) || 'Staff Member'}
+          </Text>
+        </View>
+
+        <View style={styles.optionsContainer}>
+          <Text style={styles.sectionTitle}>Account</Text>
+
+          <TouchableOpacity style={styles.optionRow} onPress={openParticularsModal}>
+            <View style={styles.optionIconContainer}>
+              <Ionicons name="person-circle-outline" size={24} color="#333" />
+            </View>
+            <View style={styles.optionTextContainer}>
+              <Text style={styles.optionTitle}>My Particulars</Text>
+              <Text style={styles.optionSubtitle}>Update name, phone, and Telegram</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={styles.logoutCard}
@@ -185,6 +223,16 @@ export default function StaffSettingsScreen({
               placeholderTextColor="#9CA3AF"
             />
 
+            <Text style={[styles.inputLabel, styles.inputLabelSpaced]}>Telegram Chat ID</Text>
+            <TextInput
+              style={styles.input}
+              value={telegramChatId}
+              onChangeText={(text) => setTelegramChatId(String(text || '').replace(/\D/g, ''))}
+              placeholder="e.g. 1708283023"
+              keyboardType="number-pad"
+              placeholderTextColor="#9CA3AF"
+            />
+
             {particularsError ? <Text style={styles.errorText}>{particularsError}</Text> : null}
             {particularsMessage ? <Text style={styles.savedText}>{particularsMessage}</Text> : null}
 
@@ -228,8 +276,81 @@ export default function StaffSettingsScreen({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  content: { padding: 20, paddingBottom: 28 },
+  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 },
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  avatarCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  profileName: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  profileRole: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  optionsContainer: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#4B5563',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  optionRow: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    minHeight: 76,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  optionIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  optionTextContainer: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  optionSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
   settingRow: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
