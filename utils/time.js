@@ -250,18 +250,6 @@ export const getSgtHours = (value) => {
   return Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
 };
 
-export const getSgtHours = (value) => {
-  if (isMissing(value)) return -1;
-  const date = toDate(value);
-  if (Number.isNaN(date.getTime())) return -1;
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    hour: 'numeric',
-    hour12: false,
-    timeZone: SGT_TIMEZONE,
-  }).formatToParts(date);
-  return Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
-};
-
 export const formatRelativeTime = (value, fallback = '') => {
   if (isMissing(value)) return fallback;
   const valueDate = toDate(value);
