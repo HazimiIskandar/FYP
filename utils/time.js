@@ -35,7 +35,17 @@ const isMissing = (value) => value === null || value === undefined || value === 
 
 const toDate = (value) => {
   if (value instanceof Date) return value;
-  return new Date(value);
+  const str = String(value).trim();
+  // MySQL DATETIME strings arrive from the backend in SGT (session timezone
+  // is +08:00).  JavaScript's Date constructor interprets bare datetime
+  // strings ("YYYY-MM-DD HH:mm:ss") inconsistently across engines — V8
+  // treats them as LOCAL time, Safari as UTC.  To avoid this cross-engine
+  // ambiguity, we detect the MySQL format and append the explicit SGT
+  // offset so every runtime parses it the same way.
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(str)) {
+    return new Date(str.replace(' ', 'T') + '+08:00');
+  }
+  return new Date(str);
 };
 
 // ---------------------------------------------------------------------------
@@ -228,6 +238,30 @@ const SGT_DAY_MS = 24 * 60 * 60 * 1000;
 //
 // Returns `fallback` for missing/invalid input so callers can chain a
 // localised "No check-in yet" placeholder when the value is null.
+export const getSgtHours = (value) => {
+  if (isMissing(value)) return -1;
+  const date = toDate(value);
+  if (Number.isNaN(date.getTime())) return -1;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: 'numeric',
+    hour12: false,
+    timeZone: SGT_TIMEZONE,
+  }).formatToParts(date);
+  return Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+};
+
+export const getSgtHours = (value) => {
+  if (isMissing(value)) return -1;
+  const date = toDate(value);
+  if (Number.isNaN(date.getTime())) return -1;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: 'numeric',
+    hour12: false,
+    timeZone: SGT_TIMEZONE,
+  }).formatToParts(date);
+  return Number(parts.find((p) => p.type === 'hour')?.value ?? -1);
+};
+
 export const formatRelativeTime = (value, fallback = '') => {
   if (isMissing(value)) return fallback;
   const valueDate = toDate(value);

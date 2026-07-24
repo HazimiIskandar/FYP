@@ -6,7 +6,7 @@ import i18n from './i18n';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform, StyleSheet, View, Linking, Alert } from 'react-native';
-import { getSgtDateKey } from './utils/time';
+import { getSgtDateKey, getSgtHours } from './utils/time';
 
 // Screens
 import LanguageScreen from './screens/LanguageScreen';
@@ -793,7 +793,7 @@ export default function App() {
         String(c?.senior_id) === String(currentSenior.senior_id) &&
         (c?.checkin_status || '').toLowerCase().includes('completed') &&
         (!c.checkin_timestamp || getDateKey(c.checkin_timestamp) === todayKey) &&
-        (new Date(c.checkin_timestamp).getHours() < 16)
+        (getSgtHours(c.checkin_timestamp) < 16)
       )
     : false;
 
@@ -802,7 +802,7 @@ export default function App() {
         String(c?.senior_id) === String(currentSenior.senior_id) &&
         (c?.checkin_status || '').toLowerCase().includes('completed') &&
         (!c.checkin_timestamp || getDateKey(c.checkin_timestamp) === todayKey) &&
-        (new Date(c.checkin_timestamp).getHours() >= 16)
+        (getSgtHours(c.checkin_timestamp) >= 16)
       )
     : false;
 
