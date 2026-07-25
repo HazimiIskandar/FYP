@@ -688,17 +688,32 @@ export default function App() {
           return false;
         }
 
-        // A stale unresolved "Missed ... Check-In" event should not keep the
-        // senior in urgent/pending once they have a successful check-in today.
-        const eventType = String(event?.event_type || '');
-        const isMissedCheckIn = /missed\s+.*check-?in/i.test(eventType);
-        // Missed check-ins should map to pending/missed workflow on the
-        // caregiver roster, not the urgent emergency lane.
-        if (isMissedCheckIn) return false;
-
         return true;
       });
     if (hasUrgentEvent) return 'Urgent';
+
+    // Check for unresolved missed check-in events (Morning/Evening).
+    // Once the senior has checked in today, only TODAY's missed events
+    // should keep them in Missed status — stale yesterday events are ignored.
+    const hasMissedCheckIn =
+      Array.isArray(emergencyEvents) &&
+      emergencyEvents.some((event) => {
+        if (String(event?.senior_id) !== seniorId) return false;
+        const eventStatus = String(event?.event_status || '').trim();
+        if (!eventStatus) return false;
+        if (/^(resolved|closed|cancelled)$/i.test(eventStatus)) return false;
+
+        const eventDayKey = event?.created_at
+          ? getDateKey(event.created_at)
+          : null;
+        if (hasCheckedInToday && eventDayKey && eventDayKey !== todayKeyValue) {
+          return false;
+        }
+
+        const eventType = String(event?.event_type || '');
+        return /missed\s+.*check-?in/i.test(eventType);
+      });
+    if (hasMissedCheckIn) return 'Missed';
 
     if (hasCheckedInToday) return 'Checked In';
 
