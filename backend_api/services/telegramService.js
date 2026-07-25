@@ -1,5 +1,4 @@
 const axios = require("axios");
-const recipients = require("../telegramRecipients");
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -72,13 +71,18 @@ async function notifyCheckIn(seniorId, payload) {
     return;
   }
 
-  // Fetch telegram_chat_id for all Caregivers linked to this senior
+  // Fetch telegram_chat_id for all caregiver accounts linked to this senior.
+  // Source of truth is User_Account.telegram_chat_id (filled from the app's
+  // Settings -> Telegram Chat ID field).
   const db = require('../config/db');
   const sql = `
-    SELECT ua.telegram_chat_id 
+    SELECT ua.telegram_chat_id
     FROM Senior_has_Caregiver sc
     JOIN User_Account ua ON sc.caregiver_id = ua.user_id
-    WHERE sc.senior_id = ? AND ua.telegram_chat_id IS NOT NULL AND TRIM(ua.telegram_chat_id) <> ''
+    WHERE sc.senior_id = ?
+      AND ua.role_id = 2
+      AND ua.telegram_chat_id IS NOT NULL
+      AND TRIM(ua.telegram_chat_id) <> ''
   `;
 
   try {
@@ -89,10 +93,19 @@ async function notifyCheckIn(seniorId, payload) {
       });
     });
 
-    const uniqueIds = Array.from(new Set(rows.map(r => r.telegram_chat_id)));
+    const uniqueIds = Array.from(
+      new Set(
+        rows
+          .map((r) => String(r.telegram_chat_id || '').trim())
+          .filter(Boolean)
+      )
+    );
 
     if (!uniqueIds.length) {
-      console.warn(`[telegram] No valid telegram_chat_id found for seniorId="${seniorId}" — skipping`);
+      console.warn(
+        `[telegram] No caregiver telegram_chat_id found for seniorId="${seniorId}". ` +
+        `Ask linked caregiver(s) to open app Settings and save Telegram Chat ID.`
+      );
       return;
     }
 
@@ -134,7 +147,7 @@ async function notifyCheckIn(seniorId, payload) {
 
     await Promise.all(uniqueIds.map((id) => sendTo(id, text)));
   } catch (err) {
-    console.error(`[telegram] Failed to fetch Caregiver Chat IDs for senior ${seniorId}:`, err);
+    console.error(`[telegram] Failed to fetch caregiver chat IDs for senior ${seniorId}:`, err);
   }
 }
 
