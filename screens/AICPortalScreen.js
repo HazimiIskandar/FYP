@@ -300,6 +300,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
   const [statusComment, setStatusComment] = useState('');
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [statusMessageMeta, setStatusMessageMeta] = useState({ status: '', serviceNowUpdated: null });
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignMessage, setAssignMessage] = useState('');
   const [assignedStaff, setAssignedStaff] = useState(caseItem?.assignedStaff || { names: 'Unassigned', userIds: [] });
@@ -375,6 +376,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
 
     setStatusLoading(true);
     setStatusMessage('');
+    setStatusMessageMeta({ status: '', serviceNowUpdated: null });
 
     try {
       const response = await fetch(`${apiBase}/staff/case/${caseItem.caseId}/status`, {
@@ -386,9 +388,11 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
 
       if (!response.ok) {
         setStatusMessage(`Status update failed: ${json?.error || response.statusText}`);
+        setStatusMessageMeta({ status: '', serviceNowUpdated: null });
       } else {
         setCurrentStatus(newStatus);
-        setStatusMessage(`Status updated to ${newStatus}. ServiceNow updated: ${json.serviceNowUpdated ? 'yes' : 'no'}`);
+        setStatusMessage('');
+        setStatusMessageMeta({ status: newStatus, serviceNowUpdated: json.serviceNowUpdated });
       }
     } catch (err) {
       console.log('Failed to update case status:', err);
@@ -500,7 +504,13 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
             ))}
           </View>
 
-          {statusMessage ? <Text style={styles.statusMessage}>{statusMessage}</Text> : null}
+          {statusMessageMeta.status ? (
+            <Text style={styles.statusMessage}>
+              Status updated to <Text style={styles.statusMessageBold}>{statusMessageMeta.status}</Text>. ServiceNow updated: <Text style={styles.statusMessageBold}>{statusMessageMeta.serviceNowUpdated ? 'Yes' : 'No'}</Text>
+            </Text>
+          ) : statusMessage ? (
+            <Text style={styles.statusMessage}>{statusMessage}</Text>
+          ) : null}
         </View>
 
         <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.86}>
@@ -819,6 +829,10 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 13,
     fontWeight: '700',
+  },
+  statusMessageBold: {
+    fontWeight: '900',
+    color: '#2563EB',
   },
   modalOverlay: {
     position: 'absolute',
