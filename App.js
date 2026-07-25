@@ -1239,6 +1239,70 @@ export default function App() {
   };
 
   // -------------------------
+  // CAREGIVER AUTO-REFRESH (hybrid: screen-focus + background poll)
+  // -------------------------
+  // Two complementary mechanisms keep the caregiver's roster current
+  // when a senior checks in on a different device:
+  //
+  // 1. Screen-focus refresh — fires every time the caregiver
+  //    navigates to a data-critical screen (Home, Roster, SeniorsList,
+  //    AICPortal). This gives instant feedback on navigation.
+  //
+  // 2. Background poll (60 s) — safety net for long stays on a
+  //    single screen. The lighter interval (vs the previous 30 s)
+  //    halves battery / data cost while still catching late check-ins.
+  //
+  // Both only run when the logged-in user is a caregiver (role_id 2).
+  //
+  // Helper: detect caregiver role once so both effects can share it.
+  const isCaregiverUser = React.useMemo(() => {
+    if (!authenticatedUser) return false;
+    const roleName = String(
+      authenticatedUser?.role || authenticatedUser?.role_name || ''
+    ).toLowerCase();
+    return Number(authenticatedUser?.role_id) === 2 || roleName.includes('caregiver');
+  }, [authenticatedUser]);
+
+  // 1. Screen-focus refresh — triggers on every navigation to a
+  //    caregiver data screen. Uses a ref to skip the very first render
+  //    (login already calls refreshAll) so we don't double-fetch.
+  const prevCaregiverScreen = React.useRef(null);
+  useEffect(() => {
+    if (!isCaregiverUser || !apiBase) return;
+
+    const caregiverScreens = new Set([
+      'CaregiverHome',
+      'CaregiverRoster',
+      'CaregiverSeniorsList',
+      'AICPortal',
+    ]);
+
+    if (caregiverScreens.has(currentScreen) && currentScreen !== prevCaregiverScreen.current) {
+      // Skip the very first hit (post-login already refreshed).
+      if (prevCaregiverScreen.current !== null) {
+        refreshAll(authenticatedUser);
+      }
+      prevCaregiverScreen.current = currentScreen;
+    } else if (!caregiverScreens.has(currentScreen)) {
+      // Reset so the next caregiver-screen entry triggers a refresh.
+      prevCaregiverScreen.current = null;
+    }
+  }, [currentScreen, isCaregiverUser, apiBase]);
+
+  // 2. Background poll — 60-second interval as a safety net for
+  //    caregivers who stay on one screen for a long time.
+  useEffect(() => {
+    if (!isCaregiverUser || !apiBase) return;
+
+    const POLL_INTERVAL_MS = 60_000;
+    const intervalId = setInterval(() => {
+      refreshAll(authenticatedUser);
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [authenticatedUser?.user_id, apiBase, isCaregiverUser]);
+
+  // -------------------------
   // DERIVED STATUS (caregiver-side status fix)
   // -------------------------
   // /caregiver/:id/seniors only returns Senior + User_Account columns — there
