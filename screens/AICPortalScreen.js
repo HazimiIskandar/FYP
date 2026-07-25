@@ -313,7 +313,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
   const senior = caseItem.senior || {};
   const seniorId = caseItem?.seniorId || senior?.senior_id;
 
-  const availableStatusOptions = ['Open', 'New', 'In Progress', 'On Hold', 'Resolved', 'Closed', 'Cancelled'];
+  const availableStatusOptions = ['Open', 'In Progress', 'On Hold', 'Resolved', 'Closed', 'Cancelled'];
 
   const currentEventStatus = caseItem?.eventStatus || caseItem?.currentStatus || 'Open';
   const [currentStatus, setCurrentStatus] = useState(currentEventStatus);
@@ -380,7 +380,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
       const response = await fetch(`${apiBase}/staff/case/${caseItem.caseId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, comment: statusComment, staff_user_id: authenticatedUser?.user_id || null }),
+        body: JSON.stringify({ status: newStatus, comment: '', staff_user_id: authenticatedUser?.user_id || null }),
       });
       const json = await response.json();
 
@@ -411,7 +411,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
       const response = await fetch(`${apiBase}/staff/case/${caseItem.caseId}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: authenticatedUser.user_id, comment: statusComment }),
+        body: JSON.stringify({ user_id: authenticatedUser.user_id, comment: '' }),
       });
       const json = await response.json();
 
@@ -462,14 +462,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
           <View style={styles.assignActionCard}>
             <Text style={styles.infoTitle}>Assign this case to me</Text>
             <Text style={styles.mutedText}>Claim the case and move it to In Progress.</Text>
-            <TextInput
-              style={styles.statusCommentInput}
-              value={statusComment}
-              onChangeText={setStatusComment}
-              placeholder="Add a short note for your assignment"
-              placeholderTextColor="#9CA3AF"
-              multiline
-            />
+            {/* Comment input removed — assignments use buttons only. */}
             <TouchableOpacity
               style={[styles.assignButton, assignLoading && styles.assignButtonDisabled]}
               onPress={handleAssignToMe}
@@ -486,15 +479,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
 
         <View style={styles.statusActionCard}>
           <Text style={styles.infoTitle}>Update Case Status</Text>
-          <Text style={styles.mutedText}>Select the next state and add a short note for ServiceNow.</Text>
-          <TextInput
-            style={styles.statusCommentInput}
-            value={statusComment}
-            onChangeText={setStatusComment}
-            placeholder="Enter a short comment or next step"
-            placeholderTextColor="#9CA3AF"
-            multiline
-          />
+          <Text style={styles.mutedText}>Select the next state.</Text>
 
           <View style={styles.statusButtonsRow}>
             {availableStatusOptions.map((option) => (
@@ -777,6 +762,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    marginTop: 10,
     marginBottom: 10,
   },
   statusButton: {

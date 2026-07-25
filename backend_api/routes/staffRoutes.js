@@ -134,7 +134,8 @@ router.post('/case/:event_id/status', (req, res) => {
         }
 
         const escalatedTo = staff_user_id ? `AIC Staff ${staff_user_id}` : 'AIC Staff';
-        const escalationStatus = comment ? `${status} — ${String(comment).trim()}` : status;
+        // Don't persist freeform comments from the UI — keep history status concise.
+        const escalationStatus = status;
         const insertHistorySql = `
             INSERT INTO Escalation_History
             (event_id, escalated_to, escalation_status)
@@ -218,9 +219,8 @@ router.post('/case/:event_id/assign', (req, res) => {
                 return res.status(404).json({ error: 'Event not found' });
             }
 
-            const escalationNote = comment
-                ? `Assigned to staff ${staffId}: ${String(comment).trim()}`
-                : `Assigned to staff ${staffId}`;
+            // Persist a concise assignment note (do not store the freeform UI comment).
+            const escalationNote = `Assigned to staff ${staffId}`;
             const insertHistorySql = `
                 INSERT INTO Escalation_History
                 (event_id, escalated_to, escalation_status)
