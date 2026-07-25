@@ -119,21 +119,43 @@ export default function CaregiverHomeScreen({
   const priorityStatus = (prioritySenior?.status || '').toString().trim();
   const isCalm =
     priorityStatus === 'Checked In' || !prioritySenior?.senior_id;
-  const ticketTitle = activeTicket?.title || activeTicket?.event_name || 'Missed check-in';
-  const ticketId = activeTicket?.id || activeTicket?.ticket_id || activeTicket?.event_id || 'INC0016767';
+  // HONEST ticket fallback. Previously `ticketTitle` defaulted to the
+  // raw string 'Missed check-in' and `ticketId` defaulted to a hardcoded
+  // 'INC0016767' whenever either `activeTicket` was undefined OR (more
+  // commonly) the latest emergency event row lacked a matching title /
+  // id field. With `prioritySenior.status === 'Urgent'` AND no matching
+  // event for that senior, the priority card showed fake copy that
+  // looked like a real escalation in ServiceNow. We now render the
+  // ticketActive tile only when there's a genuine active incident id;
+  // otherwise we render a context-appropriate "Awaiting today's
+  // check-in" banner so the caregiver sees the truth (no incident)
+  // instead of a fake one.
+  const hasRealActiveTicket = Boolean(
+    activeTicket &&
+    (activeTicket.event_id ||
+      activeTicket.id ||
+      activeTicket.ticket_id)
+  );
+  const ticketTitle = hasRealActiveTicket
+    ? (activeTicket?.title || activeTicket?.event_name || 'Active escalation')
+    : 'No active escalation';
+  const ticketId = hasRealActiveTicket
+    ? (activeTicket?.id ||
+        activeTicket?.ticket_id ||
+        String(activeTicket?.event_id || ''))
+    : '';
   // Ticket update is the SGT-aware formatted version of the emergency
-  // event time (or legacy string field). Falls back to the original
-  // hardcoded placeholder only when both the timestamp AND every string
-  // field are missing — so a caregiver who has a real emergency ticket
-  // always sees something better than a fake "10 minutes ago".
+  // event time (or legacy string field). Falls back to "—" rather than
+  // a fake "10 minutes ago" when no real timestamp is available.
   const ticketRawTimestamp =
     activeTicket?.created_at || activeTicket?.timestamp || activeTicket?.event_time;
-  const ticketUpdate =
-    formatRelativeTime(ticketRawTimestamp) ||
-    activeTicket?.last_update ||
-    activeTicket?.updated_at ||
-    activeTicket?.time ||
-    '10 minutes ago';
+  const ticketUpdate = hasRealActiveTicket
+    ? (formatRelativeTime(ticketRawTimestamp) ||
+        activeTicket?.last_update ||
+        activeTicket?.updated_at ||
+        activeTicket?.time ||
+        'Just now')
+    : '\u2014';
   const latestCheckInRelative = formatRelativeTime(
     latestCheckIn?.checkin_timestamp,
     'No check-in yet'
@@ -210,20 +232,39 @@ export default function CaregiverHomeScreen({
             </View>
           </View>
 
-          <View style={styles.ticketActive}>
-            <View style={styles.ticketHeader}>
-              <Ionicons name="warning" size={24} color="#DC2626" />
-              <Text style={styles.ticketTitle}>{ticketTitle}</Text>
+          {hasRealActiveTicket ? (
+            <View style={styles.ticketActive}>
+              <View style={styles.ticketHeader}>
+                <Ionicons name="warning" size={24} color="#DC2626" />
+                <Text style={styles.ticketTitle}>{ticketTitle}</Text>
+              </View>
+              {ticketId ? (
+                <Text style={styles.ticketMeta}>Ticket ID: {ticketId}</Text>
+              ) : null}
+              {/* Active emergency ticket update time — preserved alongside
+                  the new "Latest check-in" line so a live incident never
+                  gets lost when we add the check-in timestamp. */}
+              <Text style={styles.ticketMeta}>Ticket updated: {ticketUpdate}</Text>
+              <Text style={styles.ticketMeta}>
+                Latest check-in: {latestCheckInRelative}
+              </Text>
             </View>
-            <Text style={styles.ticketMeta}>Ticket ID: {ticketId}</Text>
-            {/* Active emergency ticket update time — preserved alongside
-                the new "Latest check-in" line so a live incident never
-                gets lost when we add the check-in timestamp. */}
-            <Text style={styles.ticketMeta}>Ticket updated: {ticketUpdate}</Text>
-            <Text style={styles.ticketMeta}>
-              Latest check-in: {latestCheckInRelative}
-            </Text>
-          </View>
+          ) : (
+            // No real active ticket — render a softer, non-alarmist
+            // banner so the caregiver still sees the "Awaiting today's
+            // check-in" truth even when prioritySenior is Pending but
+            // not Urgent. Without this branch the old code defaulted to
+            // a fake red "Missed check-in" / "INC0016767" tile that
+            // looked like a real escalation in ServiceNow.
+            <View style={styles.pendingNote}>
+              <Ionicons name="time-outline" size={20} color="#92400E" />
+              <Text style={styles.pendingNoteText}>
+                {priorityStatus === 'Urgent'
+                  ? 'Latest check-in: ' + latestCheckInRelative + '. Awaiting caregiver follow-up.'
+                  : 'Awaiting today\u2019s check-in. No active emergency.'}
+              </Text>
+            </View>
+          )}
 
           <TouchableOpacity style={styles.callButton} onPress={onCallEmergencyContact} activeOpacity={0.86}>
             <Ionicons name="call" size={24} color="#FFFFFF" />
@@ -345,6 +386,29 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FCA5A5',
     marginBottom: 14,
+  },
+  // Softer amber banner used when there is NO real active emergency
+  // ticket but the priority senior is still Pending / Urgent — e.g.
+  // the senior has not yet checked in today but the cron hasn't
+  // created an event yet, OR the senior's check-in resolution has
+  // just landed on the backend and the next 60-second poll hasn't
+  // fired yet. Reads as a watch-item rather than a fake alarm.
+  pendingNote: {
+    backgroundColor: '#FEF3C7',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pendingNoteText: {
+    color: '#78350F',
+    fontSize: 15,
+    fontWeight: '700',
+    flexShrink: 1,
   },
   ticketHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   ticketTitle: { color: '#B91C1C', fontSize: 21, fontWeight: '900' },
