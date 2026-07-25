@@ -7,11 +7,11 @@ const SINGAPORE_OFFSET = "+08:00";
 // (_run_migration.js) consumes the same CONFIG via module.exports.dbConfig.
 // Frozen so a caller mutating db.dbConfig.host can't poison future connects.
 const CONFIG = Object.freeze({
-  host: process.env.DB_HOST || "cplofo.h.filess.io",
-  user: process.env.DB_USER || "senior_connect_curiousago",
-  password: process.env.DB_PASSWORD || "fe9c8311734fbb029d7fec8b715366ee54ec0751",
-  database: process.env.DB_NAME || "senior_connect_curiousago",
-  port: Number(process.env.DB_PORT || 61032),
+  host: process.env.DB_HOST || process.env.MYSQL_HOST || "cplofo.h.filess.io",
+  user: process.env.DB_USER || process.env.MYSQL_USER || "senior_connect_curiousago",
+  password: process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD || "fe9c8311734fbb029d7fec8b715366ee54ec0751",
+  database: process.env.DB_NAME || process.env.MYSQL_DATABASE || "senior_connect_curiousago",
+  port: Number(process.env.DB_PORT || process.env.MYSQL_PORT || 61032),
   // mysql2 connection option: tells the driver how to *parse* response date strings
   // (treat them as SGT when converting to JS Date). It does NOT reliably issue a
   // server-side `SET time_zone` across mysql2 versions, so we also do that explicitly
