@@ -599,6 +599,7 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   cardLabel: { fontSize: 11, fontWeight: '900', marginTop: 5 },
+  cardBack: { alignItems: 'center', justifyContent: 'center' },
   cardBackText: { color: '#DBEAFE', fontSize: 11, fontWeight: '900', marginTop: 3 },
   attemptText: {
     color: '#6B7280',
