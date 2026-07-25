@@ -90,6 +90,86 @@ async function sendCheckInNotificationEmail({ to, seniorName }) {
   }
 }
 
+/**
+ * Send a check-in notification email to ALL linked caregivers.
+ *
+ * Accepts an array of recipient objects [{email, name}] and sends
+ * an individual email to each caregiver so every linked caregiver
+ * receives the notification independently.
+ *
+ * @param {Object} args
+ * @param {Array<{email: string, name: string}>} args.recipients — all caregiver recipients
+ * @param {string} [args.seniorName] — shown in subject + body
+ * @returns {Promise<{ok: boolean, sent: number, failed: number, errors: string[]}>}
+ */
+async function sendCheckInEmailToAllCaregivers({ recipients, seniorName }) {
+  if (!recipients || recipients.length === 0) {
+    return { ok: false, sent: 0, failed: 0, errors: ["no recipients"] };
+  }
+
+  const subject = `Senior check-in confirmed — ${seniorName || "a senior"}`;
+  const checkinAt = nowSgtIso();
+  const text = [
+    "Hello,",
+    "",
+    `${seniorName || "A senior"} has just confirmed they are okay at ${checkinAt}.`,
+    "",
+    "Triggered via the SilverGrove Caregiver check-in workflow.",
+  ].join("\n");
+
+  let sent = 0;
+  let failed = 0;
+  const errors = [];
+
+  try {
+    const transport = getTransport();
+
+    // Send to each caregiver in parallel for speed
+    const results = await Promise.allSettled(
+      recipients.map(async (recipient) => {
+        if (!recipient.email) {
+          return { skipped: true };
+        }
+        const info = await transport.sendMail({
+          from: process.env.GMAIL_USER,
+          to: recipient.email,
+          subject,
+          text,
+        });
+        return { ok: true, email: recipient.email, messageId: info.messageId };
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value && result.value.ok) {
+        sent++;
+      } else if (result.status === "fulfilled" && result.value && result.value.skipped) {
+        // skipped - no email, don't count as failure
+      } else {
+        failed++;
+        const errMsg = result.status === "rejected"
+          ? (result.reason && result.reason.message ? result.reason.message : String(result.reason))
+          : (result.value && result.value.error) || "unknown";
+        errors.push(errMsg);
+      }
+    }
+
+    console.log(
+      "[emailService] batch send: sent=" + sent +
+        " failed=" + failed +
+        " recipients=" + recipients.length +
+        " senior=" + (seniorName || "unknown")
+    );
+
+    return { ok: sent > 0, sent, failed, errors };
+  } catch (err) {
+    const reason = (err && err.message) || String(err);
+    console.warn("[emailService] batch send FAILED reason=" + reason);
+    return { ok: false, sent: 0, failed: recipients.length, errors: [reason] };
+  }
+}
+
 module.exports = {
   sendCheckInNotificationEmail,
+  sendCheckInEmailToAllCaregivers,
 };

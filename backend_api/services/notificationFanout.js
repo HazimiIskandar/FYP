@@ -22,6 +22,7 @@ const { createNotification } = require("./notificationService");
 const { getEmailRecipientsForWorkflowRoute } = require("../emailRecipients");
 const telegramService = require("./telegramService");
 const servicenow = require("./servicenow");
+const { sendCheckInEmailToAllCaregivers } = require("./emailService");
 const { nowUtcDateTime } = require("../utils/time");
 
 // Local helper that mirrors checkInRoutes.dbQueryAsync semantics — silently
@@ -198,6 +199,10 @@ async function dispatchEngagement({
         imOkay: imOkay,
         checkinTimestamp: checkinTimestamp
       }).catch(e => console.warn("[fanout] telegram FAILED source=" + source + " reason=" + e)),
+      sendCheckInEmailToAllCaregivers({
+        recipients: recipients,
+        seniorName: seniorName,
+      }).catch(e => console.warn("[fanout] email FAILED source=" + source + " reason=" + e)),
       servicenow.createCheckInResponse(snCtx).catch(e => console.warn("[fanout] servicenow FAILED source=" + source + " reason=" + e)),
     ]);
     const [notifResult] = sinkResults;
