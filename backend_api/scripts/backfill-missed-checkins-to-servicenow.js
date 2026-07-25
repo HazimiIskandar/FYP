@@ -16,6 +16,7 @@
 //   - Never throws: logs errors and continues to the next senior.
 // ---------------------------------------------------------------------------------
 
+require("dotenv").config();
 const db = require("../config/db");
 const servicenow = require("../services/servicenow");
 const { getEmailRecipientsForWorkflowRoute } = require("../emailRecipients");
