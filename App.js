@@ -646,7 +646,9 @@ export default function App() {
 
   // Derive the caregiver-facing status of a senior from the live
   // Daily_CheckIn + Emergency_Event state. Returns one of:
-  //   "Urgent"     — non-resolved Emergency_Event exists.
+  //   "Urgent"     — non-resolved Emergency_Event exists (excluding stale
+  //                  missed-check-in rows once the senior has already
+  //                  checked in today).
   //   "Checked In" — any 'Completed' Daily_CheckIn for this senior today.
   //   "Pending"    — neither of the above.
   //
@@ -657,16 +659,6 @@ export default function App() {
   const getDerivedStatus = (senior, todayKeyValue) => {
     const seniorId = String(senior?.senior_id || '');
 
-    const hasUrgentEvent =
-      Array.isArray(emergencyEvents) &&
-      emergencyEvents.some((event) => {
-        if (String(event?.senior_id) !== seniorId) return false;
-        const eventStatus = String(event?.event_status || '').trim();
-        if (!eventStatus) return false;
-        return !/^(resolved|closed|cancelled)$/i.test(eventStatus);
-      });
-    if (hasUrgentEvent) return 'Urgent';
-
     const hasCheckedInToday =
       Array.isArray(checkIns) &&
       checkIns.some(
@@ -676,6 +668,25 @@ export default function App() {
           (!entry?.checkin_timestamp ||
             getDateKey(entry?.checkin_timestamp) === todayKeyValue)
       );
+
+    const hasUrgentEvent =
+      Array.isArray(emergencyEvents) &&
+      emergencyEvents.some((event) => {
+        if (String(event?.senior_id) !== seniorId) return false;
+        const eventStatus = String(event?.event_status || '').trim();
+        if (!eventStatus) return false;
+        if (/^(resolved|closed|cancelled)$/i.test(eventStatus)) return false;
+
+        // A stale unresolved "Missed ... Check-In" event should not keep the
+        // senior in urgent/pending once they have a successful check-in today.
+        const eventType = String(event?.event_type || '');
+        const isMissedCheckIn = /missed\s+.*check-?in/i.test(eventType);
+        if (hasCheckedInToday && isMissedCheckIn) return false;
+
+        return true;
+      });
+    if (hasUrgentEvent) return 'Urgent';
+
     if (hasCheckedInToday) return 'Checked In';
 
     return 'Pending';

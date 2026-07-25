@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const telegramService = require("../services/telegramService");
+const { getCurrentSgtHour } = require("../utils/time");
 
 // ESCALATION ENGINE
 //
@@ -190,7 +191,9 @@ const monitorCheckIns = async () => {
             else seniorCheckins[c.senior_id].evening = true;
         });
 
-        const currentHour = new Date().getHours();
+        // Compare deadlines against Singapore wall-clock time so escalation
+        // boundaries don't drift when the backend host runs outside UTC+8.
+        const currentHour = getCurrentSgtHour();
 
         // 3. Process sequentially to prevent DB Queue Limit Reached errors
         for (const senior of seniors) {

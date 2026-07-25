@@ -32,6 +32,7 @@ const router = express.Router();
 const db = require("../config/db");
 const { calculateCurrentStreak } = require("../services/rewardService");
 const { dispatchEngagement } = require("../services/notificationFanout");
+const { getCurrentSgtHour } = require("../utils/time");
 
 // =============================================================================
 // POST /checkin
@@ -46,7 +47,9 @@ router.post("/", (req, res) => {
     return res.status(400).json({ error: "senior_id is required" });
   }
 
-  const currentHour = new Date().getHours();
+  // Use Singapore wall-clock hour so morning/evening buckets match the same
+  // timezone used by MySQL CURDATE()/HOUR(checkin_timestamp).
+  const currentHour = getCurrentSgtHour();
   const isMorning = currentHour < 16;
 
   // `let` so the linkage-aware assignee below can mutate it before the
@@ -158,13 +161,12 @@ router.post("/", (req, res) => {
       // "Missed check-in" tiles even though THIS check-in just succeeded.
       // We use `event_status NOT IN ('Resolved', 'Closed', 'Cancelled')`
       // so re-running the resolution on an already-resolved event is
-      // idempotent, and `DATE(created_at) = CURDATE()` so only _today's_
-      // missed events get closed (yesterday's stay untouched for
-      // historical reporting & audit). Fire-and-forget: a housekeeping
-      // failure logs but does NOT 500 the response — the Daily_CheckIn
-      // row already committed so the senior's check-in is recorded; the
-      // caregiver simply catches up on the next 60-second background poll
-      // or on a screen-focus refresh.
+      // idempotent. Intentionally no DATE(created_at)=CURDATE() filter:
+      // older stale "Missed ... Check-In" rows can otherwise keep caregiver
+      // status stuck in urgent/pending even after a fresh successful
+      // check-in. Fire-and-forget: a housekeeping failure logs but does
+      // NOT 500 the response — the Daily_CheckIn row already committed so
+      // the senior's check-in is recorded.
       const resolveMissedSql = `
         UPDATE Emergency_Event
         SET event_status = 'Resolved'
@@ -176,8 +178,7 @@ router.post("/", (req, res) => {
           -- resolution on an already-settled event stays a no-op instead
           -- of bouncing the row's status back to 'Resolved' after a
           -- different code-path edited it.
-          AND LOWER(IFNULL(event_status, '')) NOT IN ('resolved','closed','cancelled')
-          AND DATE(created_at) = CURDATE()
+            AND LOWER(IFNULL(event_status, '')) NOT IN ('resolved','closed','cancelled')
       `;
 
       db.query(resolveMissedSql, [senior_id], (resolveErr) => {

@@ -58,6 +58,28 @@ function nowSgtIso() {
 }
 
 /**
+ * Return the current hour (0-23) in Singapore Time.
+ *
+ * Used by check-in period routing and missed-check-in escalation logic so
+ * those branches never depend on the server host timezone.
+ */
+function getCurrentSgtHour() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SGT_TIMEZONE,
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const hourPart = parts.find((part) => part.type === "hour");
+  const parsed = Number(hourPart ? hourPart.value : "0");
+  // Some runtimes may emit "24" for midnight; normalize to hour 0.
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  if (parsed === 24) return 0;
+  if (parsed > 23) return 23;
+  return parsed;
+}
+
+/**
  * Return the current instant formatted for ServiceNow Date/Time fields.
  * Format: "yyyy-MM-dd HH:mm:ss" in UTC.
  *
@@ -75,4 +97,4 @@ function nowUtcDateTime() {
   return new Date().toISOString().slice(0, 19).replace("T", " ");
 }
 
-module.exports = { nowSgtIso, nowUtcDateTime, SGT_TIMEZONE };
+module.exports = { nowSgtIso, nowUtcDateTime, getCurrentSgtHour, SGT_TIMEZONE };
