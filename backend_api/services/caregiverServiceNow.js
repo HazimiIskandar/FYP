@@ -77,6 +77,68 @@ async function updateIncidentToInProgress(seniorName = "Unknown") {
   }
 }
 
+const STATE_CODE_MAP = {
+  'New': '1',
+  'Open': '1',
+  'In Progress': '2',
+  'On Hold': '3',
+  'Resolved': '6',
+  'Closed': '7',
+  'Cancelled': '8',
+};
+
+async function updateIncidentState(seniorName = 'Unknown', statusName = 'In Progress', workNotes = '') {
+  try {
+    const auth = {
+      username: USERNAME,
+      password: PASSWORD,
+    };
+
+    const stateCode = STATE_CODE_MAP[statusName] || '2';
+
+    console.log(`[Caregiver ServiceNow] Searching for Missed Check-in incident for ${seniorName}...`);
+    const query = `short_descriptionLIKEMissed check-in^short_descriptionLIKE${seniorName}^ORDERBYDESCsys_created_on`;
+    const searchResponse = await axios.get(
+      `${INSTANCE_URL}/api/now/table/incident?sysparm_query=${encodeURIComponent(query)}&sysparm_limit=1`,
+      { auth }
+    );
+
+    const incidents = searchResponse?.data?.result;
+    if (!incidents || incidents.length === 0) {
+      console.log(`[Caregiver ServiceNow] No open Missed Check-in incident found for ${seniorName}.`);
+      return false;
+    }
+
+    const incident = incidents[0];
+    const sysId = incident.sys_id;
+    const incidentNumber = incident.number;
+    console.log(`[Caregiver ServiceNow] Found Incident ${incidentNumber} (sys_id: ${sysId}). Updating state to ${statusName}...`);
+
+    const updatePayload = {
+      state: stateCode,
+    };
+    if (workNotes) {
+      updatePayload.work_notes = workNotes;
+    }
+
+    await axios.put(
+      `${INSTANCE_URL}/api/now/table/incident/${sysId}`,
+      updatePayload,
+      { auth, headers: { 'Content-Type': 'application/json' } }
+    );
+
+    console.log(`[Caregiver ServiceNow] SUCCESS! Incident ${incidentNumber} updated to state ${statusName}.`);
+    return true;
+  } catch (error) {
+    console.error(
+      '[Caregiver ServiceNow] Failed to update Incident state:',
+      error?.response?.data || error.message
+    );
+    return false;
+  }
+}
+
 module.exports = {
   updateIncidentToInProgress,
+  updateIncidentState,
 };

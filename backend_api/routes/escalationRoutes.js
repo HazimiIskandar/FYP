@@ -101,6 +101,11 @@ const escalateCheckIn = async (senior_id, timeOfDay = 'Morning') => {
             [senior_id]
         ).catch(() => [{ n: 0 }]);
         const nokCount = (nokCountRows && nokCountRows[0] && Number(nokCountRows[0].n)) || 0;
+        const aicCountRows = await queryAsync(
+            `SELECT COUNT(*) AS n FROM Senior_has_AIC_Staff WHERE senior_id = ?`,
+            [senior_id]
+        ).catch(() => [{ n: 0 }]);
+        const aicCount = (aicCountRows && aicCountRows[0] && Number(aicCountRows[0].n)) || 0;
         const workflowRoute = nokCount > 0 ? "caregiver_nok_aic" : "caregiver_aic";
 
         const checkinTimestamp = nowUtcDateTime();

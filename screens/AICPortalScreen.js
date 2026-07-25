@@ -125,7 +125,15 @@ export default function AICPortalScreen({
       ).length;
       const sourceStatus = getRawStatus(senior, missedCount, Boolean(latestEvent));
       const riskLevel = getRiskLevel(sourceStatus, missedCount);
-      const currentStatus = getCaseStatus(sourceStatus);
+      const eventStatus = assignedCase?.event_status || latestEvent?.event_status || null;
+      const safeCurrentStatus = ['Open', 'New', 'In Progress', 'On Hold', 'Resolved', 'Closed', 'Cancelled'].includes(eventStatus)
+        ? eventStatus
+        : getCaseStatus(sourceStatus);
+      const assignedStaffNames = assignedCase?.assigned_staff_names || 'Unassigned';
+      const assignedStaffUserIds = (assignedCase?.assigned_staff_user_ids || '')
+        .split(',')
+        .map((id) => id && id.trim())
+        .filter(Boolean);
       const createdAt =
         assignedCase?.assigned_at ||
         latestEvent?.created_at ||
@@ -140,11 +148,12 @@ export default function AICPortalScreen({
         seniorId,
         seniorName: getSeniorName(senior),
         riskLevel,
-        currentStatus,
+        currentStatus: safeCurrentStatus,
         sourceStatus,
+        eventStatus,
         reason: getReason(sourceStatus, latestEvent),
         createdAt,
-        assignedStaff: { name: currentStaffName },
+        assignedStaff: { names: assignedStaffNames, userIds: assignedStaffUserIds },
         missedCount,
       };
     });
@@ -158,6 +167,9 @@ export default function AICPortalScreen({
     { key: 'Open', label: `Open (${assignedCases.filter((item) => item.currentStatus === 'Open').length})` },
     { key: 'In Progress', label: `In Progress (${assignedCases.filter((item) => item.currentStatus === 'In Progress').length})` },
     { key: 'Resolved', label: `Resolved (${assignedCases.filter((item) => item.currentStatus === 'Resolved').length})` },
+    { key: 'On Hold', label: `On Hold (${assignedCases.filter((item) => item.currentStatus === 'On Hold').length})` },
+    { key: 'Closed', label: `Closed (${assignedCases.filter((item) => item.currentStatus === 'Closed').length})` },
+    { key: 'Cancelled', label: `Cancelled (${assignedCases.filter((item) => item.currentStatus === 'Cancelled').length})` },
   ];
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -184,6 +196,7 @@ export default function AICPortalScreen({
         onBack={() => setSelectedCaseId(null)}
         onSettings={onSettings}
         apiBase={apiBase}
+        authenticatedUser={authenticatedUser}
       />
     );
   }
@@ -282,8 +295,15 @@ export default function AICPortalScreen({
   );
 }
 
-function CaseDetailView({ caseItem, onBack, onSettings, apiBase }) {
+function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUser }) {
   const [seniorDetailsVisible, setSeniorDetailsVisible] = useState(false);
+  const [statusComment, setStatusComment] = useState('');
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignMessage, setAssignMessage] = useState('');
+  const [assignedStaff, setAssignedStaff] = useState(caseItem?.assignedStaff || { names: 'Unassigned', userIds: [] });
+  const currentStaffName = authenticatedUser?.full_name || authenticatedUser?.name || authenticatedUser?.email || 'AIC Staff';
   // Medical condition + NOK + Caregiver arrays fetched on demand for the
   // viewed senior. App.js only hydrates these for the logged-in user; AIC
   // staff have no senior_id, so we hit /seniors/:id/medical-conditions,
@@ -292,6 +312,21 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase }) {
   const [extras, setExtras] = useState({ conditions: [], nokContacts: [], caregivers: [] });
   const senior = caseItem.senior || {};
   const seniorId = caseItem?.seniorId || senior?.senior_id;
+
+  const availableStatusOptions = ['Open', 'New', 'In Progress', 'On Hold', 'Resolved', 'Closed', 'Cancelled'];
+
+  const currentEventStatus = caseItem?.eventStatus || caseItem?.currentStatus || 'Open';
+  const [currentStatus, setCurrentStatus] = useState(currentEventStatus);
+
+  const assignedStaffUserIds = assignedStaff?.userIds || [];
+  const currentUserId = authenticatedUser?.user_id ? `${authenticatedUser.user_id}` : null;
+  const isAssignedToMe = currentUserId ? assignedStaffUserIds.includes(currentUserId) : false;
+  const canAssignToMe = !!currentUserId && !isAssignedToMe && !['Resolved', 'Closed', 'Cancelled'].includes(currentStatus);
+
+  useEffect(() => {
+    setCurrentStatus(currentEventStatus);
+    setAssignedStaff(caseItem?.assignedStaff || { names: 'Unassigned', userIds: [] });
+  }, [currentEventStatus, caseItem]);
 
   useEffect(() => {
     if (!apiBase || !seniorId) return undefined;
@@ -332,6 +367,69 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase }) {
   const firstCondition = conditions[0] || {};
   const firstNok = nokContacts[0] || {};
 
+  const handleChangeStatus = async (newStatus) => {
+    if (!apiBase || !caseItem?.caseId) {
+      setStatusMessage('Unable to update status: missing API or case ID.');
+      return;
+    }
+
+    setStatusLoading(true);
+    setStatusMessage('');
+
+    try {
+      const response = await fetch(`${apiBase}/staff/case/${caseItem.caseId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, comment: statusComment, staff_user_id: authenticatedUser?.user_id || null }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        setStatusMessage(`Status update failed: ${json?.error || response.statusText}`);
+      } else {
+        setCurrentStatus(newStatus);
+        setStatusMessage(`Status updated to ${newStatus}. ServiceNow updated: ${json.serviceNowUpdated ? 'yes' : 'no'}`);
+      }
+    } catch (err) {
+      console.log('Failed to update case status:', err);
+      setStatusMessage('Unable to update case status at this time.');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  const handleAssignToMe = async () => {
+    if (!apiBase || !caseItem?.caseId || !authenticatedUser?.user_id) {
+      setAssignMessage('Unable to assign case: missing API, case ID, or user.');
+      return;
+    }
+
+    setAssignLoading(true);
+    setAssignMessage('');
+
+    try {
+      const response = await fetch(`${apiBase}/staff/case/${caseItem.caseId}/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: authenticatedUser.user_id, comment: statusComment }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        setAssignMessage(`Assignment failed: ${json?.error || response.statusText}`);
+      } else {
+        setCurrentStatus('In Progress');
+        setAssignedStaff({ names: currentStaffName, userIds: [currentUserId] });
+        setAssignMessage(`Assigned to you. ServiceNow updated: ${json.serviceNowUpdated ? 'yes' : 'no'}`);
+      }
+    } catch (err) {
+      console.log('Failed to assign case:', err);
+      setAssignMessage('Unable to assign case at this time.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title={caseItem.title} subtitle="Care details & status overview" />
@@ -354,10 +452,70 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase }) {
           <Text style={styles.infoTitle}>Case Details</Text>
           <InfoRow icon="folder-outline" label="Case ID" value={caseItem.caseId} />
           <InfoRow icon="warning-outline" label="Risk Level" value={caseItem.riskLevel} />
-          <InfoRow icon="sync-circle-outline" label="Current Status" value={caseItem.currentStatus} />
+          <InfoRow icon="sync-circle-outline" label="Current Status" value={currentStatus} />
           <InfoRow icon="alert-circle-outline" label="Reason for Escalation" value={caseItem.reason} />
           <InfoRow icon="time-outline" label="Date & Time Created" value={formatDateTime(caseItem.createdAt)} />
-          <InfoRow icon="person-outline" label="Assigned Staff" value={caseItem.assignedStaff.name} />
+          <InfoRow icon="person-outline" label="Assigned Staff" value={assignedStaff.names || 'Unassigned'} />
+        </View>
+
+        {canAssignToMe ? (
+          <View style={styles.assignActionCard}>
+            <Text style={styles.infoTitle}>Assign this case to me</Text>
+            <Text style={styles.mutedText}>Claim the case and move it to In Progress.</Text>
+            <TextInput
+              style={styles.statusCommentInput}
+              value={statusComment}
+              onChangeText={setStatusComment}
+              placeholder="Add a short note for your assignment"
+              placeholderTextColor="#9CA3AF"
+              multiline
+            />
+            <TouchableOpacity
+              style={[styles.assignButton, assignLoading && styles.assignButtonDisabled]}
+              onPress={handleAssignToMe}
+              disabled={assignLoading}
+              activeOpacity={0.86}
+            >
+              <Text style={[styles.assignButtonText, assignLoading && styles.assignButtonTextDisabled]}>
+                {assignLoading ? 'Assigning...' : 'Assign to me'}
+              </Text>
+            </TouchableOpacity>
+            {assignMessage ? <Text style={styles.statusMessage}>{assignMessage}</Text> : null}
+          </View>
+        ) : null}
+
+        <View style={styles.statusActionCard}>
+          <Text style={styles.infoTitle}>Update Case Status</Text>
+          <Text style={styles.mutedText}>Select the next state and add a short note for ServiceNow.</Text>
+          <TextInput
+            style={styles.statusCommentInput}
+            value={statusComment}
+            onChangeText={setStatusComment}
+            placeholder="Enter a short comment or next step"
+            placeholderTextColor="#9CA3AF"
+            multiline
+          />
+
+          <View style={styles.statusButtonsRow}>
+            {availableStatusOptions.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.statusButton,
+                  currentStatus === option && styles.statusButtonActive,
+                ]}
+                onPress={() => handleChangeStatus(option)}
+                disabled={statusLoading}
+                activeOpacity={0.86}
+              >
+                <Text style={[styles.statusButtonText, currentStatus === option && styles.statusButtonTextActive]}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {statusMessage ? <Text style={styles.statusMessage}>{statusMessage}</Text> : null}
         </View>
 
         <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.86}>
@@ -595,6 +753,87 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   backButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
+  statusActionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    marginBottom: 14,
+  },
+  statusCommentInput: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#D1D5DB',
+    borderWidth: 1,
+    borderRadius: 14,
+    minHeight: 100,
+    padding: 12,
+    marginTop: 10,
+    marginBottom: 14,
+    color: '#111827',
+    textAlignVertical: 'top',
+  },
+  statusButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 10,
+  },
+  statusButton: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    minWidth: 110,
+    alignItems: 'center',
+  },
+  statusButtonActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  statusButtonText: {
+    color: '#1F2937',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  statusButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  assignActionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    marginBottom: 14,
+  },
+  assignButton: {
+    borderRadius: 14,
+    backgroundColor: '#111827',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  assignButtonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  assignButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+  assignButtonTextDisabled: {
+    color: '#E2E8F0',
+  },
+  statusMessage: {
+    marginTop: 10,
+    color: '#111827',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   modalOverlay: {
     position: 'absolute',
     top: 0,
