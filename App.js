@@ -692,7 +692,9 @@ export default function App() {
         // senior in urgent/pending once they have a successful check-in today.
         const eventType = String(event?.event_type || '');
         const isMissedCheckIn = /missed\s+.*check-?in/i.test(eventType);
-        if (hasCheckedInToday && isMissedCheckIn) return false;
+        // Missed check-ins should map to pending/missed workflow on the
+        // caregiver roster, not the urgent emergency lane.
+        if (isMissedCheckIn) return false;
 
         return true;
       });
