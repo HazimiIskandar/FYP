@@ -677,6 +677,9 @@ export default function App() {
         if (!eventStatus) return false;
         if (/^(resolved|closed|cancelled)$/i.test(eventStatus)) return false;
 
+        const eventType = String(event?.event_type || '').trim();
+        if (/missed\s+.*check-?in/i.test(eventType)) return false;
+
         // Once the senior has completed a check-in today, only TODAY's
         // unresolved events should keep them urgent on caregiver status.
         // This prevents stale open incidents (e.g. yesterday's SOS ticket)
