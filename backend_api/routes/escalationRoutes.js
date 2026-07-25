@@ -197,7 +197,7 @@ const monitorCheckIns = async () => {
 
         // 3. Process sequentially to prevent DB Queue Limit Reached errors
         for (const senior of seniors) {
-            let timeStr = senior.preferred_checkin_time || '6:00 AM - 12:00 PM';
+            let timeStr = senior.preferred_checkin_time || '6:00 AM - 2:00 PM';
             
             // Parse the start time from the string
             let morningHour = 6;

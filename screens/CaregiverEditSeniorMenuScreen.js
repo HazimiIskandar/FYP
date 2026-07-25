@@ -27,7 +27,7 @@ const formatCheckInTime = (value) => {
   const match = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
 
   if (!match) {
-    return '6:00 AM - 12:00 PM';
+    return '6:00 AM - 2:00 PM';
   }
 
   const hour24 = Number(match[1]);
@@ -63,7 +63,7 @@ const getEndTime = (timeStr) => {
   const minute = match[2];
   let period = match[3].toUpperCase();
 
-  hour += 6;
+  hour += 8;
   if (hour >= 12) {
     if (hour > 12) hour -= 12;
     period = period === 'AM' ? 'PM' : 'AM';
@@ -85,14 +85,14 @@ export default function CaregiverEditSeniorMenuScreen({
 }) {
   const seniorName = getSeniorName(senior);
   const getInitialTimes = (seniorData) => {
-    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '6:00 AM - 12:00 PM, 6:00 PM - 12:00 AM';
+    const raw = seniorData?.preferred_checkin_time || seniorData?.check_in_time || '6:00 AM - 2:00 PM, 6:00 PM - 2:00 AM';
     const parts = String(raw).split(',').map(s => s.trim());
     // In old format (4 slots), parts[1] might be e.g. "11:00 AM - 12:00 PM". We seamlessly migrate by reading the first slot of morning and first slot of evening, or if it's already migrated, we just read the two ranges.
     // However, if the old format had 4 parts, parts[2] is the Evening.
     // If it has 2 parts, parts[1] is Evening.
     const isOldFormat = parts.length > 2;
-    const morningPart = parts[0] || '6:00 AM - 12:00 PM';
-    const eveningPart = isOldFormat ? (parts[2] || '6:00 PM - 12:00 AM') : (parts[1] || '6:00 PM - 12:00 AM');
+    const morningPart = parts[0] || '6:00 AM - 2:00 PM';
+    const eveningPart = isOldFormat ? (parts[2] || '6:00 PM - 2:00 AM') : (parts[1] || '6:00 PM - 2:00 AM');
     
     const mSplit = morningPart.split('-').map(s => s.trim());
     const eSplit = eveningPart.split('-').map(s => s.trim());
