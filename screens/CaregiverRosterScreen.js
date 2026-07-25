@@ -29,9 +29,8 @@ export default function CaregiverRosterScreen({
   const getRosterLabel = (senior) => {
   const status = getStatusTag(senior);
 
-  if (status === 'Urgent') return `Urgent attention required`;
+  if (status === 'Urgent') return `Pending check-in`;
   if (status === 'Missed') return `Missed check-in`;
-  if (status === 'Pending') return `Pending check-in`;
   if (status === 'Checked In') return `Checked in today`;
   return `Pending follow up`;
   };
@@ -91,12 +90,7 @@ export default function CaregiverRosterScreen({
       statusTag: getStatusTag(senior),
       subtitle: getRosterLabel(senior),
       avatarLetter: name?.charAt(0)?.toUpperCase() || '?',
-      colorScheme:
-        getStatusTag(senior) === 'Checked In'
-          ? 'safe'
-          : getStatusTag(senior) === 'Pending'
-            ? 'pending'
-            : 'alert',
+      colorScheme: getStatusTag(senior) === 'Checked In' ? 'safe' : 'alert',
     };
   });
 
@@ -126,26 +120,6 @@ export default function CaregiverRosterScreen({
   ];
 
   const [activeFilter, setActiveFilter] = useState(filters[0].key);
-
-  const getFilterPillStyle = (key, isActive) => {
-    if (!isActive) return null;
-    if (key === 'Pending') {
-      return { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' };
-    }
-    if (key === 'Urgent' || key === 'Missed') {
-      return { backgroundColor: '#DC2626', borderColor: '#B91C1C' };
-    }
-    if (key === 'Checked In') {
-      return { backgroundColor: '#16A34A', borderColor: '#15803D' };
-    }
-    return { backgroundColor: '#111827', borderColor: '#111827' };
-  };
-
-  const getFilterTextStyle = (key, isActive) => {
-    if (!isActive) return null;
-    if (key === 'Pending') return { color: '#92400E' };
-    return { color: '#FFFFFF' };
-  };
 
   const visibleRoster =
     activeFilter === 'All'
@@ -208,7 +182,6 @@ export default function CaregiverRosterScreen({
               style={[
                 styles.filterPill,
                 activeFilter === filter.key && styles.filterPillActive,
-                getFilterPillStyle(filter.key, activeFilter === filter.key),
               ]}
               onPress={() => setActiveFilter(filter.key)}
               activeOpacity={0.86}
@@ -217,7 +190,6 @@ export default function CaregiverRosterScreen({
                 style={[
                   styles.filterText,
                   activeFilter === filter.key && styles.filterTextActive,
-                  getFilterTextStyle(filter.key, activeFilter === filter.key),
                 ]}
               >
                 {filter.label}
@@ -263,14 +235,12 @@ export default function CaregiverRosterScreen({
                 style={[
                   styles.avatar,
                   item.colorScheme === 'safe' && styles.safeAvatar,
-                  item.colorScheme === 'pending' && styles.pendingAvatar,
                 ]}
               >
                 <Text
                   style={[
                     styles.avatarText,
                     item.colorScheme === 'safe' && styles.safeAvatarText,
-                    item.colorScheme === 'pending' && styles.pendingAvatarText,
                   ]}
                 >
                   {item.avatarLetter}
@@ -290,11 +260,7 @@ export default function CaregiverRosterScreen({
                 }
                 size={26}
                 color={
-                  item.statusTag === 'Checked In'
-                    ? '#16A34A'
-                    : item.statusTag === 'Pending'
-                      ? '#D97706'
-                      : '#DC2626'
+                  item.statusTag === 'Checked In' ? '#16A34A' : '#DC2626'
                 }
               />
             </TouchableOpacity>
@@ -397,8 +363,6 @@ const styles = StyleSheet.create({
   },
   safeAvatar: { backgroundColor: '#DCFCE7' },
   safeAvatarText: { color: '#166534' },
-  pendingAvatar: { backgroundColor: '#FEF3C7' },
-  pendingAvatarText: { color: '#B45309' },
   rosterCopy: { flex: 1 },
   rosterText: { color: '#111827', fontSize: 21, fontWeight: '900' },
   rosterSub: { color: '#6B7280', fontSize: 14, marginTop: 4 },
