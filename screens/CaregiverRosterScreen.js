@@ -29,12 +29,7 @@ export default function CaregiverRosterScreen({
   const getRosterLabel = (senior) => {
   const status = getStatusTag(senior);
 
-  // 'Urgent' used to map to `Pending check-in` here, which read like
-  // "the senior just hasn't pressed the button yet" and panicked
-  // caregivers when actually it's an active escalation. Renamed to
-  // `Immediate action required` for clarity. The remaining statuses
-  // (`Missed`, `Checked In`, default Pending follow up) stay intact.
-  if (status === 'Urgent') return `Immediate action required`;
+  if (status === 'Urgent') return `Pending check-in`;
   if (status === 'Missed') return `Missed check-in`;
   if (status === 'Checked In') return `Checked in today`;
   return `Pending follow up`;

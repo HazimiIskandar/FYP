@@ -151,30 +151,20 @@ router.post("/", (req, res) => {
               : null;
 
       // Auto-resolve any "Missed Morning/Evening Check-In" Emergency_Event
-      // rows for this senior that are still 'Open'. Without this UPDATE,
-      // App.js → getDerivedStatus sees the still-'Open' event and
-      // short-circuits to 'Urgent' on the caregiver side, so the roster
-      // shows red/yellow "Pending check-in" / "Missed check-in" tiles
-      // even though THIS check-in just succeeded.
-      //
-      // Past-day scope: this UPDATE intentionally does NOT scope to
-      // today's CURDATE(). A current successful check-in is conclusive
-      // proof the senior is OK right now, so prior 'Open'
-      // Missed%Check-In rows for the same senior (yesterday or earlier)
-      // become Resolved too. The historical record is still preserved
-      // via created_at (never mutated) and the Escalation_History audit
-      // table.
-      //
-      // Idempotency: 'LOWER(IFNULL(event_status, '')) NOT IN
-      // (resolved,closed,cancelled)' so re-running the resolution on an
-      // already-settled event is a no-op regardless of casing variant
-      // (resolved / RESOLVED / Resolved all match).
-      //
-      // Fire-and-forget: a housekeeping failure logs but does NOT 500
-      // the response — the Daily_CheckIn row already committed so the
-      // senior's check-in is recorded; the caregiver simply catches up
-      // on the next 60-second background poll or on a screen-focus
-      // refresh.
+      // rows that monitorCheckIns may have inserted earlier today for this
+      // senior. Without this UPDATE, App.js → getDerivedStatus sees the
+      // still-'Open' event and short-circuits to 'Urgent' on the caregiver
+      // side, so the roster shows red/yellow "Pending check-in" /
+      // "Missed check-in" tiles even though THIS check-in just succeeded.
+      // We use `event_status NOT IN ('Resolved', 'Closed', 'Cancelled')`
+      // so re-running the resolution on an already-resolved event is
+      // idempotent, and `DATE(created_at) = CURDATE()` so only _today's_
+      // missed events get closed (yesterday's stay untouched for
+      // historical reporting & audit). Fire-and-forget: a housekeeping
+      // failure logs but does NOT 500 the response — the Daily_CheckIn
+      // row already committed so the senior's check-in is recorded; the
+      // caregiver simply catches up on the next 60-second background poll
+      // or on a screen-focus refresh.
       const resolveMissedSql = `
         UPDATE Emergency_Event
         SET event_status = 'Resolved'
@@ -187,17 +177,7 @@ router.post("/", (req, res) => {
           -- of bouncing the row's status back to 'Resolved' after a
           -- different code-path edited it.
           AND LOWER(IFNULL(event_status, '')) NOT IN ('resolved','closed','cancelled')
-          -- Past-day logic: intentionally NO 'DATE(created_at) = CURDATE()'
-          -- constraint. A current successful check-in is conclusive proof the senior
-          -- is OK right now, so prior 'Open' Missed%Check-In rows for the
-          -- same senior (yesterday, day-before, etc.) become Resolved
-          -- too. The original DATE constraint left every past day's
-          -- missed-check-in escalation 'Open' permanently, which kept
-          -- surfacing as 'Urgent' on the caregiver side and made the
-          -- Status page display "Pending check-in" forever for any
-          -- senior who missed any prior morning. The historical record
-          -- is still preserved via 'created_at' (never mutated) and
-          -- via the Escalation_History audit table.
+          AND DATE(created_at) = CURDATE()
       `;
 
       db.query(resolveMissedSql, [senior_id], (resolveErr) => {
