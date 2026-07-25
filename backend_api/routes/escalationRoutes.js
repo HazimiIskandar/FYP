@@ -92,15 +92,46 @@ const escalateCheckIn = async (senior_id, timeOfDay = 'Morning') => {
 };
 
 const escalateLevel = (event_id, senior_id, level) => {
-    const updateEvent = `
-        UPDATE Emergency_Event
-        SET escalation_level = ?
+    // Escalation-ladder guard. `escalateCheckIn` schedules Level-2 and
+    // Level-3 updates via setTimeout(..., 10000). If the senior checks in
+    // inside that 20-second window, the new resolveMissedSql in
+    // checkInRoutes.js flips `event_status` to 'Resolved' but the
+    // already-queued setTimeout callbacks still fire. Without this guard
+    // every late-arriving timer would overwrite `escalation_level`
+    // ('Level 3 - Emergency Services') on a row that is now 'Resolved',
+    // cluttering reports and confusing operators who look at the case
+    // later. SELECT-then-update keeps the existing ladder cheap while
+    // making the late callbacks a silent no-op.
+    const statusGuardSql = `
+        SELECT event_status
+        FROM Emergency_Event
         WHERE event_id = ?
+        LIMIT 1
     `;
 
-    db.query(updateEvent, [level, event_id], (err) => {
-        if (err) return console.error("Escalation update failed:", err);
-        logEscalation(event_id, "System Auto Escalation", level);
+    db.query(statusGuardSql, [event_id], (guardErr, guardRows) => {
+        if (guardErr) {
+            console.error("Escalation status guard failed:", guardErr);
+            return;
+        }
+        const currentStatus = String(((guardRows || [])[0] || {}).event_status || '');
+        if (/^(resolved|closed|cancelled)$/i.test(currentStatus)) {
+            console.log(
+                `[ESCALATION] Skipping level=${level} for already-settled event_id=${event_id} (status=${currentStatus})`
+            );
+            return;
+        }
+
+        const updateEvent = `
+            UPDATE Emergency_Event
+            SET escalation_level = ?
+            WHERE event_id = ?
+        `;
+
+        db.query(updateEvent, [level, event_id], (err) => {
+            if (err) return console.error("Escalation update failed:", err);
+            logEscalation(event_id, "System Auto Escalation", level);
+        });
     });
 
     if (level === "Level 2 - Staff Alert") {
@@ -124,11 +155,21 @@ const logEscalation = (event_id, escalated_to, level) => {
 
 const monitorCheckIns = async () => {
     try {
-        // 1. Fetch all Seniors and their check-in times
+        // 1. Fetch all Seniors and their check-in times.
+        // NOTE: previously joined on `s.senior_id = u.user_id`, which is
+        // structurally impossible (Senior.senior_id is the senior PK and
+        // Senior.user_id is the FK to User_Account.user_id). The broken
+        // join made `.some()` against the result always false, so the cron
+        // escalation NEVER fired — every missed check-in either required a
+        // manual `/escalation/trigger/:senior_id` POST or remained
+        // permanently undetected. Joining on `s.user_id = u.user_id` is
+        // the correct column pairing (Senior row carries its matching
+        // user_id via FK) and restores the cron behaviour so a missed
+        // check-in escalates after the deadline instead of staying silent.
         const seniorsSql = `
             SELECT s.senior_id, s.preferred_checkin_time 
             FROM Senior s
-            JOIN User_Account u ON s.senior_id = u.user_id
+            JOIN User_Account u ON s.user_id = u.user_id
             WHERE u.role_id = 1
         `;
         const seniors = await queryAsync(seniorsSql);

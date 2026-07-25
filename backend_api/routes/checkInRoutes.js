@@ -145,14 +145,52 @@ router.post("/", (req, res) => {
             if (insertErr)
               return res
                 .status(500)
-                .json({ error: insertErr.message || insertErr });
+                .json({ error: insertErr.message || insertErr });      const newCheckinId =
+            insertResult && Number(insertResult.insertId)
+              ? Number(insertResult.insertId)
+              : null;
 
-            const newCheckinId =
-              insertResult && Number(insertResult.insertId)
-                ? Number(insertResult.insertId)
-                : null;
+      // Auto-resolve any "Missed Morning/Evening Check-In" Emergency_Event
+      // rows that monitorCheckIns may have inserted earlier today for this
+      // senior. Without this UPDATE, App.js → getDerivedStatus sees the
+      // still-'Open' event and short-circuits to 'Urgent' on the caregiver
+      // side, so the roster shows red/yellow "Pending check-in" /
+      // "Missed check-in" tiles even though THIS check-in just succeeded.
+      // We use `event_status NOT IN ('Resolved', 'Closed', 'Cancelled')`
+      // so re-running the resolution on an already-resolved event is
+      // idempotent, and `DATE(created_at) = CURDATE()` so only _today's_
+      // missed events get closed (yesterday's stay untouched for
+      // historical reporting & audit). Fire-and-forget: a housekeeping
+      // failure logs but does NOT 500 the response — the Daily_CheckIn
+      // row already committed so the senior's check-in is recorded; the
+      // caregiver simply catches up on the next 60-second background poll
+      // or on a screen-focus refresh.
+      const resolveMissedSql = `
+        UPDATE Emergency_Event
+        SET event_status = 'Resolved'
+        WHERE senior_id = ?
+          AND event_type LIKE 'Missed%Check-In'
+          -- LOWER() wrap makes the comparison case-safe: escalation writes
+          -- 'Resolved' (the canonical form) but a future route or manual
+          -- admin tool could write 'resolved' / 'RESOLVED'. Re-running the
+          -- resolution on an already-settled event stays a no-op instead
+          -- of bouncing the row's status back to 'Resolved' after a
+          -- different code-path edited it.
+          AND LOWER(IFNULL(event_status, '')) NOT IN ('resolved','closed','cancelled')
+          AND DATE(created_at) = CURDATE()
+      `;
 
-            const checkInHistorySql = `
+      db.query(resolveMissedSql, [senior_id], (resolveErr) => {
+        if (resolveErr) {
+          console.error(
+            "[checkin] failed to auto-resolve prior Missed Check-In events for senior_id=" +
+              String(senior_id) + ":",
+            resolveErr.message || resolveErr
+          );
+        }
+      });
+
+      const checkInHistorySql = `
               SELECT checkin_timestamp, checkin_status
               FROM Daily_CheckIn
               WHERE senior_id = ?
