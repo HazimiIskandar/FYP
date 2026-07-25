@@ -10,6 +10,7 @@ export default function CaregiverHomeScreen({
   prioritySenior = {},
   latestCheckIn = null,
   activeTicket = {},
+  debugInfo = null,
   onCallEmergencyContact = () => {},
   onGoToSeniorsList,
   onGoToRoster,
@@ -153,6 +154,31 @@ export default function CaregiverHomeScreen({
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* ── DEBUG: visible diagnostic panel (temporary) ── */}
+        {debugInfo ? (
+          <View style={{ backgroundColor: '#FEF9C3', borderWidth: 1, borderColor: '#FBBF24', borderRadius: 12, padding: 12, marginBottom: 14 }}>
+            <Text style={{ fontWeight: '900', fontSize: 13, color: '#92400E', marginBottom: 6 }}>🔍 DEBUG — Check-in Data</Text>
+            <Text style={{ fontSize: 12, color: '#78350F' }}>Today key: {debugInfo.todayKey}</Text>
+            <Text style={{ fontSize: 12, color: '#78350F' }}>Total check-ins: {debugInfo.checkInCount}</Text>
+            <Text style={{ fontSize: 12, color: '#78350F' }}>Seniors: {debugInfo.seniorCount} (IDs: {JSON.stringify(debugInfo.seniorIds)})</Text>
+            {debugInfo.checkInSeniorIds.length > 0 ? (
+              debugInfo.checkInSeniorIds.map((c, i) => (
+                <Text key={i} style={{ fontSize: 11, color: '#78350F', marginLeft: 8 }}>
+                  • senior_id={String(c.senior_id)} status={c.status} ts={c.timestamp} dateKey={c.dateKey}
+                </Text>
+              ))
+            ) : (
+              <Text style={{ fontSize: 12, color: '#DC2626', marginLeft: 8 }}>⚠️ No completed check-ins found</Text>
+            )}
+            <Text style={{ fontSize: 12, color: '#78350F', marginTop: 4, fontWeight: '700' }}>Statuses:</Text>
+            {debugInfo.decoratedStatuses.map((s, i) => (
+              <Text key={i} style={{ fontSize: 12, color: '#78350F', marginLeft: 8 }}>
+                • {s.name} (id={String(s.senior_id)}) → {s.status}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+        {/* ── END DEBUG ── */}
         <View style={styles.summaryRow}>
           <View style={styles.summaryTile}>
             <Text style={styles.summaryNumber}>{summary.urgent}</Text>

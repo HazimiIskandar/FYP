@@ -667,6 +667,23 @@ export default function App() {
       });
     if (hasUrgentEvent) return 'Urgent';
 
+    // DEBUG: trace every match attempt so the caregiver can see why
+    // a senior falls through to 'Pending'.
+    const matchingBySeniorId = (Array.isArray(checkIns) ? checkIns : []).filter(
+      (e) => String(e?.senior_id) === seniorId
+    );
+    console.log(
+      '[getDerivedStatus] seniorId=', seniorId,
+      'todayKey=', todayKeyValue,
+      'matchingBySeniorId=', matchingBySeniorId.length,
+      'allCheckIns=', Array.isArray(checkIns) ? checkIns.length : 0,
+      matchingBySeniorId.map((c) => ({
+        checkin_status: c?.checkin_status,
+        checkin_timestamp: c?.checkin_timestamp,
+        parsedDateKey: c?.checkin_timestamp ? getDateKey(c?.checkin_timestamp) : null,
+      }))
+    );
+
     const hasCheckedInToday =
       Array.isArray(checkIns) &&
       checkIns.some(
@@ -680,6 +697,32 @@ export default function App() {
 
     return 'Pending';
   };
+
+  // DEBUG: build a diagnostic snapshot so the caregiver screen can display
+  // exactly what check-in data the front-end holds. This is temporary
+  // debugging aid — remove once the root cause is confirmed.
+  const caregiverDebugInfo = React.useMemo(() => {
+    if (!isCaregiverUser) return null;
+    return {
+      checkInCount: Array.isArray(checkIns) ? checkIns.length : 0,
+      checkInSeniorIds: (Array.isArray(checkIns) ? checkIns : [])
+        .filter((c) => (c?.checkin_status || '').toLowerCase().includes('completed'))
+        .map((c) => ({
+          senior_id: c?.senior_id,
+          status: c?.checkin_status,
+          timestamp: c?.checkin_timestamp,
+          dateKey: c?.checkin_timestamp ? getDateKey(c?.checkin_timestamp) : null,
+        })),
+      todayKey,
+      seniorCount: seniors.length,
+      seniorIds: seniors.map((s) => s?.senior_id),
+      decoratedStatuses: decoratedSeniors.map((s) => ({
+        senior_id: s?.senior_id,
+        name: s?.full_name || 'Unknown',
+        status: s?.status,
+      })),
+    };
+  }, [checkIns, seniors, decoratedSeniors, isCaregiverUser, todayKey]);
 
   // Pick the most recent completed Daily_CheckIn row for a given senior.
   // The /checkins endpoint already returns the full set of rows ordered
@@ -1561,6 +1604,7 @@ export default function App() {
           prioritySenior={topPrioritySenior}
           latestCheckIn={topPriorityLatestCheckIn}
           activeTicket={emergencyEvents?.[0]}
+          debugInfo={caregiverDebugInfo}
           onCallEmergencyContact={() => setCurrentScreen('CaregiverEmergency')}
           onGoToSeniorsList={() => setCurrentScreen('CaregiverSeniorsList')}
           onGoToRoster={() => setCurrentScreen('CaregiverRoster')}
