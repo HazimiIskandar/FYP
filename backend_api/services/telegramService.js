@@ -80,7 +80,6 @@ async function notifyCheckIn(seniorId, payload) {
     FROM Senior_has_Caregiver sc
     JOIN User_Account ua ON sc.caregiver_id = ua.user_id
     WHERE sc.senior_id = ?
-      AND ua.role_id = 2
       AND ua.telegram_chat_id IS NOT NULL
       AND TRIM(ua.telegram_chat_id) <> ''
   `;
