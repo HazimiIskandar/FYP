@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const telegramService = require("../services/telegramService");
+const sosServiceNow = require("../services/sosServiceNow");
+const caregiverServiceNow = require("../services/caregiverServiceNow");
 
 // TRIGGER EMERGENCY (manual SOS from app)
 //
@@ -40,18 +42,23 @@ router.post("/trigger", (req, res) => {
         seniorName = nameResult[0].full_name;
       }
 
-      // Fire-and-forget: Send the SOS alert to Telegram
+      // Fire-and-forget: Dual-Routing (Telegram + ServiceNow)
       setImmediate(() => {
+        // 1. Send Telegram Notification
         telegramService.notifyCheckIn(senior_id, {
           seniorFullName: seniorName,
           eventType: "SOS",
           imOkay: false
         }).catch(e => console.error("Telegram SOS trigger failed:", e));
+
+        // 2. Create ServiceNow Enterprise Ticket
+        sosServiceNow.createSosIncident(senior_id, seniorName)
+          .catch(e => console.error("ServiceNow SOS trigger failed:", e));
       });
     });
 
     res.json({
-      message: "Emergency triggered",
+      message: "Emergency triggered (Dual-Routed)",
       event_id: eventId
     });
   });
@@ -81,10 +88,22 @@ router.post("/caregiver-action", (req, res) => {
     return res.status(400).json({ error: "senior_name is required" });
   }
 
-  // No longer using ServiceNow to update incident to In Progress
+  // Fire-and-forget: Dual-Routing (Telegram + ServiceNow)
+  setImmediate(() => {
+    // We send a generic Telegram message to the caregiver for confirmation
+    telegramService.notifyCheckIn("Caregiver", {
+      seniorFullName: senior_name,
+      eventType: "Caregiver Emergency Contact",
+      imOkay: false
+    }).catch(e => console.error("Telegram Caregiver Action failed:", e));
+
+    // Create ServiceNow Enterprise Ticket for the Caregiver action using caregiverServiceNow
+    caregiverServiceNow.updateIncidentToInProgress(senior_name)
+      .catch(e => console.error("ServiceNow Caregiver Action failed:", e));
+  });
 
   res.json({
-    message: "Caregiver action triggered",
+    message: "Caregiver action triggered (Dual-Routed)",
   });
 });
 
