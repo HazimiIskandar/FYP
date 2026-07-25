@@ -95,6 +95,21 @@ async function requestNow(method, path, { params, data } = {}) {
   });
 }
 
+function pickBestSysUser(rows = []) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  const rank = (row) => {
+    const active = String(row?.active || "").toLowerCase() === "true" ? 1 : 0;
+    const hasName = String(row?.name || "").trim() ? 1 : 0;
+    const hasUserName = String(row?.user_name || "").trim() ? 1 : 0;
+    return active * 100 + hasName * 10 + hasUserName;
+  };
+
+  return rows
+    .slice()
+    .sort((a, b) => rank(b) - rank(a))[0];
+}
+
 async function resolveAssigneeSysId(assignee = null) {
   if (!assignee || typeof assignee !== "object") return null;
 
@@ -107,11 +122,12 @@ async function resolveAssigneeSysId(assignee = null) {
       const byEmail = await requestNow("get", "/api/now/table/sys_user", {
         params: {
           sysparm_query: `email=${email}`,
-          sysparm_fields: "sys_id,name,email",
-          sysparm_limit: 1,
+          sysparm_fields: "sys_id,name,user_name,email,active",
+          sysparm_limit: 10,
         },
       });
-      const row = Array.isArray(byEmail?.data?.result) ? byEmail.data.result[0] : null;
+      const candidates = Array.isArray(byEmail?.data?.result) ? byEmail.data.result : [];
+      const row = pickBestSysUser(candidates);
       if (row?.sys_id) return String(row.sys_id);
     } catch (err) {
       console.warn(
@@ -126,11 +142,12 @@ async function resolveAssigneeSysId(assignee = null) {
       const byName = await requestNow("get", "/api/now/table/sys_user", {
         params: {
           sysparm_query: `name=${fullName}`,
-          sysparm_fields: "sys_id,name,email",
-          sysparm_limit: 1,
+          sysparm_fields: "sys_id,name,user_name,email,active",
+          sysparm_limit: 10,
         },
       });
-      const row = Array.isArray(byName?.data?.result) ? byName.data.result[0] : null;
+      const candidates = Array.isArray(byName?.data?.result) ? byName.data.result : [];
+      const row = pickBestSysUser(candidates);
       if (row?.sys_id) return String(row.sys_id);
     } catch (err) {
       console.warn(
