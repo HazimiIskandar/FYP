@@ -207,6 +207,18 @@ const logEscalation = (event_id, escalated_to, level) => {
 
 const monitorCheckIns = async () => {
     try {
+        // Escalation window length (hours) for each check-in block.
+        const ESCALATION_WINDOW_HOURS = 8;
+
+        // Returns true once `windowHours` have elapsed from `startHour`,
+        // handling midnight wrap (e.g. 18:00 + 8h => 02:00 next day).
+        const hasWindowElapsed = (nowHour, startHour, windowHours) => {
+            const elapsed = (nowHour - startHour + 24) % 24;
+            return elapsed >= windowHours;
+        };
+
+        const formatHourLabel = (hour24) => `${((hour24 % 24) + 24) % 24}:00`;
+
         // 1. Fetch all Seniors and their check-in times.
         // NOTE: previously joined on `s.senior_id = u.user_id`, which is
         // structurally impossible (Senior.senior_id is the senior PK and
@@ -259,23 +271,23 @@ const monitorCheckIns = async () => {
                 if (match[2].toUpperCase() === 'AM' && morningHour === 12) morningHour = 0;
             }
 
-            // Calculate exact deadlines (2-hour grace period)
+            // Calculate exact deadlines using an 8-hour check-in window.
             const eveningHour = (morningHour + 12) % 24;
-            const morningDeadline = morningHour + 2;
-            const eveningDeadline = eveningHour + 2;
+            const morningDeadline = (morningHour + ESCALATION_WINDOW_HOURS) % 24;
+            const eveningDeadline = (eveningHour + ESCALATION_WINDOW_HOURS) % 24;
 
             const hasMorning = seniorCheckins[senior.senior_id]?.morning;
             const hasEvening = seniorCheckins[senior.senior_id]?.evening;
 
             // Escalate Morning if past deadline and no check-in
-            if (currentHour >= morningDeadline && !hasMorning) {
-                console.log(`[ESCALATION] Senior ${senior.senior_id} missed Morning Check-in. Deadline was ${morningDeadline}:00.`);
+            if (hasWindowElapsed(currentHour, morningHour, ESCALATION_WINDOW_HOURS) && !hasMorning) {
+                console.log(`[ESCALATION] Senior ${senior.senior_id} missed Morning Check-in. Deadline was ${formatHourLabel(morningDeadline)}.`);
                 await escalateCheckIn(senior.senior_id, 'Morning');
             }
 
             // Escalate Evening if past deadline and no check-in
-            if (currentHour >= eveningDeadline && !hasEvening) {
-                console.log(`[ESCALATION] Senior ${senior.senior_id} missed Evening Check-in. Deadline was ${eveningDeadline}:00.`);
+            if (hasWindowElapsed(currentHour, eveningHour, ESCALATION_WINDOW_HOURS) && !hasEvening) {
+                console.log(`[ESCALATION] Senior ${senior.senior_id} missed Evening Check-in. Deadline was ${formatHourLabel(eveningDeadline)}.`);
                 await escalateCheckIn(senior.senior_id, 'Evening');
             }
         }
