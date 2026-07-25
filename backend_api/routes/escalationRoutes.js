@@ -78,7 +78,10 @@ const escalateCheckIn = async (senior_id, timeOfDay = 'Morning') => {
         const event_id = result.insertId;
         console.log(`Level 1 Emergency created (${eventType})`, event_id);
 
-        logEscalation(event_id, "Caregiver App", "Level 1");
+        const assignedStaffIds = await getAssignedAicStaffIdsForSenior(senior_id);
+        logEscalation(event_id, "Caregiver App", "Level 1", {
+            assignStaffIds: assignedStaffIds,
+        });
         
         // Fetch senior's full name and caregiver emails for ServiceNow + email notifications
         const seniorInfoRows = await queryAsync(
@@ -122,7 +125,7 @@ const escalateCheckIn = async (senior_id, timeOfDay = 'Morning') => {
                 workflow_route: workflowRoute,
                 caregiver_count: caregiverCount,
                 nok_count: nokCount,
-                aic_staff_count: 0,
+                aic_staff_count: aicCount,
                 caregiver_email: caregiverEmailStr,
             }).catch(e => console.error("[escalation] ServiceNow failed:", e)),
 
@@ -193,15 +196,68 @@ const escalateLevel = (event_id, senior_id, level) => {
     }
 };
 
-const logEscalation = (event_id, escalated_to, level) => {
+const assignEscalationToSeniorAicStaff = async (escalationId, senior_id) => {
+    if (!escalationId || !senior_id) return;
+
+    try {
+        const staffRows = await queryAsync(
+            `SELECT staff_id FROM Senior_has_AIC_Staff WHERE senior_id = ?`,
+            [senior_id]
+        );
+
+        const assignedStaffIds = (Array.isArray(staffRows) ? staffRows : [])
+            .map((row) => Number(row.staff_id))
+            .filter((id) => Number.isFinite(id));
+
+        if (assignedStaffIds.length === 0) return assignedStaffIds;
+
+        return assignedStaffIds;
+    } catch (err) {
+        console.error("Failed to fetch assigned AIC staff for senior_id=" + senior_id + ":", err.message || err);
+        return [];
+    }
+};
+
+const logEscalation = (event_id, escalated_to, level, options = {}) => {
     const sql = `
         INSERT INTO Escalation_History
         (event_id, escalated_to, escalation_status)
         VALUES (?, ?, ?)
     `;
 
-    db.query(sql, [event_id, escalated_to, level], (err) => {
-        if (err) console.error("Escalation history log failed:", err);
+    db.query(sql, [event_id, escalated_to, level], (err, result) => {
+        if (err) {
+            console.error("Escalation history log failed:", err);
+            return;
+        }
+
+        if (
+            options.assignStaffIds &&
+            Array.isArray(options.assignStaffIds) &&
+            options.assignStaffIds.length > 0
+        ) {
+            const escalationId = result && result.insertId;
+            if (!escalationId) return;
+
+            const values = options.assignStaffIds
+                .map((staffId) => Number(staffId))
+                .filter((id) => Number.isFinite(id))
+                .map((staffId) => [staffId, escalationId]);
+
+            if (values.length === 0) return;
+
+            const insertAssignmentSql = `
+                INSERT IGNORE INTO Escalation_Assignment
+                (staff_id, escalation_id)
+                VALUES ?
+            `;
+
+            db.query(insertAssignmentSql, [values], (assignErr) => {
+                if (assignErr) {
+                    console.error("Escalation assignment failed:", assignErr.message || assignErr);
+                }
+            });
+        }
     });
 };
 

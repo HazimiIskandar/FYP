@@ -52,10 +52,13 @@ const ASSIGNED_CASES_SQL = `
             ON s.user_id = ua.user_id
         LEFT JOIN Escalation_Assignment ea
             ON eh.escalation_id = ea.escalation_id
-        WHERE (ea.staff_id IS NULL OR ea.staff_id = ?)
-          AND ua.full_name IS NOT NULL
+        WHERE ua.full_name IS NOT NULL
           AND TRIM(ua.full_name) <> ''
           AND ua.role_id = 1
+          AND (
+              (ee.event_type NOT LIKE 'Missed % Check-In' AND (ea.staff_id IS NULL OR ea.staff_id = ?))
+              OR (ee.event_type LIKE 'Missed % Check-In' AND ea.staff_id = ?)
+          )
         GROUP BY
             ee.event_id,
             ee.senior_id,
