@@ -3,6 +3,24 @@ const router = express.Router();
 const db = require("../config/db");
 const caregiverServiceNow = require("../services/caregiverServiceNow.dev316146");
 
+function fetchAssigneeByUserId(userId) {
+  return new Promise((resolve) => {
+    if (!userId) return resolve(null);
+    const sql = `
+      SELECT user_id, full_name, email
+      FROM User_Account
+      WHERE user_id = ?
+      LIMIT 1
+    `;
+    db.query(sql, [userId], (err, rows) => {
+      if (err || !Array.isArray(rows) || rows.length === 0) {
+        return resolve(null);
+      }
+      resolve(rows[0]);
+    });
+  });
+}
+
 const ASSIGNED_CASES_SQL = `
         SELECT
             ee.senior_id,
@@ -134,6 +152,7 @@ router.post("/case/:event_id/status", (req, res) => {
           Array.isArray(seniorRows) && seniorRows[0] ? seniorRows[0].full_name : null;
         const eventType =
           Array.isArray(seniorRows) && seniorRows[0] ? seniorRows[0].event_type : null;
+        const assignee = await fetchAssigneeByUserId(staff_user_id || null);
 
         if (!seniorName) {
           return res.json({ ok: true, event_id: eventId, status, serviceNowUpdated: false });
@@ -144,7 +163,16 @@ router.post("/case/:event_id/status", (req, res) => {
             seniorName,
             status,
             comment || `Case updated to ${status}`,
-            { eventType }
+            {
+              eventType,
+              assignee: assignee
+                ? {
+                    userId: assignee.user_id,
+                    fullName: assignee.full_name,
+                    email: assignee.email,
+                  }
+                : null,
+            }
           );
           res.json({ ok: true, event_id: eventId, status, serviceNowUpdated });
         } catch (snErr) {
@@ -240,6 +268,7 @@ router.post("/case/:event_id/assign", (req, res) => {
             Array.isArray(seniorRows) && seniorRows[0] ? seniorRows[0].full_name : null;
           const eventType =
             Array.isArray(seniorRows) && seniorRows[0] ? seniorRows[0].event_type : null;
+          const assignee = await fetchAssigneeByUserId(user_id);
 
           if (!seniorName) {
             return res.json({
@@ -256,7 +285,16 @@ router.post("/case/:event_id/assign", (req, res) => {
               seniorName,
               "In Progress",
               comment || `Case assigned to staff ${staffId}`,
-              { eventType }
+              {
+                eventType,
+                assignee: assignee
+                  ? {
+                      userId: assignee.user_id,
+                      fullName: assignee.full_name,
+                      email: assignee.email,
+                    }
+                  : null,
+              }
             );
             res.json({
               ok: true,

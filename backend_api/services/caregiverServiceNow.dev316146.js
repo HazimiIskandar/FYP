@@ -95,8 +95,72 @@ async function requestNow(method, path, { params, data } = {}) {
   });
 }
 
+async function resolveAssigneeSysId(assignee = null) {
+  if (!assignee || typeof assignee !== "object") return null;
+
+  const email = String(assignee.email || "").trim();
+  const fullName = String(assignee.fullName || "").trim();
+
+  // Prefer email lookup because it is typically unique in sys_user.
+  if (email) {
+    try {
+      const byEmail = await requestNow("get", "/api/now/table/sys_user", {
+        params: {
+          sysparm_query: `email=${email}`,
+          sysparm_fields: "sys_id,name,email",
+          sysparm_limit: 1,
+        },
+      });
+      const row = Array.isArray(byEmail?.data?.result) ? byEmail.data.result[0] : null;
+      if (row?.sys_id) return String(row.sys_id);
+    } catch (err) {
+      console.warn(
+        "[Caregiver ServiceNow dev316146] sys_user email lookup failed:",
+        err?.response?.data || err?.message || err
+      );
+    }
+  }
+
+  if (fullName) {
+    try {
+      const byName = await requestNow("get", "/api/now/table/sys_user", {
+        params: {
+          sysparm_query: `name=${fullName}`,
+          sysparm_fields: "sys_id,name,email",
+          sysparm_limit: 1,
+        },
+      });
+      const row = Array.isArray(byName?.data?.result) ? byName.data.result[0] : null;
+      if (row?.sys_id) return String(row.sys_id);
+    } catch (err) {
+      console.warn(
+        "[Caregiver ServiceNow dev316146] sys_user name lookup failed:",
+        err?.response?.data || err?.message || err
+      );
+    }
+  }
+
+  return null;
+}
+
 function mapStatusToStateCode(statusName) {
   return STATE_CODE_MAP[statusName] || "2";
+}
+
+function enrichPayloadForTerminalStates(payload, statusName, workNotes = "") {
+  const normalized = String(statusName || "").trim().toLowerCase();
+  const note =
+    String(workNotes || "").trim() ||
+    `Case updated from mobile app with status: ${statusName}.`;
+
+  // Some ServiceNow instances enforce Data Policies for terminal states.
+  // Set common mandatory fields so updates to Resolved/Closed do not fail.
+  if (normalized === "resolved" || normalized === "closed") {
+    payload.close_code = payload.close_code || "Solution provided";
+    payload.close_notes = payload.close_notes || note;
+  }
+
+  return payload;
 }
 
 function normalizeText(value) {
@@ -145,6 +209,7 @@ async function createIncidentForSenior({
   statusName = "In Progress",
   workNotes = "",
   eventType = null,
+  assignedToSysId = null,
 }) {
   const eventLabel = eventType || "Caregiver Escalation";
   const payload = {
@@ -157,6 +222,10 @@ async function createIncidentForSenior({
     state: mapStatusToStateCode(statusName),
     work_notes: workNotes || `Case created from app and set to ${statusName}.`,
   };
+  enrichPayloadForTerminalStates(payload, statusName, workNotes);
+  if (assignedToSysId) {
+    payload.assigned_to = assignedToSysId;
+  }
 
   const created = await requestNow("post", "/api/now/table/incident", {
     data: payload,
@@ -190,6 +259,7 @@ async function updateIncidentState(
     }
 
     const eventType = options?.eventType || null;
+    const assignedToSysId = await resolveAssigneeSysId(options?.assignee || null);
 
     console.log(
       `[Caregiver ServiceNow dev316146] Searching incident for ${seniorName} ` +
@@ -207,6 +277,7 @@ async function updateIncidentState(
         statusName,
         workNotes,
         eventType,
+        assignedToSysId,
       });
 
       if (!incident?.sys_id) {
@@ -223,6 +294,8 @@ async function updateIncidentState(
     const incidentNumber = incident.number;
     const payload = { state: mapStatusToStateCode(statusName) };
     if (workNotes) payload.work_notes = workNotes;
+    if (assignedToSysId) payload.assigned_to = assignedToSysId;
+    enrichPayloadForTerminalStates(payload, statusName, workNotes);
 
     await requestNow("put", `/api/now/table/incident/${sysId}`, {
       data: payload,
