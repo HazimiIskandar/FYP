@@ -677,6 +677,17 @@ export default function App() {
         if (!eventStatus) return false;
         if (/^(resolved|closed|cancelled)$/i.test(eventStatus)) return false;
 
+        // Once the senior has completed a check-in today, only TODAY's
+        // unresolved events should keep them urgent on caregiver status.
+        // This prevents stale open incidents (e.g. yesterday's SOS ticket)
+        // from masking a valid same-day check-in.
+        const eventDayKey = event?.created_at
+          ? getDateKey(event.created_at)
+          : null;
+        if (hasCheckedInToday && eventDayKey && eventDayKey !== todayKeyValue) {
+          return false;
+        }
+
         // A stale unresolved "Missed ... Check-In" event should not keep the
         // senior in urgent/pending once they have a successful check-in today.
         const eventType = String(event?.event_type || '');
