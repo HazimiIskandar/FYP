@@ -2,7 +2,10 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const telegramService = require("../services/telegramService");
-const { getCurrentSgtHour } = require("../utils/time");
+const { getCurrentSgtHour, nowUtcDateTime } = require("../utils/time");
+const servicenow = require("../services/servicenow");
+const { getEmailRecipientsForWorkflowRoute } = require("../emailRecipients");
+const { sendCheckInEmailToAllCaregivers } = require("../services/emailService");
 
 // ESCALATION ENGINE
 //
@@ -77,12 +80,60 @@ const escalateCheckIn = async (senior_id, timeOfDay = 'Morning') => {
 
         logEscalation(event_id, "Caregiver App", "Level 1");
         
-        // Automatically push this missed check-in to Telegram
-        telegramService.notifyCheckIn(senior_id, {
-          seniorFullName: "Senior " + senior_id, // We'll let the frontend query the name if needed, or pass it here
-          eventType,
-          imOkay: false
-        }).catch(e => console.error("Telegram trigger failed:", e));
+        // Fetch senior's full name and caregiver emails for ServiceNow + email notifications
+        const seniorInfoRows = await queryAsync(
+            `SELECT ua.full_name FROM Senior s JOIN User_Account ua ON ua.user_id = s.user_id WHERE s.senior_id = ? LIMIT 1`,
+            [senior_id]
+        );
+        const seniorFullName = (seniorInfoRows && seniorInfoRows[0] && seniorInfoRows[0].full_name) || "Senior " + senior_id;
+
+        const recipients = await getEmailRecipientsForWorkflowRoute("caregiver_aic", senior_id).catch(() => []);
+        const caregiverEmails = recipients.filter(r => r.role === "caregiver").map(r => r.email);
+        const caregiverCount = caregiverEmails.length;
+        const caregiverEmailStr = caregiverEmails.join(",");
+
+        // Determine workflow route based on linked contacts
+        const nokCountRows = await queryAsync(
+            `SELECT COUNT(*) AS n FROM Senior_has_NOK WHERE senior_id = ?`,
+            [senior_id]
+        ).catch(() => [{ n: 0 }]);
+        const nokCount = (nokCountRows && nokCountRows[0] && Number(nokCountRows[0].n)) || 0;
+        const workflowRoute = nokCount > 0 ? "caregiver_nok_aic" : "caregiver_aic";
+
+        const checkinTimestamp = nowUtcDateTime();
+
+        // Fire all notification sinks in parallel: Telegram + ServiceNow + Email
+        Promise.allSettled([
+            // Telegram notification
+            telegramService.notifyCheckIn(senior_id, {
+                seniorFullName: seniorFullName,
+                eventType,
+                imOkay: false,
+                checkinTimestamp
+            }).catch(e => console.error("[escalation] Telegram failed:", e)),
+
+            // ServiceNow u_checkin_response record
+            servicenow.createCheckInResponse({
+                senior_id: senior_id,
+                senior_full_name: seniorFullName,
+                checkin_timestamp: checkinTimestamp,
+                event_type: "Missed Check-In",
+                im_okay: false,
+                workflow_route: workflowRoute,
+                caregiver_count: caregiverCount,
+                nok_count: nokCount,
+                aic_staff_count: 0,
+                caregiver_email: caregiverEmailStr,
+            }).catch(e => console.error("[escalation] ServiceNow failed:", e)),
+
+            // Email all linked caregivers directly
+            sendCheckInEmailToAllCaregivers({
+                recipients: recipients,
+                seniorName: seniorFullName,
+            }).catch(e => console.error("[escalation] Email failed:", e)),
+        ]).then(() => {
+            console.log(`[escalation] Notifications dispatched for ${eventType} senior_id=${senior_id}`);
+        });
 
         setTimeout(() => {
             escalateLevel(event_id, senior_id, "Level 2 - Staff Alert");
