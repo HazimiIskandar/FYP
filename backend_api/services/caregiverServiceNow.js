@@ -87,39 +87,169 @@ const STATE_CODE_MAP = {
   'Cancelled': '8',
 };
 
-async function updateIncidentState(seniorName = 'Unknown', statusName = 'In Progress', workNotes = '') {
+const normalizeText = (value) => String(value || '').toLowerCase();
+
+const mapStatusToStateCode = (statusName) => STATE_CODE_MAP[statusName] || '2';
+
+const incidentMatches = (incident, seniorName, eventType) => {
+  const blob = [incident?.short_description, incident?.description]
+    .map((value) => String(value || ''))
+    .join(' ')
+    .toLowerCase();
+
+  if (!blob.includes(normalizeText(seniorName))) return false;
+  if (!eventType) return true;
+
+  const eventHint = normalizeText(eventType)
+    .replace(/check-?in/g, 'check in')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!eventHint) return true;
+  return blob.includes(eventHint) || blob.includes('missed check-in') || blob.includes('missed check in');
+};
+
+const enrichPayloadForTerminalStates = (payload, statusName, workNotes = '') => {
+  const normalized = String(statusName || '').trim().toLowerCase();
+  const note = String(workNotes || '').trim() || `Case updated from mobile app with status: ${statusName}.`;
+
+  if (normalized === 'resolved' || normalized === 'closed') {
+    payload.close_code = payload.close_code || 'Solution provided';
+    payload.close_notes = payload.close_notes || note;
+  }
+
+  return payload;
+};
+
+async function resolveAssigneeSysId(auth, assignee = null) {
+  if (!assignee || typeof assignee !== 'object') return null;
+
+  const email = String(assignee.email || '').trim();
+  const fullName = String(assignee.fullName || '').trim();
+
+  const pickBest = (rows = []) => {
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    return rows
+      .slice()
+      .sort((a, b) => {
+        const aActive = String(a?.active || '').toLowerCase() === 'true' ? 1 : 0;
+        const bActive = String(b?.active || '').toLowerCase() === 'true' ? 1 : 0;
+        return bActive - aActive;
+      })[0];
+  };
+
+  if (email) {
+    try {
+      const byEmail = await axios.get(
+        `${INSTANCE_URL}/api/now/table/sys_user?sysparm_query=${encodeURIComponent(`email=${email}`)}&sysparm_fields=sys_id,name,user_name,email,active&sysparm_limit=10`,
+        { auth }
+      );
+      const row = pickBest(byEmail?.data?.result || []);
+      if (row?.sys_id) return String(row.sys_id);
+    } catch (err) {
+      console.warn('[Caregiver ServiceNow] sys_user email lookup failed:', err?.response?.data || err?.message || err);
+    }
+  }
+
+  if (fullName) {
+    try {
+      const byName = await axios.get(
+        `${INSTANCE_URL}/api/now/table/sys_user?sysparm_query=${encodeURIComponent(`name=${fullName}`)}&sysparm_fields=sys_id,name,user_name,email,active&sysparm_limit=10`,
+        { auth }
+      );
+      const row = pickBest(byName?.data?.result || []);
+      if (row?.sys_id) return String(row.sys_id);
+    } catch (err) {
+      console.warn('[Caregiver ServiceNow] sys_user name lookup failed:', err?.response?.data || err?.message || err);
+    }
+  }
+
+  return null;
+}
+
+async function findLatestIncidentForSenior(auth, seniorName = 'Unknown', eventType = null) {
+  const fields = 'sys_id,number,short_description,description,state,sys_created_on';
+  const query = 'active=true^ORDERBYDESCsys_created_on';
+  const response = await axios.get(
+    `${INSTANCE_URL}/api/now/table/incident?sysparm_query=${encodeURIComponent(query)}&sysparm_fields=${encodeURIComponent(fields)}&sysparm_limit=50`,
+    { auth }
+  );
+
+  const incidents = Array.isArray(response?.data?.result) ? response.data.result : [];
+  return incidents.find((item) => incidentMatches(item, seniorName, eventType)) || null;
+}
+
+async function createIncidentForSenior(auth, {
+  seniorName = 'Unknown',
+  statusName = 'In Progress',
+  workNotes = '',
+  eventType = null,
+  assignedToSysId = null,
+}) {
+  const eventLabel = eventType || 'Caregiver Escalation';
+  const payload = {
+    short_description: `${eventLabel} - ${seniorName}`,
+    description: workNotes || `Case synchronized from mobile app for ${seniorName}. Event type: ${eventLabel}.`,
+    urgency: '1',
+    impact: '2',
+    state: mapStatusToStateCode(statusName),
+    work_notes: workNotes || `Case created from app and set to ${statusName}.`,
+  };
+  if (assignedToSysId) payload.assigned_to = assignedToSysId;
+  enrichPayloadForTerminalStates(payload, statusName, workNotes);
+
+  const created = await axios.post(
+    `${INSTANCE_URL}/api/now/table/incident`,
+    payload,
+    { auth, headers: { 'Content-Type': 'application/json' } }
+  );
+
+  return created?.data?.result || null;
+}
+
+async function updateIncidentState(seniorName = 'Unknown', statusName = 'In Progress', workNotes = '', options = {}) {
   try {
     const auth = {
       username: USERNAME,
       password: PASSWORD,
     };
 
-    const stateCode = STATE_CODE_MAP[statusName] || '2';
+    const eventType = options?.eventType || null;
+    const assignedToSysId = await resolveAssigneeSysId(auth, options?.assignee || null);
 
-    console.log(`[Caregiver ServiceNow] Searching for Missed Check-in incident for ${seniorName}...`);
-    const query = `short_descriptionLIKEMissed check-in^short_descriptionLIKE${seniorName}^ORDERBYDESCsys_created_on`;
-    const searchResponse = await axios.get(
-      `${INSTANCE_URL}/api/now/table/incident?sysparm_query=${encodeURIComponent(query)}&sysparm_limit=1`,
-      { auth }
-    );
+    console.log(`[Caregiver ServiceNow] Searching incident for ${seniorName} (eventType=${eventType || 'any'})...`);
+    let incident = await findLatestIncidentForSenior(auth, seniorName, eventType);
 
-    const incidents = searchResponse?.data?.result;
-    if (!incidents || incidents.length === 0) {
-      console.log(`[Caregiver ServiceNow] No open Missed Check-in incident found for ${seniorName}.`);
-      return false;
+    if (!incident) {
+      console.log(`[Caregiver ServiceNow] No matching incident found for ${seniorName}. Creating one...`);
+      incident = await createIncidentForSenior(auth, {
+        seniorName,
+        statusName,
+        workNotes,
+        eventType,
+        assignedToSysId,
+      });
+      if (!incident?.sys_id) {
+        return false;
+      }
+      console.log(`[Caregiver ServiceNow] Created Incident ${incident.number || 'Unknown'} for ${seniorName}.`);
+      return true;
     }
 
-    const incident = incidents[0];
     const sysId = incident.sys_id;
     const incidentNumber = incident.number;
     console.log(`[Caregiver ServiceNow] Found Incident ${incidentNumber} (sys_id: ${sysId}). Updating state to ${statusName}...`);
 
     const updatePayload = {
-      state: stateCode,
+      state: mapStatusToStateCode(statusName),
     };
     if (workNotes) {
       updatePayload.work_notes = workNotes;
     }
+    if (assignedToSysId) {
+      updatePayload.assigned_to = assignedToSysId;
+    }
+    enrichPayloadForTerminalStates(updatePayload, statusName, workNotes);
 
     await axios.put(
       `${INSTANCE_URL}/api/now/table/incident/${sysId}`,

@@ -3,6 +3,24 @@ const router = express.Router();
 const db = require("../config/db");
 const caregiverServiceNow = require("../services/caregiverServiceNow");
 
+function fetchAssigneeByUserId(userId) {
+    return new Promise((resolve) => {
+        if (!userId) return resolve(null);
+        const sql = `
+            SELECT user_id, full_name, email
+            FROM User_Account
+            WHERE user_id = ?
+            LIMIT 1
+        `;
+        db.query(sql, [userId], (err, rows) => {
+            if (err || !Array.isArray(rows) || rows.length === 0) {
+                return resolve(null);
+            }
+            resolve(rows[0]);
+        });
+    });
+}
+
 // Assigned cases flow through Escalation_History -> Emergency_Event -> Senior.
 // We LEFT JOIN Escalation_Assignment so that escalations with NO explicit
 // staff assignment still surface in the AIC portal as part of the triage
@@ -147,7 +165,7 @@ router.post('/case/:event_id/status', (req, res) => {
             }
 
             const seniorSql = `
-                SELECT s.senior_id, ua.full_name
+                SELECT s.senior_id, ua.full_name, ee.event_type
                 FROM Emergency_Event ee
                 JOIN Senior s ON ee.senior_id = s.senior_id
                 JOIN User_Account ua ON s.user_id = ua.user_id
@@ -161,6 +179,8 @@ router.post('/case/:event_id/status', (req, res) => {
                 }
 
                 const seniorName = Array.isArray(seniorRows) && seniorRows[0] ? seniorRows[0].full_name : null;
+                const eventType = Array.isArray(seniorRows) && seniorRows[0] ? seniorRows[0].event_type : null;
+                const assignee = await fetchAssigneeByUserId(staff_user_id || null);
                 if (!seniorName) {
                     return res.json({ ok: true, event_id: eventId, status, serviceNowUpdated: false });
                 }
@@ -169,7 +189,15 @@ router.post('/case/:event_id/status', (req, res) => {
                     const serviceNowUpdated = await caregiverServiceNow.updateIncidentState(
                         seniorName,
                         status,
-                        comment || `Case updated to ${status}`
+                        comment || `Case updated to ${status}`,
+                        {
+                            eventType,
+                            assignee: assignee ? {
+                                userId: assignee.user_id,
+                                fullName: assignee.full_name,
+                                email: assignee.email,
+                            } : null,
+                        }
                     );
                     res.json({ ok: true, event_id: eventId, status, serviceNowUpdated });
                 } catch (snErr) {
@@ -247,7 +275,7 @@ router.post('/case/:event_id/assign', (req, res) => {
                 }
 
                 const seniorSql = `
-                    SELECT s.senior_id, ua.full_name
+                    SELECT s.senior_id, ua.full_name, ee.event_type
                     FROM Emergency_Event ee
                     JOIN Senior s ON ee.senior_id = s.senior_id
                     JOIN User_Account ua ON s.user_id = ua.user_id
@@ -261,6 +289,8 @@ router.post('/case/:event_id/assign', (req, res) => {
                     }
 
                     const seniorName = Array.isArray(seniorRows) && seniorRows[0] ? seniorRows[0].full_name : null;
+                    const eventType = Array.isArray(seniorRows) && seniorRows[0] ? seniorRows[0].event_type : null;
+                    const assignee = await fetchAssigneeByUserId(user_id);
                     if (!seniorName) {
                         return res.json({ ok: true, event_id: eventId, assigned_staff_id: staffId, status: 'In Progress', serviceNowUpdated: false });
                     }
@@ -269,7 +299,15 @@ router.post('/case/:event_id/assign', (req, res) => {
                         const serviceNowUpdated = await caregiverServiceNow.updateIncidentState(
                             seniorName,
                             'In Progress',
-                            comment || `Case assigned to staff ${staffId}`
+                            comment || `Case assigned to staff ${staffId}`,
+                            {
+                                eventType,
+                                assignee: assignee ? {
+                                    userId: assignee.user_id,
+                                    fullName: assignee.full_name,
+                                    email: assignee.email,
+                                } : null,
+                            }
                         );
                         res.json({ ok: true, event_id: eventId, assigned_staff_id: staffId, status: 'In Progress', serviceNowUpdated });
                     } catch (snErr) {
