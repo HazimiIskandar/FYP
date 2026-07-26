@@ -80,9 +80,9 @@ const STATUS_COLOR_MAP = {
     icon: '#ffdd00',
   },
   Resolved: {
-    cardBackground: '#DCFCE7',
+    cardBackground: '#e0ffe3',
     cardBorder: '#86EFAC',
-    avatarBackground: '#86EFAC',
+    avatarBackground: '#a1ffaf',
     avatarText: '#14532D',
     icon: '#16A34A',
   },
