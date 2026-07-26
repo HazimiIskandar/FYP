@@ -165,6 +165,17 @@ export default function AICPortalScreen({
     };
   }, [apiBase, authenticatedUser?.user_id]);
 
+  const updateCaseRowByEventId = (eventId, updates) => {
+    if (!eventId) return;
+
+    setAssignedCaseRows((previousRows) =>
+      previousRows.map((row) => {
+        if (`${row?.event_id}` !== `${eventId}`) return row;
+        return { ...row, ...updates };
+      })
+    );
+  };
+
   const cases = useMemo(() => {
     return assignedCaseRows.map((assignedCase, index) => {
       const seniorId = assignedCase?.senior_id;
@@ -269,6 +280,16 @@ export default function AICPortalScreen({
       <CaseDetailView
         caseItem={selectedCase}
         onBack={() => setSelectedCaseId(null)}
+        onCaseStatusUpdated={(eventId, nextStatus) => {
+          updateCaseRowByEventId(eventId, { event_status: nextStatus });
+        }}
+        onCaseAssigned={(eventId, nextAssignedStaffNames, nextAssignedStaffUserIds) => {
+          updateCaseRowByEventId(eventId, {
+            event_status: 'In Progress',
+            assigned_staff_names: nextAssignedStaffNames,
+            assigned_staff_user_ids: nextAssignedStaffUserIds,
+          });
+        }}
         onSettings={onSettings}
         apiBase={apiBase}
         authenticatedUser={authenticatedUser}
@@ -408,7 +429,15 @@ export default function AICPortalScreen({
   );
 }
 
-function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUser }) {
+function CaseDetailView({
+  caseItem,
+  onBack,
+  onSettings,
+  apiBase,
+  authenticatedUser,
+  onCaseStatusUpdated,
+  onCaseAssigned,
+}) {
   const [seniorDetailsVisible, setSeniorDetailsVisible] = useState(false);
   const [statusComment, setStatusComment] = useState('');
   const [statusLoading, setStatusLoading] = useState(false);
@@ -504,6 +533,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
         setStatusMessageMeta({ status: '', serviceNowUpdated: null });
       } else {
         setCurrentStatus(newStatus);
+        onCaseStatusUpdated?.(caseItem?.caseId, newStatus);
         setStatusMessage('');
         setStatusMessageMeta({ status: newStatus, serviceNowUpdated: json.serviceNowUpdated });
       }
@@ -537,6 +567,7 @@ function CaseDetailView({ caseItem, onBack, onSettings, apiBase, authenticatedUs
       } else {
         setCurrentStatus('In Progress');
         setAssignedStaff({ names: currentStaffName, userIds: [currentUserId] });
+        onCaseAssigned?.(caseItem?.caseId, currentStaffName, currentUserId || '');
         setAssignMessage(`Assigned to you. ServiceNow updated: ${json.serviceNowUpdated ? 'yes' : 'no'}`);
       }
     } catch (err) {
