@@ -619,7 +619,6 @@ function CaseDetailView({
         {canAssignToMe ? (
           <View style={styles.assignActionCard}>
             <Text style={styles.infoTitle}>Assign this case to me</Text>
-            <Text style={styles.mutedText}>Claim the case and move it to In Progress.</Text>
             {/* Comment input removed — assignments use buttons only. */}
             <TouchableOpacity
               style={[styles.assignButton, assignLoading && styles.assignButtonDisabled]}
@@ -637,7 +636,6 @@ function CaseDetailView({
 
         <View style={styles.statusActionCard}>
           <Text style={styles.infoTitle}>Update Case Status</Text>
-          <Text style={styles.mutedText}>Select the next state.</Text>
 
           <View style={styles.statusButtonsRow}>
             {availableStatusOptions.map((option) => (
@@ -919,7 +917,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
   },
-  infoTitle: { color: '#111827', fontSize: 18, fontWeight: '900', marginBottom: 12 },
+  infoTitle: { color: '#111827', fontSize: 22, fontWeight: '900', marginBottom: 12 },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -976,9 +974,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D1D5DB',
     backgroundColor: '#F8FAFC',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    minWidth: 110,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minWidth: 120,
     alignItems: 'center',
   },
   statusButtonActive: {
@@ -988,7 +986,7 @@ const styles = StyleSheet.create({
   statusButtonText: {
     color: '#1F2937',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 16,
   },
   statusButtonTextActive: {
     color: '#FFFFFF',
