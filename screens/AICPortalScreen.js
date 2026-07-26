@@ -240,16 +240,16 @@ export default function AICPortalScreen({
   }, [assignedCases, authenticatedUser?.user_id]);
 
   const myCasesCount = myCases.length;
-  const myCasesOpenCount = myCases.filter((item) => !['Resolved', 'Closed', 'Cancelled'].includes(item.currentStatus)).length;
+  const casesForFilterCounts = showMyCasesOnly ? myCases : assignedCases;
 
   const filterOptions = [
-    { key: 'All', label: `All (${assignedCases.length})` },
-    { key: 'Open', label: `Open (${assignedCases.filter((item) => item.currentStatus === 'Open').length})` },
-    { key: 'In Progress', label: `In Progress (${assignedCases.filter((item) => item.currentStatus === 'In Progress').length})` },
-    { key: 'Resolved', label: `Resolved (${assignedCases.filter((item) => item.currentStatus === 'Resolved').length})` },
-    { key: 'On Hold', label: `On Hold (${assignedCases.filter((item) => item.currentStatus === 'On Hold').length})` },
-    { key: 'Closed', label: `Closed (${assignedCases.filter((item) => item.currentStatus === 'Closed').length})` },
-    { key: 'Cancelled', label: `Cancelled (${assignedCases.filter((item) => item.currentStatus === 'Cancelled').length})` },
+    { key: 'All', label: `All (${casesForFilterCounts.length})` },
+    { key: 'Open', label: `Open (${casesForFilterCounts.filter((item) => item.currentStatus === 'Open').length})` },
+    { key: 'In Progress', label: `In Progress (${casesForFilterCounts.filter((item) => item.currentStatus === 'In Progress').length})` },
+    { key: 'Resolved', label: `Resolved (${casesForFilterCounts.filter((item) => item.currentStatus === 'Resolved').length})` },
+    { key: 'On Hold', label: `On Hold (${casesForFilterCounts.filter((item) => item.currentStatus === 'On Hold').length})` },
+    { key: 'Closed', label: `Closed (${casesForFilterCounts.filter((item) => item.currentStatus === 'Closed').length})` },
+    { key: 'Cancelled', label: `Cancelled (${casesForFilterCounts.filter((item) => item.currentStatus === 'Cancelled').length})` },
   ];
 
   const [searchQuery, setSearchQuery] = useState('');
