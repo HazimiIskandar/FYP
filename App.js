@@ -139,14 +139,15 @@ export default function App() {
   const resolveBackendBase = async () => {
     const candidates = [
       ...new Set([
-        apiBase,
         ...LOCAL_API_BASES,
+        apiBase,
         REMOTE_API_BASE,
       ].filter(Boolean)),
     ];
 
     for (const baseUrl of candidates) {
       if (await testEndpoint(baseUrl)) {
+        console.log(`[API] Using backend base: ${baseUrl}`);
         if (baseUrl !== apiBase) setApiBase(baseUrl);
         setBackendError(null);
         return baseUrl;
