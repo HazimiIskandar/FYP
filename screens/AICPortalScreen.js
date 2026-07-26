@@ -284,9 +284,9 @@ export default function AICPortalScreen({
         onCaseStatusUpdated={(eventId, nextStatus) => {
           updateCaseRowByEventId(eventId, { event_status: nextStatus });
         }}
-        onCaseAssigned={(eventId, nextAssignedStaffNames, nextAssignedStaffUserIds) => {
+        onCaseAssigned={(eventId, nextAssignedStaffNames, nextAssignedStaffUserIds, nextStatus) => {
           updateCaseRowByEventId(eventId, {
-            event_status: 'In Progress',
+            event_status: nextStatus || 'In Progress',
             assigned_staff_names: nextAssignedStaffNames,
             assigned_staff_user_ids: nextAssignedStaffUserIds,
           });
@@ -552,7 +552,11 @@ function CaseDetailView({
       if (!response.ok) {
         setAssignMessage(`Assignment failed: ${json?.error || response.statusText}`);
       } else {
-        setCurrentStatus('In Progress');
+        const nextStatus = ['Open', 'New'].includes(currentStatus) ? 'In Progress' : currentStatus;
+        if (nextStatus !== currentStatus) {
+          setCurrentStatus(nextStatus);
+        }
+
         const existingNames = Array.isArray(assignedStaff.names)
           ? assignedStaff.names
           : `${assignedStaff.names || ''}`
@@ -573,7 +577,7 @@ function CaseDetailView({
         };
 
         setAssignedStaff(nextAssignedStaff);
-        onCaseAssigned?.(caseItem?.caseId, nextAssignedStaff.names, nextAssignedStaff.userIds.join(','));
+        onCaseAssigned?.(caseItem?.caseId, nextAssignedStaff.names, nextAssignedStaff.userIds.join(','), nextStatus);
         setAssignMessage(`Assigned to you. ServiceNow updated: ${json.serviceNowUpdated ? 'yes' : 'no'}`);
       }
     } catch (err) {
