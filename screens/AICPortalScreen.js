@@ -52,32 +52,32 @@ const getCaseStatus = (status) => {
 
 const STATUS_COLOR_MAP = {
   Open: {
-    cardBackground: '#FEE2E2',
+    cardBackground: '#fff0f0',
     cardBorder: '#FCA5A5',
-    avatarBackground: '#FCA5A5',
+    avatarBackground: '#ffc6c6',
     avatarText: '#7F1D1D',
     icon: '#B91C1C',
   },
   New: {
-    cardBackground: '#FEE2E2',
+    cardBackground: '#ffe2e2',
     cardBorder: '#FCA5A5',
     avatarBackground: '#FCA5A5',
     avatarText: '#7F1D1D',
     icon: '#B91C1C',
   },
   'In Progress': {
-    cardBackground: '#FEF3C7',
-    cardBorder: '#FCD34D',
-    avatarBackground: '#FCD34D',
+    cardBackground: '#ffe9d5',
+    cardBorder: '#fc9f4d',
+    avatarBackground: '#ffc497',
     avatarText: '#78350F',
     icon: '#D97706',
   },
   'On Hold': {
-    cardBackground: '#FEF9C3',
-    cardBorder: '#FDE047',
-    avatarBackground: '#FDE047',
+    cardBackground: '#fdfadd',
+    cardBorder: '#fbd828',
+    avatarBackground: '#fff1a8',
     avatarText: '#713F12',
-    icon: '#CA8A04',
+    icon: '#ffdd00',
   },
   Resolved: {
     cardBackground: '#DCFCE7',
