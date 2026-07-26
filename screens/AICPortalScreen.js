@@ -553,8 +553,27 @@ function CaseDetailView({
         setAssignMessage(`Assignment failed: ${json?.error || response.statusText}`);
       } else {
         setCurrentStatus('In Progress');
-        setAssignedStaff({ names: currentStaffName, userIds: [currentUserId] });
-        onCaseAssigned?.(caseItem?.caseId, currentStaffName, currentUserId || '');
+        const existingNames = Array.isArray(assignedStaff.names)
+          ? assignedStaff.names
+          : `${assignedStaff.names || ''}`
+              .split(',')
+              .map((name) => name.trim())
+              .filter((name) => name && name.toLowerCase() !== 'unassigned');
+        const existingUserIds = Array.isArray(assignedStaff.userIds)
+          ? assignedStaff.userIds
+          : `${assignedStaff.userIds || ''}`
+              .split(',')
+              .map((id) => id.trim())
+              .filter(Boolean);
+        const nextUserIds = Array.from(new Set([...existingUserIds, currentUserId]));
+        const nextNames = Array.from(new Set([...existingNames, currentStaffName]));
+        const nextAssignedStaff = {
+          names: nextNames.length > 0 ? nextNames.join(', ') : currentStaffName,
+          userIds: nextUserIds,
+        };
+
+        setAssignedStaff(nextAssignedStaff);
+        onCaseAssigned?.(caseItem?.caseId, nextAssignedStaff.names, nextAssignedStaff.userIds.join(','));
         setAssignMessage(`Assigned to you. ServiceNow updated: ${json.serviceNowUpdated ? 'yes' : 'no'}`);
       }
     } catch (err) {
