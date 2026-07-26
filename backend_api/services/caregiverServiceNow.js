@@ -179,12 +179,28 @@ async function findLatestIncidentForSenior(auth, seniorName = 'Unknown', eventTy
   return incidents.find((item) => incidentMatches(item, seniorName, eventType)) || null;
 }
 
+async function findIncidentBySourceEventId(auth, sourceEventId = null) {
+  if (!sourceEventId && sourceEventId !== 0) return null;
+
+  const fields = 'sys_id,number,short_description,description,state,sys_created_on,correlation_id';
+  const query = `correlation_id=${String(sourceEventId)}^ORDERBYDESCsys_created_on`;
+  const response = await axios.get(
+    `${INSTANCE_URL}/api/now/table/incident?sysparm_query=${encodeURIComponent(query)}&sysparm_fields=${encodeURIComponent(fields)}&sysparm_limit=1`,
+    { auth }
+  );
+
+  const incidents = Array.isArray(response?.data?.result) ? response.data.result : [];
+  return incidents[0] || null;
+}
+
 async function createIncidentForSenior(auth, {
   seniorName = 'Unknown',
   statusName = 'In Progress',
   workNotes = '',
   eventType = null,
   assignedToSysId = null,
+  assignedToDisplayName = null,
+  sourceEventId = null,
 }) {
   const eventLabel = eventType || 'Caregiver Escalation';
   const payload = {
@@ -196,10 +212,12 @@ async function createIncidentForSenior(auth, {
     work_notes: workNotes || `Case created from app and set to ${statusName}.`,
   };
   if (assignedToSysId) payload.assigned_to = assignedToSysId;
+  else if (assignedToDisplayName) payload.assigned_to = assignedToDisplayName;
+  if (sourceEventId || sourceEventId === 0) payload.correlation_id = String(sourceEventId);
   enrichPayloadForTerminalStates(payload, statusName, workNotes);
 
   const created = await axios.post(
-    `${INSTANCE_URL}/api/now/table/incident`,
+    `${INSTANCE_URL}/api/now/table/incident?sysparm_input_display_value=true`,
     payload,
     { auth, headers: { 'Content-Type': 'application/json' } }
   );
@@ -215,10 +233,18 @@ async function updateIncidentState(seniorName = 'Unknown', statusName = 'In Prog
     };
 
     const eventType = options?.eventType || null;
+    const sourceEventId = options?.sourceEventId ?? null;
+    const assignedToDisplayName = String(options?.assignee?.fullName || '').trim() || null;
     const assignedToSysId = await resolveAssigneeSysId(auth, options?.assignee || null);
 
     console.log(`[Caregiver ServiceNow] Searching incident for ${seniorName} (eventType=${eventType || 'any'})...`);
-    let incident = await findLatestIncidentForSenior(auth, seniorName, eventType);
+    let incident = sourceEventId || sourceEventId === 0
+      ? await findIncidentBySourceEventId(auth, sourceEventId)
+      : null;
+
+    if (!incident) {
+      incident = await findLatestIncidentForSenior(auth, seniorName, eventType);
+    }
 
     if (!incident) {
       console.log(`[Caregiver ServiceNow] No matching incident found for ${seniorName}. Creating one...`);
@@ -228,6 +254,8 @@ async function updateIncidentState(seniorName = 'Unknown', statusName = 'In Prog
         workNotes,
         eventType,
         assignedToSysId,
+        assignedToDisplayName,
+        sourceEventId,
       });
       if (!incident?.sys_id) {
         return false;
@@ -248,11 +276,16 @@ async function updateIncidentState(seniorName = 'Unknown', statusName = 'In Prog
     }
     if (assignedToSysId) {
       updatePayload.assigned_to = assignedToSysId;
+    } else if (assignedToDisplayName) {
+      updatePayload.assigned_to = assignedToDisplayName;
+    }
+    if (sourceEventId || sourceEventId === 0) {
+      updatePayload.correlation_id = String(sourceEventId);
     }
     enrichPayloadForTerminalStates(updatePayload, statusName, workNotes);
 
     await axios.put(
-      `${INSTANCE_URL}/api/now/table/incident/${sysId}`,
+      `${INSTANCE_URL}/api/now/table/incident/${sysId}?sysparm_input_display_value=true`,
       updatePayload,
       { auth, headers: { 'Content-Type': 'application/json' } }
     );

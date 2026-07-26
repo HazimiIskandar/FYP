@@ -191,6 +191,7 @@ router.post('/case/:event_id/status', (req, res) => {
                         status,
                         comment || `Case updated to ${status}`,
                         {
+                            sourceEventId: eventId,
                             eventType,
                             assignee: assignee ? {
                                 userId: assignee.user_id,
@@ -301,6 +302,7 @@ router.post('/case/:event_id/assign', (req, res) => {
                             'In Progress',
                             comment || `Case assigned to staff ${staffId}`,
                             {
+                                sourceEventId: eventId,
                                 eventType,
                                 assignee: assignee ? {
                                     userId: assignee.user_id,

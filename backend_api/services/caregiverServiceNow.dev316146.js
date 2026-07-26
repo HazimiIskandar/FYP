@@ -221,12 +221,31 @@ async function findLatestIncidentForSenior(seniorName = "Unknown", eventType = n
   return incidents.find((item) => incidentMatches(item, seniorName, eventType)) || null;
 }
 
+async function findIncidentBySourceEventId(sourceEventId = null) {
+  if (!sourceEventId && sourceEventId !== 0) return null;
+
+  const fields = "sys_id,number,short_description,description,state,sys_created_on,correlation_id";
+  const query = `correlation_id=${String(sourceEventId)}^ORDERBYDESCsys_created_on`;
+  const response = await requestNow("get", "/api/now/table/incident", {
+    params: {
+      sysparm_query: query,
+      sysparm_fields: fields,
+      sysparm_limit: 1,
+    },
+  });
+
+  const incidents = Array.isArray(response?.data?.result) ? response.data.result : [];
+  return incidents[0] || null;
+}
+
 async function createIncidentForSenior({
   seniorName = "Unknown",
   statusName = "In Progress",
   workNotes = "",
   eventType = null,
   assignedToSysId = null,
+  assignedToDisplayName = null,
+  sourceEventId = null,
 }) {
   const eventLabel = eventType || "Caregiver Escalation";
   const payload = {
@@ -242,10 +261,16 @@ async function createIncidentForSenior({
   enrichPayloadForTerminalStates(payload, statusName, workNotes);
   if (assignedToSysId) {
     payload.assigned_to = assignedToSysId;
+  } else if (assignedToDisplayName) {
+    payload.assigned_to = assignedToDisplayName;
+  }
+  if (sourceEventId || sourceEventId === 0) {
+    payload.correlation_id = String(sourceEventId);
   }
 
   const created = await requestNow("post", "/api/now/table/incident", {
     data: payload,
+    params: { sysparm_input_display_value: "true" },
   });
 
   return created?.data?.result || null;
@@ -276,6 +301,8 @@ async function updateIncidentState(
     }
 
     const eventType = options?.eventType || null;
+    const sourceEventId = options?.sourceEventId ?? null;
+    const assignedToDisplayName = String(options?.assignee?.fullName || "").trim() || null;
     const assignedToSysId = await resolveAssigneeSysId(options?.assignee || null);
 
     console.log(
@@ -283,7 +310,13 @@ async function updateIncidentState(
         `(eventType=${eventType || "any"})...`
     );
 
-    let incident = await findLatestIncidentForSenior(seniorName, eventType);
+    let incident = sourceEventId || sourceEventId === 0
+      ? await findIncidentBySourceEventId(sourceEventId)
+      : null;
+
+    if (!incident) {
+      incident = await findLatestIncidentForSenior(seniorName, eventType);
+    }
 
     if (!incident) {
       console.log(
@@ -295,6 +328,8 @@ async function updateIncidentState(
         workNotes,
         eventType,
         assignedToSysId,
+        assignedToDisplayName,
+        sourceEventId,
       });
 
       if (!incident?.sys_id) {
@@ -312,10 +347,13 @@ async function updateIncidentState(
     const payload = { state: mapStatusToStateCode(statusName) };
     if (workNotes) payload.work_notes = workNotes;
     if (assignedToSysId) payload.assigned_to = assignedToSysId;
+    else if (assignedToDisplayName) payload.assigned_to = assignedToDisplayName;
+    if (sourceEventId || sourceEventId === 0) payload.correlation_id = String(sourceEventId);
     enrichPayloadForTerminalStates(payload, statusName, workNotes);
 
     await requestNow("put", `/api/now/table/incident/${sysId}`, {
       data: payload,
+      params: { sysparm_input_display_value: "true" },
     });
 
     console.log(
