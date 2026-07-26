@@ -284,9 +284,9 @@ export default function AICPortalScreen({
         onCaseStatusUpdated={(eventId, nextStatus) => {
           updateCaseRowByEventId(eventId, { event_status: nextStatus });
         }}
-        onCaseAssigned={(eventId, nextAssignedStaffNames, nextAssignedStaffUserIds) => {
+        onCaseAssigned={(eventId, nextAssignedStaffNames, nextAssignedStaffUserIds, nextStatus) => {
           updateCaseRowByEventId(eventId, {
-            event_status: 'In Progress',
+            event_status: nextStatus || 'In Progress',
             assigned_staff_names: nextAssignedStaffNames,
             assigned_staff_user_ids: nextAssignedStaffUserIds,
           });
@@ -552,9 +552,32 @@ function CaseDetailView({
       if (!response.ok) {
         setAssignMessage(`Assignment failed: ${json?.error || response.statusText}`);
       } else {
-        setCurrentStatus('In Progress');
-        setAssignedStaff({ names: currentStaffName, userIds: [currentUserId] });
-        onCaseAssigned?.(caseItem?.caseId, currentStaffName, currentUserId || '');
+        const nextStatus = ['Open', 'New'].includes(currentStatus) ? 'In Progress' : currentStatus;
+        if (nextStatus !== currentStatus) {
+          setCurrentStatus(nextStatus);
+        }
+
+        const existingNames = Array.isArray(assignedStaff.names)
+          ? assignedStaff.names
+          : `${assignedStaff.names || ''}`
+              .split(',')
+              .map((name) => name.trim())
+              .filter((name) => name && name.toLowerCase() !== 'unassigned');
+        const existingUserIds = Array.isArray(assignedStaff.userIds)
+          ? assignedStaff.userIds
+          : `${assignedStaff.userIds || ''}`
+              .split(',')
+              .map((id) => id.trim())
+              .filter(Boolean);
+        const nextUserIds = Array.from(new Set([...existingUserIds, currentUserId]));
+        const nextNames = Array.from(new Set([...existingNames, currentStaffName]));
+        const nextAssignedStaff = {
+          names: nextNames.length > 0 ? nextNames.join(', ') : currentStaffName,
+          userIds: nextUserIds,
+        };
+
+        setAssignedStaff(nextAssignedStaff);
+        onCaseAssigned?.(caseItem?.caseId, nextAssignedStaff.names, nextAssignedStaff.userIds.join(','), nextStatus);
         setAssignMessage(`Assigned to you. ServiceNow updated: ${json.serviceNowUpdated ? 'yes' : 'no'}`);
       }
     } catch (err) {
@@ -596,7 +619,6 @@ function CaseDetailView({
         {canAssignToMe ? (
           <View style={styles.assignActionCard}>
             <Text style={styles.infoTitle}>Assign this case to me</Text>
-            <Text style={styles.mutedText}>Claim the case and move it to In Progress.</Text>
             {/* Comment input removed — assignments use buttons only. */}
             <TouchableOpacity
               style={[styles.assignButton, assignLoading && styles.assignButtonDisabled]}
@@ -614,7 +636,6 @@ function CaseDetailView({
 
         <View style={styles.statusActionCard}>
           <Text style={styles.infoTitle}>Update Case Status</Text>
-          <Text style={styles.mutedText}>Select the next state.</Text>
 
           <View style={styles.statusButtonsRow}>
             {availableStatusOptions.map((option) => (
@@ -896,7 +917,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
   },
-  infoTitle: { color: '#111827', fontSize: 18, fontWeight: '900', marginBottom: 12 },
+  infoTitle: { color: '#111827', fontSize: 22, fontWeight: '900', marginBottom: 12 },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -953,9 +974,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D1D5DB',
     backgroundColor: '#F8FAFC',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    minWidth: 110,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minWidth: 120,
     alignItems: 'center',
   },
   statusButtonActive: {
@@ -965,7 +986,7 @@ const styles = StyleSheet.create({
   statusButtonText: {
     color: '#1F2937',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 16,
   },
   statusButtonTextActive: {
     color: '#FFFFFF',
