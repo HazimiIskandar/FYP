@@ -155,13 +155,29 @@ export default function AICPortalScreen({
         createdAt,
         assignedStaff: { names: assignedStaffNames, userIds: assignedStaffUserIds },
         missedCount,
+        isAssignedToMe: authenticatedUser?.user_id ? assignedStaffUserIds.includes(`${authenticatedUser.user_id}`) : false,
       };
     });
   }, [assignedCaseRows, seniors, checkIns, emergencyEvents, currentStaffName]);
 
   const assignedCases = cases;
   const selectedCase = assignedCases.find((item) => item.id === selectedCaseId) || null;
+
+  // Cases assigned specifically to the current logged-in user
+  const myCases = useMemo(() => {
+    const currentUserId = authenticatedUser?.user_id ? `${authenticatedUser.user_id}` : null;
+    if (!currentUserId) return [];
+    return assignedCases.filter((item) => {
+      const assignedUserIds = item.assignedStaff?.userIds || [];
+      return assignedUserIds.includes(currentUserId);
+    });
+  }, [assignedCases, authenticatedUser?.user_id]);
+
+  const myCasesCount = myCases.length;
+  const myCasesOpenCount = myCases.filter((item) => item.currentStatus !== 'Resolved').length;
+
   const filterOptions = [
+    { key: 'My Cases', label: `My Cases (${myCasesCount})` },
     { key: 'All', label: `All (${assignedCases.length})` },
     { key: 'High', label: `High Risk (${assignedCases.filter((item) => item.riskLevel === 'High').length})` },
     { key: 'Open', label: `Open (${assignedCases.filter((item) => item.currentStatus === 'Open').length})` },
@@ -177,6 +193,13 @@ export default function AICPortalScreen({
   const visibleCases = assignedCases.filter((item) => {
     if (searchQuery && !item.seniorName.toLowerCase().includes(searchQuery.toLowerCase()) && !item.caseId.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
+    }
+    if (activeFilter === 'My Cases') {
+      // Show only cases assigned to the current user
+      const currentUserId = authenticatedUser?.user_id ? `${authenticatedUser.user_id}` : null;
+      if (!currentUserId) return false;
+      const assignedUserIds = item.assignedStaff?.userIds || [];
+      return assignedUserIds.includes(currentUserId);
     }
     if (activeFilter !== 'All') {
       if (item.riskLevel !== activeFilter && item.currentStatus !== activeFilter) {
@@ -249,14 +272,14 @@ export default function AICPortalScreen({
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
         <View style={styles.alertCard}>
           <View style={styles.alertIcon}>
             <Ionicons name="alert" size={24} color="#FFFFFF" />
           </View>
           <View style={styles.alertCopy}>
             <Text style={styles.alertTitle}>{highRiskCount > 0 ? 'High Risk' : 'Pending'}</Text>
-            <Text style={styles.alertSub}>{openCount} open case(s) assigned to you</Text>
+            <Text style={styles.alertSub}>{activeFilter === 'My Cases' ? myCasesOpenCount : openCount} open case(s) assigned to you</Text>
           </View>
         </View>
 
@@ -271,7 +294,15 @@ export default function AICPortalScreen({
               <Text style={styles.avatarText}>{item.seniorName.charAt(0).toUpperCase()}</Text>
             </View>
             <View style={styles.caseCopy}>
-              <Text style={styles.caseTitle}>{item.title}</Text>
+              <View style={styles.caseTitleRow}>
+                <Text style={styles.caseTitle}>{item.title}</Text>
+                {item.isAssignedToMe && (
+                  <View style={styles.myCaseBadge}>
+                    <Ionicons name="person" size={10} color="#FFFFFF" />
+                    <Text style={styles.myCaseBadgeText}>My Case</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.caseMeta}>{item.seniorName} | {item.reason}</Text>
             </View>
             <Ionicons
@@ -675,7 +706,26 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: '#B91C1C', fontSize: 18, fontWeight: '900' },
   caseCopy: { flex: 1 },
+  caseTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   caseTitle: { color: '#111827', fontSize: 22, fontWeight: '900' },
+  myCaseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563EB',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    gap: 4,
+  },
+  myCaseBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
   caseMeta: { color: '#6B7280', fontSize: 13, fontWeight: '700', marginTop: 3 },
   emptyState: {
     backgroundColor: '#FFFFFF',
