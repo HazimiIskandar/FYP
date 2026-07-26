@@ -50,6 +50,60 @@ const getCaseStatus = (status) => {
   return 'Open';
 };
 
+const STATUS_COLOR_MAP = {
+  Open: {
+    cardBackground: '#FEE2E2',
+    cardBorder: '#FCA5A5',
+    avatarBackground: '#FCA5A5',
+    avatarText: '#7F1D1D',
+    icon: '#B91C1C',
+  },
+  New: {
+    cardBackground: '#FEE2E2',
+    cardBorder: '#FCA5A5',
+    avatarBackground: '#FCA5A5',
+    avatarText: '#7F1D1D',
+    icon: '#B91C1C',
+  },
+  'In Progress': {
+    cardBackground: '#FEF3C7',
+    cardBorder: '#FCD34D',
+    avatarBackground: '#FCD34D',
+    avatarText: '#78350F',
+    icon: '#D97706',
+  },
+  'On Hold': {
+    cardBackground: '#FEF9C3',
+    cardBorder: '#FDE047',
+    avatarBackground: '#FDE047',
+    avatarText: '#713F12',
+    icon: '#CA8A04',
+  },
+  Resolved: {
+    cardBackground: '#DCFCE7',
+    cardBorder: '#86EFAC',
+    avatarBackground: '#86EFAC',
+    avatarText: '#14532D',
+    icon: '#16A34A',
+  },
+  Closed: {
+    cardBackground: '#DBEAFE',
+    cardBorder: '#93C5FD',
+    avatarBackground: '#93C5FD',
+    avatarText: '#1E3A8A',
+    icon: '#2563EB',
+  },
+  Cancelled: {
+    cardBackground: '#E5E7EB',
+    cardBorder: '#D1D5DB',
+    avatarBackground: '#D1D5DB',
+    avatarText: '#374151',
+    icon: '#6B7280',
+  },
+};
+
+const getStatusTheme = (status) => STATUS_COLOR_MAP[status] || STATUS_COLOR_MAP.Open;
+
 const getReason = (status, event) => {
   if (event?.event_type) return event.event_type;
   if (status === 'Urgent') return 'Fall detected';
@@ -68,6 +122,7 @@ export default function AICPortalScreen({
 }) {
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [showMyCasesOnly, setShowMyCasesOnly] = useState(false);
   const [assignedCaseRows, setAssignedCaseRows] = useState([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const currentStaffName =
@@ -174,12 +229,10 @@ export default function AICPortalScreen({
   }, [assignedCases, authenticatedUser?.user_id]);
 
   const myCasesCount = myCases.length;
-  const myCasesOpenCount = myCases.filter((item) => item.currentStatus !== 'Resolved').length;
+  const myCasesOpenCount = myCases.filter((item) => !['Resolved', 'Closed', 'Cancelled'].includes(item.currentStatus)).length;
 
   const filterOptions = [
-    { key: 'My Cases', label: `My Cases (${myCasesCount})` },
     { key: 'All', label: `All (${assignedCases.length})` },
-    { key: 'High', label: `High Risk (${assignedCases.filter((item) => item.riskLevel === 'High').length})` },
     { key: 'Open', label: `Open (${assignedCases.filter((item) => item.currentStatus === 'Open').length})` },
     { key: 'In Progress', label: `In Progress (${assignedCases.filter((item) => item.currentStatus === 'In Progress').length})` },
     { key: 'Resolved', label: `Resolved (${assignedCases.filter((item) => item.currentStatus === 'Resolved').length})` },
@@ -194,8 +247,7 @@ export default function AICPortalScreen({
     if (searchQuery && !item.seniorName.toLowerCase().includes(searchQuery.toLowerCase()) && !item.caseId.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
-    if (activeFilter === 'My Cases') {
-      // Show only cases assigned to the current user
+    if (showMyCasesOnly) {
       const currentUserId = authenticatedUser?.user_id ? `${authenticatedUser.user_id}` : null;
       if (!currentUserId) return false;
       const assignedUserIds = item.assignedStaff?.userIds || [];
@@ -210,7 +262,7 @@ export default function AICPortalScreen({
   });
 
   const highRiskCount = assignedCases.filter((item) => item.riskLevel === 'High').length;
-  const openCount = assignedCases.filter((item) => item.currentStatus !== 'Resolved').length;
+  const openCount = assignedCases.filter((item) => !['Resolved', 'Closed', 'Cancelled'].includes(item.currentStatus)).length;
 
   if (selectedCase) {
     return (
@@ -229,6 +281,22 @@ export default function AICPortalScreen({
       <Header 
         title="Assigned Cases" 
         subtitle="Sort by urgency and follow up quickly" 
+        rightContent={
+          <TouchableOpacity
+            style={[styles.myCasesTopButton, showMyCasesOnly && styles.myCasesTopButtonActive]}
+            onPress={() => setShowMyCasesOnly((previous) => !previous)}
+            activeOpacity={0.86}
+          >
+            <Ionicons
+              name="person"
+              size={14}
+              color={showMyCasesOnly ? '#FFFFFF' : '#1E3A8A'}
+            />
+            <Text style={[styles.myCasesTopButtonText, showMyCasesOnly && styles.myCasesTopButtonTextActive]}>
+              My Cases ({myCasesCount})
+            </Text>
+          </TouchableOpacity>
+        }
         badge={
           <View style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4 }}>
             <Ionicons name="business" size={14} color="#7E22CE" />
@@ -279,19 +347,32 @@ export default function AICPortalScreen({
           </View>
           <View style={styles.alertCopy}>
             <Text style={styles.alertTitle}>{highRiskCount > 0 ? 'High Risk' : 'Pending'}</Text>
-            <Text style={styles.alertSub}>{activeFilter === 'My Cases' ? myCasesOpenCount : openCount} open case(s) assigned to you</Text>
+              <Text style={styles.alertSub}>
+                {showMyCasesOnly
+                  ? `${myCasesOpenCount} open case(s) assigned to you`
+                  : `${openCount} open case(s) in queue`}
+              </Text>
           </View>
         </View>
 
-        {visibleCases.map((item) => (
-          <TouchableOpacity
+          {visibleCases.map((item) => {
+            const statusTheme = getStatusTheme(item.currentStatus);
+
+            return (
+              <TouchableOpacity
             key={item.id}
-            style={styles.caseCard}
+              style={[
+                styles.caseCard,
+                {
+                  backgroundColor: statusTheme.cardBackground,
+                  borderColor: statusTheme.cardBorder,
+                },
+              ]}
             onPress={() => setSelectedCaseId(item.id)}
             activeOpacity={0.86}
           >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{item.seniorName.charAt(0).toUpperCase()}</Text>
+              <View style={[styles.avatar, { backgroundColor: statusTheme.avatarBackground }]}>
+                <Text style={[styles.avatarText, { color: statusTheme.avatarText }]}>{item.seniorName.charAt(0).toUpperCase()}</Text>
             </View>
             <View style={styles.caseCopy}>
               <View style={styles.caseTitleRow}>
@@ -306,12 +387,13 @@ export default function AICPortalScreen({
               <Text style={styles.caseMeta}>{item.seniorName} | {item.reason}</Text>
             </View>
             <Ionicons
-              name={item.riskLevel === 'High' ? 'warning' : 'alert-circle-outline'}
+              name={item.riskLevel === 'High' ? 'warning' : 'ellipse'}
               size={25}
-              color={item.riskLevel === 'High' ? '#DC2626' : '#B45309'}
+              color={statusTheme.icon}
             />
           </TouchableOpacity>
-        ))}
+          );
+        })}
 
         {visibleCases.length === 0 ? (
           <View style={styles.emptyState}>
@@ -727,6 +809,29 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   caseMeta: { color: '#6B7280', fontSize: 13, fontWeight: '700', marginTop: 3 },
+  myCasesTopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  myCasesTopButtonActive: {
+    backgroundColor: '#1D4ED8',
+    borderColor: '#1D4ED8',
+  },
+  myCasesTopButtonText: {
+    color: '#1E3A8A',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  myCasesTopButtonTextActive: {
+    color: '#FFFFFF',
+  },
   emptyState: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
