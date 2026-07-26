@@ -258,12 +258,16 @@ export default function AICPortalScreen({
     if (searchQuery && !item.seniorName.toLowerCase().includes(searchQuery.toLowerCase()) && !item.caseId.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
+
     if (showMyCasesOnly) {
       const currentUserId = authenticatedUser?.user_id ? `${authenticatedUser.user_id}` : null;
       if (!currentUserId) return false;
       const assignedUserIds = item.assignedStaff?.userIds || [];
-      return assignedUserIds.includes(currentUserId);
+      if (!assignedUserIds.includes(currentUserId)) {
+        return false;
+      }
     }
+
     if (activeFilter !== 'All') {
       if (item.riskLevel !== activeFilter && item.currentStatus !== activeFilter) {
         return false;
@@ -271,9 +275,6 @@ export default function AICPortalScreen({
     }
     return true;
   });
-
-  const highRiskCount = assignedCases.filter((item) => item.riskLevel === 'High').length;
-  const openCount = assignedCases.filter((item) => !['Resolved', 'Closed', 'Cancelled'].includes(item.currentStatus)).length;
 
   if (selectedCase) {
     return (
@@ -362,20 +363,6 @@ export default function AICPortalScreen({
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.alertCard}>
-          <View style={styles.alertIcon}>
-            <Ionicons name="alert" size={24} color="#FFFFFF" />
-          </View>
-          <View style={styles.alertCopy}>
-            <Text style={styles.alertTitle}>{highRiskCount > 0 ? 'High Risk' : 'Pending'}</Text>
-              <Text style={styles.alertSub}>
-                {showMyCasesOnly
-                  ? `${myCasesOpenCount} open case(s) assigned to you`
-                  : `${openCount} open case(s) in queue`}
-              </Text>
-          </View>
-        </View>
-
           {visibleCases.map((item) => {
             const statusTheme = getStatusTheme(item.currentStatus);
 
