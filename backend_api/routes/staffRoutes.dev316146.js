@@ -49,7 +49,6 @@ const ASSIGNED_CASES_SQL = `
           AND TRIM(ua.full_name) <> ''
           AND ua.role_id = 1
           AND ee.event_type != 'Missed Check-In'
-          AND ee.event_status NOT IN ('Resolved', 'Closed', 'Cancelled')
         GROUP BY
             ee.event_id,
             ee.senior_id,
