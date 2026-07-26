@@ -645,6 +645,11 @@ export default function App() {
   // bucket by the SGT calendar day, not the device-local one.
   const getDateKey = (value) => getSgtDateKey(value);
 
+  // Accept all legacy spelling variants seen in Emergency_Event:
+  // "Check-In", "Check In", and "Checkin".
+  const isMissedCheckInEventType = (eventType) =>
+    /missed\s+.*check(?:\s|-)?in/i.test(String(eventType || ''));
+
   // Derive the caregiver-facing status of a senior from the live
   // Daily_CheckIn + Emergency_Event state. Returns one of:
   //   "Urgent"     — non-resolved Emergency_Event exists (excluding stale
@@ -679,7 +684,7 @@ export default function App() {
         if (/^(resolved|closed|cancelled)$/i.test(eventStatus)) return false;
 
         const eventType = String(event?.event_type || '').trim();
-        if (/missed\s+.*check-?in/i.test(eventType)) return false;
+        if (isMissedCheckInEventType(eventType)) return false;
 
         // Once the senior has completed a check-in today, only TODAY's
         // unresolved events should keep them urgent on caregiver status.
@@ -715,7 +720,7 @@ export default function App() {
         }
 
         const eventType = String(event?.event_type || '');
-        return /missed\s+.*check-?in/i.test(eventType);
+        return isMissedCheckInEventType(eventType);
       });
     if (hasMissedCheckIn) return 'Missed';
 

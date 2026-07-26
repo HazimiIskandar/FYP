@@ -171,7 +171,7 @@ router.post("/", (req, res) => {
         UPDATE Emergency_Event
         SET event_status = 'Resolved'
         WHERE senior_id = ?
-          AND event_type LIKE 'Missed%Check-In'
+          AND LOWER(IFNULL(event_type, '')) REGEXP '^missed.*check( |-)?in$'
           -- LOWER() wrap makes the comparison case-safe: escalation writes
           -- 'Resolved' (the canonical form) but a future route or manual
           -- admin tool could write 'resolved' / 'RESOLVED'. Re-running the
