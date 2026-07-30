@@ -201,8 +201,8 @@ const escalateLevel = (event_id, senior_id, level) => {
     }
 };
 
-const assignEscalationToSeniorAicStaff = async (escalationId, senior_id) => {
-    if (!escalationId || !senior_id) return;
+const getAssignedAicStaffIdsForSenior = async (senior_id) => {
+    if (!senior_id) return [];
 
     try {
         const staffRows = await queryAsync(
